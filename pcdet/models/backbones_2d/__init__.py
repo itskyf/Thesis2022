@@ -1,5 +1,6 @@
-from .base_bev_backbone import BaseBEVBackbone
+from .base_bev_backbone import BaseBEVBackbone, SSFA
 
 __all__ = {
-    'BaseBEVBackbone': BaseBEVBackbone
+    'BaseBEVBackbone': BaseBEVBackbone,
+    'SSFA': SSFA
 }
