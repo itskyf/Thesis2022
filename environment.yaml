@@ -1,0 +1,37 @@
+---
+name: OpenPCDet
+channels:
+  - pytorch
+  - conda-forge
+dependencies:
+  - cudatoolkit=11.3
+  - cudatoolkit-dev=11.3
+  - python=3.7  # Colab's Python version
+  - pytorch
+  - torchvision
+  - wget
+  # spconv requirements
+  - fire
+  - lark
+  - portalocker
+  - pybind11
+  - requests
+  # OpenPCDet requirements
+  - easydict
+  - gxx=10
+  - numba
+  - scikit-image
+  - sharedarray
+  - tensorboardx
+  - tqdm
+  - pip
+  # Linter
+  - autopep8
+  - black
+  - isort
+  - pylint
+  - yamllint
+  - pip:
+      - open3d  # Visualize
+      - spconv-cu113
+      - --editable .
