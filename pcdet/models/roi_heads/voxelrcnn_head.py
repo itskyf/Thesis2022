@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 from ...ops.pointnet2.pointnet2_stack import voxel_pool_modules as voxelpool_stack_modules
 from ...utils import common_utils
 from .roi_head_template import RoIHeadTemplate
@@ -27,7 +27,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 mlps=mlps,
                 pool_method=LAYER_cfg[src_name].POOL_METHOD,
             )
-            
+
             self.roi_grid_pool_layers.append(pool_layer)
 
             c_out += sum([x[-1] for x in mlps])
@@ -88,7 +88,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
                     init_func(m.weight)
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
-                    
+
         nn.init.normal_(self.cls_pred_layer.weight, 0, 0.01)
         nn.init.constant_(self.cls_pred_layer.bias, 0)
         nn.init.normal_(self.reg_pred_layer.weight, mean=0, std=0.001)
@@ -102,7 +102,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
     #             if m.bias is not None:
     #                 nn.init.constant_(m.bias, 0)
     #     nn.init.normal_(self.reg_layers[-1].weight, mean=0, std=0.001)
-    
+
     def roi_grid_pool(self, batch_dict):
         """
         Args:
@@ -119,12 +119,12 @@ class VoxelRCNNHead(RoIHeadTemplate):
         rois = batch_dict['rois']
         batch_size = batch_dict['batch_size']
         with_vf_transform = batch_dict.get('with_voxel_feature_transform', False)
-        
+
         roi_grid_xyz, _ = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
         )  # (BxN, 6x6x6, 3)
         # roi_grid_xyz: (B, Nx6x6x6, 3)
-        roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)  
+        roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)
 
         # compute the voxel coordinates of grid points
         roi_grid_coords_x = (roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0]) // self.voxel_size[0]
@@ -185,9 +185,9 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 pooled_features.shape[-1]
             )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
-        
+
         ms_pooled_features = torch.cat(pooled_features_list, dim=-1)
-        
+
         return ms_pooled_features
 
 
