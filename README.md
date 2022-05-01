@@ -6,9 +6,10 @@
 - [x] Run a small experiment to know pipeline (data input, data loader, build model, train model, evaluate)
 - [ ] Check SSFA
 - [ ] Check VoTr
-- [ ] Add IA-SSD
+- [x] Add IA-SSD
+- [ ] 
 - [ ] Create Models (mix modules)
 
 ## Writing
-- [ ] Introduction
+- [x] Introduction
 - [ ] Related Work
