@@ -19,7 +19,7 @@ DATA_AUGMENTOR:
   DISABLE_AUG_LIST: ['placeholder']
   AUG_CONFIG_LIST:
     - NAME: gt_sampling
-      USE_ROAD_PLANE: true
+      USE_ROAD_PLANE: false
       DB_INFO_PATH:
         - kitti_dbinfos_train.pkl
       PREPARE:
@@ -43,7 +43,7 @@ DATA_AUGMENTOR:
 
 
 POINT_FEATURE_ENCODING:
-  encoding_type: absolute_coordinates_encoding,
+  encoding_type: absolute_coordinates_encoding
   used_feature_list: ['x', 'y', 'z', 'intensity']
   src_feature_list: ['x', 'y', 'z', 'intensity']
 
