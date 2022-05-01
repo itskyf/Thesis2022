@@ -7,7 +7,6 @@
 - [ ] Check SSFA
 - [ ] Check VoTr
 - [x] Add IA-SSD
-- [ ] 
 - [ ] Create Models (mix modules)
 
 ## Writing
