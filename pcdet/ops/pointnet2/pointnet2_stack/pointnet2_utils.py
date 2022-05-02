@@ -6,10 +6,16 @@ from . import pointnet2_stack_cuda as pointnet2
 
 
 class BallQuery(Function):
-
     @staticmethod
-    def forward(ctx, radius: float, nsample: int, xyz: torch.Tensor, xyz_batch_cnt: torch.Tensor,
-                new_xyz: torch.Tensor, new_xyz_batch_cnt):
+    def forward(
+        ctx,
+        radius: float,
+        nsample: int,
+        xyz: torch.Tensor,
+        xyz_batch_cnt: torch.Tensor,
+        new_xyz: torch.Tensor,
+        new_xyz_batch_cnt,
+    ):
         """
         Args:
             ctx:
@@ -32,8 +38,10 @@ class BallQuery(Function):
         M = new_xyz.shape[0]
         idx = torch.cuda.IntTensor(M, nsample).zero_()
 
-        pointnet2.ball_query_wrapper(B, M, radius, nsample, new_xyz, new_xyz_batch_cnt, xyz, xyz_batch_cnt, idx)
-        empty_ball_mask = (idx[:, 0] == -1)
+        pointnet2.ball_query_wrapper(
+            B, M, radius, nsample, new_xyz, new_xyz_batch_cnt, xyz, xyz_batch_cnt, idx
+        )
+        empty_ball_mask = idx[:, 0] == -1
         idx[empty_ball_mask] = 0
 
         ctx.mark_non_differentiable(idx)
@@ -50,10 +58,14 @@ ball_query = BallQuery.apply
 
 
 class GroupingOperation(Function):
-
     @staticmethod
-    def forward(ctx, features: torch.Tensor, features_batch_cnt: torch.Tensor,
-                idx: torch.Tensor, idx_batch_cnt: torch.Tensor):
+    def forward(
+        ctx,
+        features: torch.Tensor,
+        features_batch_cnt: torch.Tensor,
+        idx: torch.Tensor,
+        idx_batch_cnt: torch.Tensor,
+    ):
         """
         Args:
             ctx:
@@ -70,17 +82,22 @@ class GroupingOperation(Function):
         assert idx.is_contiguous()
         assert idx_batch_cnt.is_contiguous()
 
-        assert features.shape[0] == features_batch_cnt.sum(), \
-            'features: %s, features_batch_cnt: %s' % (str(features.shape), str(features_batch_cnt))
-        assert idx.shape[0] == idx_batch_cnt.sum(), \
-            'idx: %s, idx_batch_cnt: %s' % (str(idx.shape), str(idx_batch_cnt))
+        assert (
+            features.shape[0] == features_batch_cnt.sum()
+        ), "features: %s, features_batch_cnt: %s" % (str(features.shape), str(features_batch_cnt))
+        assert idx.shape[0] == idx_batch_cnt.sum(), "idx: %s, idx_batch_cnt: %s" % (
+            str(idx.shape),
+            str(idx_batch_cnt),
+        )
 
         M, nsample = idx.size()
         N, C = features.size()
         B = idx_batch_cnt.shape[0]
         output = torch.cuda.FloatTensor(M, C, nsample)
 
-        pointnet2.group_points_wrapper(B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output)
+        pointnet2.group_points_wrapper(
+            B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output
+        )
 
         ctx.for_backwards = (B, N, idx, features_batch_cnt, idx_batch_cnt)
         return output
@@ -101,8 +118,18 @@ class GroupingOperation(Function):
         grad_features = Variable(torch.cuda.FloatTensor(N, C).zero_())
 
         grad_out_data = grad_out.data.contiguous()
-        pointnet2.group_points_grad_wrapper(B, M, C, N, nsample, grad_out_data, idx,
-                                            idx_batch_cnt, features_batch_cnt, grad_features.data)
+        pointnet2.group_points_grad_wrapper(
+            B,
+            M,
+            C,
+            N,
+            nsample,
+            grad_out_data,
+            idx,
+            idx_batch_cnt,
+            features_batch_cnt,
+            grad_features.data,
+        )
         return grad_features, None, None, None
 
 
@@ -120,9 +147,14 @@ class QueryAndGroup(nn.Module):
         super().__init__()
         self.radius, self.nsample, self.use_xyz = radius, nsample, use_xyz
 
-    def forward(self, xyz: torch.Tensor, xyz_batch_cnt: torch.Tensor,
-                new_xyz: torch.Tensor, new_xyz_batch_cnt: torch.Tensor,
-                features: torch.Tensor = None):
+    def forward(
+        self,
+        xyz: torch.Tensor,
+        xyz_batch_cnt: torch.Tensor,
+        new_xyz: torch.Tensor,
+        new_xyz_batch_cnt: torch.Tensor,
+        features: torch.Tensor = None,
+    ):
         """
         Args:
             xyz: (N1 + N2 ..., 3) xyz coordinates of the features
@@ -134,22 +166,35 @@ class QueryAndGroup(nn.Module):
         Returns:
             new_features: (M1 + M2, C, nsample) tensor
         """
-        assert xyz.shape[0] == xyz_batch_cnt.sum(), 'xyz: %s, xyz_batch_cnt: %s' % (str(xyz.shape), str(new_xyz_batch_cnt))
-        assert new_xyz.shape[0] == new_xyz_batch_cnt.sum(), \
-            'new_xyz: %s, new_xyz_batch_cnt: %s' % (str(new_xyz.shape), str(new_xyz_batch_cnt))
+        assert xyz.shape[0] == xyz_batch_cnt.sum(), "xyz: %s, xyz_batch_cnt: %s" % (
+            str(xyz.shape),
+            str(new_xyz_batch_cnt),
+        )
+        assert new_xyz.shape[0] == new_xyz_batch_cnt.sum(), "new_xyz: %s, new_xyz_batch_cnt: %s" % (
+            str(new_xyz.shape),
+            str(new_xyz_batch_cnt),
+        )
 
         # idx: (M1 + M2 ..., nsample), empty_ball_mask: (M1 + M2 ...)
-        idx, empty_ball_mask = ball_query(self.radius, self.nsample, xyz, xyz_batch_cnt, new_xyz, new_xyz_batch_cnt)
-        grouped_xyz = grouping_operation(xyz, xyz_batch_cnt, idx, new_xyz_batch_cnt)  # (M1 + M2, 3, nsample)
+        idx, empty_ball_mask = ball_query(
+            self.radius, self.nsample, xyz, xyz_batch_cnt, new_xyz, new_xyz_batch_cnt
+        )
+        grouped_xyz = grouping_operation(
+            xyz, xyz_batch_cnt, idx, new_xyz_batch_cnt
+        )  # (M1 + M2, 3, nsample)
         grouped_xyz -= new_xyz.unsqueeze(-1)
 
         grouped_xyz[empty_ball_mask] = 0
 
         if features is not None:
-            grouped_features = grouping_operation(features, xyz_batch_cnt, idx, new_xyz_batch_cnt)  # (M1 + M2, C, nsample)
+            grouped_features = grouping_operation(
+                features, xyz_batch_cnt, idx, new_xyz_batch_cnt
+            )  # (M1 + M2, C, nsample)
             grouped_features[empty_ball_mask] = 0
             if self.use_xyz:
-                new_features = torch.cat([grouped_xyz, grouped_features], dim=1)  # (M1 + M2 ..., C + 3, nsample)
+                new_features = torch.cat(
+                    [grouped_xyz, grouped_features], dim=1
+                )  # (M1 + M2 ..., C + 3, nsample)
             else:
                 new_features = grouped_features
         else:
@@ -248,8 +293,12 @@ class ThreeNN(Function):
         idx = unknown_batch_cnt.new_zeros(unknown.shape).int()
 
         pointnet2.three_nn_wrapper(
-            unknown.contiguous(), unknown_batch_cnt.contiguous(),
-            known.contiguous(), known_batch_cnt.contiguous(), dist2, idx
+            unknown.contiguous(),
+            unknown_batch_cnt.contiguous(),
+            known.contiguous(),
+            known_batch_cnt.contiguous(),
+            dist2,
+            idx,
         )
         return torch.sqrt(dist2), idx
 
@@ -262,7 +311,6 @@ three_nn = ThreeNN.apply
 
 
 class ThreeInterpolate(Function):
-
     @staticmethod
     def forward(ctx, features: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor):
         """
@@ -279,7 +327,9 @@ class ThreeInterpolate(Function):
 
         ctx.three_interpolate_for_backward = (idx, weight, features.shape[0])
         output = features.new_zeros((idx.shape[0], features.shape[1]))
-        pointnet2.three_interpolate_wrapper(features.contiguous(), idx.contiguous(), weight.contiguous(), output)
+        pointnet2.three_interpolate_wrapper(
+            features.contiguous(), idx.contiguous(), weight.contiguous(), output
+        )
         return output
 
     @staticmethod
@@ -305,9 +355,20 @@ three_interpolate = ThreeInterpolate.apply
 
 class ThreeNNForVectorPoolByTwoStep(Function):
     @staticmethod
-    def forward(ctx, support_xyz, xyz_batch_cnt, new_xyz, new_xyz_grid_centers, new_xyz_batch_cnt,
-                max_neighbour_distance, nsample, neighbor_type, avg_length_of_neighbor_idxs, num_total_grids,
-                neighbor_distance_multiplier):
+    def forward(
+        ctx,
+        support_xyz,
+        xyz_batch_cnt,
+        new_xyz,
+        new_xyz_grid_centers,
+        new_xyz_batch_cnt,
+        max_neighbour_distance,
+        nsample,
+        neighbor_type,
+        avg_length_of_neighbor_idxs,
+        num_total_grids,
+        neighbor_distance_multiplier,
+    ):
         """
         Args:
             ctx:
@@ -326,7 +387,9 @@ class ThreeNNForVectorPoolByTwoStep(Function):
         """
         num_new_xyz = new_xyz.shape[0]
         new_xyz_grid_dist2 = new_xyz_grid_centers.new_zeros(new_xyz_grid_centers.shape)
-        new_xyz_grid_idxs = new_xyz_grid_centers.new_zeros(new_xyz_grid_centers.shape).int().fill_(-1)
+        new_xyz_grid_idxs = (
+            new_xyz_grid_centers.new_zeros(new_xyz_grid_centers.shape).int().fill_(-1)
+        )
 
         while True:
             num_max_sum_points = avg_length_of_neighbor_idxs * num_new_xyz
@@ -335,24 +398,43 @@ class ThreeNNForVectorPoolByTwoStep(Function):
             cumsum = new_xyz_grid_idxs.new_zeros(1)
 
             pointnet2.query_stacked_local_neighbor_idxs_wrapper_stack(
-                support_xyz.contiguous(), xyz_batch_cnt.contiguous(),
-                new_xyz.contiguous(), new_xyz_batch_cnt.contiguous(),
-                stack_neighbor_idxs.contiguous(), start_len.contiguous(), cumsum,
-                avg_length_of_neighbor_idxs, max_neighbour_distance * neighbor_distance_multiplier,
-                nsample, neighbor_type
+                support_xyz.contiguous(),
+                xyz_batch_cnt.contiguous(),
+                new_xyz.contiguous(),
+                new_xyz_batch_cnt.contiguous(),
+                stack_neighbor_idxs.contiguous(),
+                start_len.contiguous(),
+                cumsum,
+                avg_length_of_neighbor_idxs,
+                max_neighbour_distance * neighbor_distance_multiplier,
+                nsample,
+                neighbor_type,
             )
-            avg_length_of_neighbor_idxs = cumsum[0].item() // num_new_xyz + int(cumsum[0].item() % num_new_xyz > 0)
+            avg_length_of_neighbor_idxs = cumsum[0].item() // num_new_xyz + int(
+                cumsum[0].item() % num_new_xyz > 0
+            )
 
             if cumsum[0] <= num_max_sum_points:
                 break
 
-        stack_neighbor_idxs = stack_neighbor_idxs[:cumsum[0]]
+        stack_neighbor_idxs = stack_neighbor_idxs[: cumsum[0]]
         pointnet2.query_three_nn_by_stacked_local_idxs_wrapper_stack(
-            support_xyz, new_xyz, new_xyz_grid_centers, new_xyz_grid_idxs, new_xyz_grid_dist2,
-            stack_neighbor_idxs, start_len, num_new_xyz, num_total_grids
+            support_xyz,
+            new_xyz,
+            new_xyz_grid_centers,
+            new_xyz_grid_idxs,
+            new_xyz_grid_dist2,
+            stack_neighbor_idxs,
+            start_len,
+            num_new_xyz,
+            num_total_grids,
         )
 
-        return torch.sqrt(new_xyz_grid_dist2), new_xyz_grid_idxs, torch.tensor(avg_length_of_neighbor_idxs)
+        return (
+            torch.sqrt(new_xyz_grid_dist2),
+            new_xyz_grid_idxs,
+            torch.tensor(avg_length_of_neighbor_idxs),
+        )
 
 
 three_nn_for_vector_pool_by_two_step = ThreeNNForVectorPoolByTwoStep.apply
@@ -360,10 +442,24 @@ three_nn_for_vector_pool_by_two_step = ThreeNNForVectorPoolByTwoStep.apply
 
 class VectorPoolWithVoxelQuery(Function):
     @staticmethod
-    def forward(ctx, support_xyz: torch.Tensor, xyz_batch_cnt: torch.Tensor, support_features: torch.Tensor,
-                new_xyz: torch.Tensor, new_xyz_batch_cnt: torch.Tensor, num_grid_x, num_grid_y, num_grid_z,
-                max_neighbour_distance, num_c_out_each_grid, use_xyz,
-                num_mean_points_per_grid=100, nsample=-1, neighbor_type=0, pooling_type=0):
+    def forward(
+        ctx,
+        support_xyz: torch.Tensor,
+        xyz_batch_cnt: torch.Tensor,
+        support_features: torch.Tensor,
+        new_xyz: torch.Tensor,
+        new_xyz_batch_cnt: torch.Tensor,
+        num_grid_x,
+        num_grid_y,
+        num_grid_z,
+        max_neighbour_distance,
+        num_c_out_each_grid,
+        use_xyz,
+        num_mean_points_per_grid=100,
+        nsample=-1,
+        neighbor_type=0,
+        pooling_type=0,
+    ):
         """
         Args:
             ctx:
@@ -393,8 +489,9 @@ class VectorPoolWithVoxelQuery(Function):
         N, num_c_in = support_features.shape
         M = new_xyz.shape[0]
 
-        assert num_c_in % num_c_out_each_grid == 0, \
-            f'the input channels ({num_c_in}) should be an integral multiple of num_c_out_each_grid({num_c_out_each_grid})'
+        assert (
+            num_c_in % num_c_out_each_grid == 0
+        ), f"the input channels ({num_c_in}) should be an integral multiple of num_c_out_each_grid({num_c_out_each_grid})"
 
         while True:
             new_features = support_features.new_zeros((M, num_c_out))
@@ -405,10 +502,24 @@ class VectorPoolWithVoxelQuery(Function):
             grouped_idxs = xyz_batch_cnt.new_zeros((num_max_sum_points, 3))
 
             num_cum_sum = pointnet2.vector_pool_wrapper(
-                support_xyz, xyz_batch_cnt, support_features, new_xyz, new_xyz_batch_cnt,
-                new_features, new_local_xyz, point_cnt_of_grid, grouped_idxs,
-                num_grid_x, num_grid_y, num_grid_z, max_neighbour_distance, use_xyz,
-                num_max_sum_points, nsample, neighbor_type, pooling_type
+                support_xyz,
+                xyz_batch_cnt,
+                support_features,
+                new_xyz,
+                new_xyz_batch_cnt,
+                new_features,
+                new_local_xyz,
+                point_cnt_of_grid,
+                grouped_idxs,
+                num_grid_x,
+                num_grid_y,
+                num_grid_z,
+                max_neighbour_distance,
+                use_xyz,
+                num_max_sum_points,
+                nsample,
+                neighbor_type,
+                pooling_type,
             )
             num_mean_points_per_grid = num_cum_sum // M + int(num_cum_sum % M > 0)
             if num_cum_sum <= num_max_sum_points:
@@ -417,19 +528,31 @@ class VectorPoolWithVoxelQuery(Function):
         grouped_idxs = grouped_idxs[:num_cum_sum]
 
         normalizer = torch.clamp_min(point_cnt_of_grid[:, :, None].float(), min=1e-6)
-        new_features = (new_features.view(-1, num_total_grids, num_c_out_each_grid) / normalizer).view(-1, num_c_out)
+        new_features = (
+            new_features.view(-1, num_total_grids, num_c_out_each_grid) / normalizer
+        ).view(-1, num_c_out)
 
         if use_xyz:
-            new_local_xyz = (new_local_xyz.view(-1, num_total_grids, 3) / normalizer).view(-1, num_total_grids * 3)
+            new_local_xyz = (new_local_xyz.view(-1, num_total_grids, 3) / normalizer).view(
+                -1, num_total_grids * 3
+            )
 
         num_mean_points_per_grid = torch.Tensor([num_mean_points_per_grid]).int()
         nsample = torch.Tensor([nsample]).int()
         ctx.vector_pool_for_backward = (point_cnt_of_grid, grouped_idxs, N, num_c_in)
-        ctx.mark_non_differentiable(new_local_xyz, num_mean_points_per_grid, nsample, point_cnt_of_grid)
+        ctx.mark_non_differentiable(
+            new_local_xyz, num_mean_points_per_grid, nsample, point_cnt_of_grid
+        )
         return new_features, new_local_xyz, num_mean_points_per_grid, point_cnt_of_grid
 
     @staticmethod
-    def backward(ctx, grad_new_features: torch.Tensor, grad_local_xyz: torch.Tensor, grad_num_cum_sum, grad_point_cnt_of_grid):
+    def backward(
+        ctx,
+        grad_new_features: torch.Tensor,
+        grad_local_xyz: torch.Tensor,
+        grad_num_cum_sum,
+        grad_point_cnt_of_grid,
+    ):
         """
         Args:
             ctx:
@@ -443,15 +566,33 @@ class VectorPoolWithVoxelQuery(Function):
 
         if grouped_idxs.shape[0] > 0:
             pointnet2.vector_pool_grad_wrapper(
-                grad_new_features.contiguous(), point_cnt_of_grid, grouped_idxs,
-                grad_support_features
+                grad_new_features.contiguous(),
+                point_cnt_of_grid,
+                grouped_idxs,
+                grad_support_features,
             )
 
-        return None, None, grad_support_features, None, None, None, None, None, None, None, None, None, None, None, None
+        return (
+            None,
+            None,
+            grad_support_features,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
 
 
 vector_pool_with_voxel_query_op = VectorPoolWithVoxelQuery.apply
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass

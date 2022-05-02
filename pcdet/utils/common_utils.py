@@ -4,9 +4,9 @@ import pickle
 import random
 import shutil
 import subprocess
-import SharedArray
 
 import numpy as np
+import SharedArray
 import torch
 import torch.distributed as dist
 import torch.multiprocessing as mp
@@ -26,7 +26,7 @@ def limit_period(val, offset=0.5, period=np.pi):
 
 def drop_info_with_name(info, name):
     ret_info = {}
-    keep_indices = [i for i, x in enumerate(info['name']) if x != name]
+    keep_indices = [i for i, x in enumerate(info["name"]) if x != name]
     for key in info.keys():
         ret_info[key] = info[key][keep_indices]
     return ret_info
@@ -47,19 +47,23 @@ def rotate_points_along_z(points, angle):
     sina = torch.sin(angle)
     zeros = angle.new_zeros(points.shape[0])
     ones = angle.new_ones(points.shape[0])
-    rot_matrix = torch.stack((
-        cosa,  sina, zeros,
-        -sina, cosa, zeros,
-        zeros, zeros, ones
-    ), dim=1).view(-1, 3, 3).float()
+    rot_matrix = (
+        torch.stack((cosa, sina, zeros, -sina, cosa, zeros, zeros, zeros, ones), dim=1)
+        .view(-1, 3, 3)
+        .float()
+    )
     points_rot = torch.matmul(points[:, :, 0:3], rot_matrix)
     points_rot = torch.cat((points_rot, points[:, :, 3:]), dim=-1)
     return points_rot.numpy() if is_numpy else points_rot
 
 
 def mask_points_by_range(points, limit_range):
-    mask = (points[:, 0] >= limit_range[0]) & (points[:, 0] <= limit_range[3]) \
-           & (points[:, 1] >= limit_range[1]) & (points[:, 1] <= limit_range[4])
+    mask = (
+        (points[:, 0] >= limit_range[0])
+        & (points[:, 0] <= limit_range[3])
+        & (points[:, 1] >= limit_range[1])
+        & (points[:, 1] <= limit_range[4])
+    )
     return mask
 
 
@@ -84,15 +88,15 @@ def get_voxel_centers(voxel_coords, downsample_times, voxel_size, point_cloud_ra
 
 def create_logger(log_file=None, rank=0, log_level=logging.INFO):
     logger = logging.getLogger(__name__)
-    logger.setLevel(log_level if rank == 0 else 'ERROR')
-    formatter = logging.Formatter('%(asctime)s  %(levelname)5s  %(message)s')
+    logger.setLevel(log_level if rank == 0 else "ERROR")
+    formatter = logging.Formatter("%(asctime)s  %(levelname)5s  %(message)s")
     console = logging.StreamHandler()
-    console.setLevel(log_level if rank == 0 else 'ERROR')
+    console.setLevel(log_level if rank == 0 else "ERROR")
     console.setFormatter(formatter)
     logger.addHandler(console)
     if log_file is not None:
         file_handler = logging.FileHandler(filename=log_file)
-        file_handler.setLevel(log_level if rank == 0 else 'ERROR')
+        file_handler.setLevel(log_level if rank == 0 else "ERROR")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     logger.propagate = False
@@ -131,7 +135,7 @@ def keep_arrays_by_name(gt_names, used_classes):
     return inds
 
 
-def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
+def init_dist_slurm(tcp_port, local_rank, backend="nccl"):
     """
     modified from https://github.com/open-mmlab/mmdetection
     Args:
@@ -141,16 +145,16 @@ def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
     Returns:
 
     """
-    proc_id = int(os.environ['SLURM_PROCID'])
-    ntasks = int(os.environ['SLURM_NTASKS'])
-    node_list = os.environ['SLURM_NODELIST']
+    proc_id = int(os.environ["SLURM_PROCID"])
+    ntasks = int(os.environ["SLURM_NTASKS"])
+    node_list = os.environ["SLURM_NODELIST"]
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput('scontrol show hostname {} | head -n1'.format(node_list))
-    os.environ['MASTER_PORT'] = str(tcp_port)
-    os.environ['MASTER_ADDR'] = addr
-    os.environ['WORLD_SIZE'] = str(ntasks)
-    os.environ['RANK'] = str(proc_id)
+    addr = subprocess.getoutput("scontrol show hostname {} | head -n1".format(node_list))
+    os.environ["MASTER_PORT"] = str(tcp_port)
+    os.environ["MASTER_ADDR"] = addr
+    os.environ["WORLD_SIZE"] = str(ntasks)
+    os.environ["RANK"] = str(proc_id)
     dist.init_process_group(backend=backend)
 
     total_gpus = dist.get_world_size()
@@ -158,9 +162,9 @@ def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
     return total_gpus, rank
 
 
-def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
+def init_dist_pytorch(tcp_port, local_rank, backend="nccl"):
     if mp.get_start_method(allow_none=True) is None:
-        mp.set_start_method('spawn')
+        mp.set_start_method("spawn")
     # os.environ['MASTER_PORT'] = str(tcp_port)
     # os.environ['MASTER_ADDR'] = 'localhost'
     num_gpus = torch.cuda.device_count()
@@ -177,7 +181,7 @@ def init_dist_pytorch(tcp_port, local_rank, backend='nccl'):
 
 
 def get_dist_info(return_gpu_per_machine=False):
-    if torch.__version__ < '1.0':
+    if torch.__version__ < "1.0":
         initialized = dist._initialized
     else:
         if dist.is_available():
@@ -203,7 +207,7 @@ def merge_results_dist(result_part, size, tmpdir):
     os.makedirs(tmpdir, exist_ok=True)
 
     dist.barrier()
-    pickle.dump(result_part, open(os.path.join(tmpdir, 'result_part_{}.pkl'.format(rank)), 'wb'))
+    pickle.dump(result_part, open(os.path.join(tmpdir, "result_part_{}.pkl".format(rank)), "wb"))
     dist.barrier()
 
     if rank != 0:
@@ -211,8 +215,8 @@ def merge_results_dist(result_part, size, tmpdir):
 
     part_list = []
     for i in range(world_size):
-        part_file = os.path.join(tmpdir, 'result_part_{}.pkl'.format(i))
-        part_list.append(pickle.load(open(part_file, 'rb')))
+        part_file = os.path.join(tmpdir, "result_part_{}.pkl".format(i))
+        part_list.append(pickle.load(open(part_file, "rb")))
 
     ordered_results = []
     for res in zip(*part_list):
@@ -251,6 +255,7 @@ def sa_create(name, var):
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
+
     def __init__(self):
         self.reset()
 

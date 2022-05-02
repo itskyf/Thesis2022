@@ -4,11 +4,11 @@ from .spconv_unet import UNetV2
 from .votr_backbone import VoxelTransformer, VoxelTransformerV2, VoxelTransformerV3
 
 __all__ = {
-    'VoxelBackBone8x': VoxelBackBone8x,
-    'UNetV2': UNetV2,
-    'PointNet2Backbone': PointNet2Backbone,
-    'PointNet2MSG': PointNet2MSG,
-    'VoxelResBackBone8x': VoxelResBackBone8x,
-    'VoxelTransformer': VoxelTransformer,
-    'VoxelTransformerV3': VoxelTransformerV3,
+    "VoxelBackBone8x": VoxelBackBone8x,
+    "UNetV2": UNetV2,
+    "PointNet2Backbone": PointNet2Backbone,
+    "PointNet2MSG": PointNet2MSG,
+    "VoxelResBackBone8x": VoxelResBackBone8x,
+    "VoxelTransformer": VoxelTransformer,
+    "VoxelTransformerV3": VoxelTransformerV3,
 }

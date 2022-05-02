@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class PointFeatureEncoder:
     def __init__(self, config, point_cloud_range=None):
         super().__init__()

@@ -146,7 +146,6 @@ def average_reduce_value(data):
 
 
 def all_reduce(data, op="sum", average=False):
-
     def op_map(op):
         op_dict = {
             "SUM": dist.ReduceOp.SUM,
@@ -161,7 +160,7 @@ def all_reduce(data, op="sum", average=False):
         reduced_data = data.clone()
         dist.all_reduce(reduced_data, op=op_map(op.upper()))
         if average:
-            assert op.upper() == 'SUM'
+            assert op.upper() == "SUM"
             return reduced_data / world_size
         else:
             return reduced_data
@@ -174,8 +173,7 @@ def concat_all_gather(tensor):
     Performs all_gather operation on the provided tensors.
     *** Warning ***: torch.distributed.all_gather has no gradient.
     """
-    tensors_gather = [torch.ones_like(tensor)
-        for _ in range(torch.distributed.get_world_size())]
+    tensors_gather = [torch.ones_like(tensor) for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
 
     output = torch.cat(tensors_gather, dim=0)

@@ -37,7 +37,6 @@ farthest_point_sample = furthest_point_sample = FarthestPointSampling.apply
 
 
 class GatherOperation(Function):
-
     @staticmethod
     def forward(ctx, features: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
         """
@@ -66,7 +65,9 @@ class GatherOperation(Function):
 
         grad_features = Variable(torch.cuda.FloatTensor(B, C, N).zero_())
         grad_out_data = grad_out.data.contiguous()
-        pointnet2.gather_points_grad_wrapper(B, C, N, npoint, grad_out_data, idx, grad_features.data)
+        pointnet2.gather_points_grad_wrapper(
+            B, C, N, npoint, grad_out_data, idx, grad_features.data
+        )
         return grad_features, None
 
 
@@ -74,9 +75,10 @@ gather_operation = GatherOperation.apply
 
 
 class ThreeNN(Function):
-
     @staticmethod
-    def forward(ctx, unknown: torch.Tensor, known: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(
+        ctx, unknown: torch.Tensor, known: torch.Tensor
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Find the three nearest neighbors of unknown in known
         :param ctx:
@@ -106,9 +108,10 @@ three_nn = ThreeNN.apply
 
 
 class ThreeInterpolate(Function):
-
     @staticmethod
-    def forward(ctx, features: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor) -> torch.Tensor:
+    def forward(
+        ctx, features: torch.Tensor, idx: torch.Tensor, weight: torch.Tensor
+    ) -> torch.Tensor:
         """
         Performs weight linear interpolation on 3 features
         :param ctx:
@@ -146,7 +149,9 @@ class ThreeInterpolate(Function):
         grad_features = Variable(torch.cuda.FloatTensor(B, c, m).zero_())
         grad_out_data = grad_out.data.contiguous()
 
-        pointnet2.three_interpolate_grad_wrapper(B, c, n, m, grad_out_data, idx, weight, grad_features.data)
+        pointnet2.three_interpolate_grad_wrapper(
+            B, c, n, m, grad_out_data, idx, weight, grad_features.data
+        )
         return grad_features, None, None
 
 
@@ -154,7 +159,6 @@ three_interpolate = ThreeInterpolate.apply
 
 
 class GroupingOperation(Function):
-
     @staticmethod
     def forward(ctx, features: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
         """
@@ -190,7 +194,9 @@ class GroupingOperation(Function):
         grad_features = Variable(torch.cuda.FloatTensor(B, C, N).zero_())
 
         grad_out_data = grad_out.data.contiguous()
-        pointnet2.group_points_grad_wrapper(B, C, N, npoint, nsample, grad_out_data, idx, grad_features.data)
+        pointnet2.group_points_grad_wrapper(
+            B, C, N, npoint, nsample, grad_out_data, idx, grad_features.data
+        )
         return grad_features, None
 
 
@@ -198,9 +204,10 @@ grouping_operation = GroupingOperation.apply
 
 
 class BallQuery(Function):
-
     @staticmethod
-    def forward(ctx, radius: float, nsample: int, xyz: torch.Tensor, new_xyz: torch.Tensor) -> torch.Tensor:
+    def forward(
+        ctx, radius: float, nsample: int, xyz: torch.Tensor, new_xyz: torch.Tensor
+    ) -> torch.Tensor:
         """
         :param ctx:
         :param radius: float, radius of the balls
@@ -238,7 +245,9 @@ class QueryAndGroup(nn.Module):
         super().__init__()
         self.radius, self.nsample, self.use_xyz = radius, nsample, use_xyz
 
-    def forward(self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: torch.Tensor = None) -> Tuple[torch.Tensor]:
+    def forward(
+        self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: torch.Tensor = None
+    ) -> Tuple[torch.Tensor]:
         """
         :param xyz: (B, N, 3) xyz coordinates of the features
         :param new_xyz: (B, npoint, 3) centroids
@@ -254,7 +263,9 @@ class QueryAndGroup(nn.Module):
         if features is not None:
             grouped_features = grouping_operation(features, idx)
             if self.use_xyz:
-                new_features = torch.cat([grouped_xyz, grouped_features], dim=1)  # (B, C + 3, npoint, nsample)
+                new_features = torch.cat(
+                    [grouped_xyz, grouped_features], dim=1
+                )  # (B, C + 3, npoint, nsample)
             else:
                 new_features = grouped_features
         else:

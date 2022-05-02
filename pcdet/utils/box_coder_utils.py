@@ -25,7 +25,7 @@ class ResidualCoder(object):
         xa, ya, za, dxa, dya, dza, ra, *cas = torch.split(anchors, 1, dim=-1)
         xg, yg, zg, dxg, dyg, dzg, rg, *cgs = torch.split(boxes, 1, dim=-1)
 
-        diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+        diagonal = torch.sqrt(dxa**2 + dya**2)
         xt = (xg - xa) / diagonal
         yt = (yg - ya) / diagonal
         zt = (zg - za) / dza
@@ -57,7 +57,7 @@ class ResidualCoder(object):
         else:
             xt, yt, zt, dxt, dyt, dzt, cost, sint, *cts = torch.split(box_encodings, 1, dim=-1)
 
-        diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+        diagonal = torch.sqrt(dxa**2 + dya**2)
         xg = xt * diagonal + xa
         yg = yt * diagonal + ya
         zg = zt * dza + za
@@ -95,7 +95,7 @@ class PreviousResidualDecoder(object):
         xa, ya, za, dxa, dya, dza, ra, *cas = torch.split(anchors, 1, dim=-1)
         xt, yt, zt, wt, lt, ht, rt, *cts = torch.split(box_encodings, 1, dim=-1)
 
-        diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+        diagonal = torch.sqrt(dxa**2 + dya**2)
         xg = xt * diagonal + xa
         yg = yt * diagonal + ya
         zg = zt * dza + za
@@ -127,7 +127,7 @@ class PreviousResidualRoIDecoder(object):
         xa, ya, za, dxa, dya, dza, ra, *cas = torch.split(anchors, 1, dim=-1)
         xt, yt, zt, wt, lt, ht, rt, *cts = torch.split(box_encodings, 1, dim=-1)
 
-        diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+        diagonal = torch.sqrt(dxa**2 + dya**2)
         xg = xt * diagonal + xa
         yg = yt * diagonal + ya
         zg = zt * dza + za
@@ -147,7 +147,7 @@ class PointResidualCoder(object):
         self.code_size = code_size
         self.use_mean_size = use_mean_size
         if self.use_mean_size:
-            self.mean_size = torch.from_numpy(np.array(kwargs['mean_size'])).cuda().float()
+            self.mean_size = torch.from_numpy(np.array(kwargs["mean_size"])).cuda().float()
             assert self.mean_size.min() > 0
 
     def encode_torch(self, gt_boxes, points, gt_classes=None):
@@ -168,7 +168,7 @@ class PointResidualCoder(object):
             assert gt_classes.max() <= self.mean_size.shape[0]
             point_anchor_size = self.mean_size[gt_classes - 1]
             dxa, dya, dza = torch.split(point_anchor_size, 1, dim=-1)
-            diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+            diagonal = torch.sqrt(dxa**2 + dya**2)
             xt = (xg - xa) / diagonal
             yt = (yg - ya) / diagonal
             zt = (zg - za) / dza
@@ -176,9 +176,9 @@ class PointResidualCoder(object):
             dyt = torch.log(dyg / dya)
             dzt = torch.log(dzg / dza)
         else:
-            xt = (xg - xa)
-            yt = (yg - ya)
-            zt = (zg - za)
+            xt = xg - xa
+            yt = yg - ya
+            zt = zg - za
             dxt = torch.log(dxg)
             dyt = torch.log(dyg)
             dzt = torch.log(dzg)
@@ -202,7 +202,7 @@ class PointResidualCoder(object):
             assert pred_classes.max() <= self.mean_size.shape[0]
             point_anchor_size = self.mean_size[pred_classes - 1]
             dxa, dya, dza = torch.split(point_anchor_size, 1, dim=-1)
-            diagonal = torch.sqrt(dxa ** 2 + dya ** 2)
+            diagonal = torch.sqrt(dxa**2 + dya**2)
             xg = xt * diagonal + xa
             yg = yt * diagonal + ya
             zg = zt * dza + za

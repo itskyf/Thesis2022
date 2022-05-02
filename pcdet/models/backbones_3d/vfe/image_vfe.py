@@ -1,7 +1,7 @@
 import torch
 
+from .image_vfe_modules import f2v, ffn
 from .vfe_template import VFETemplate
-from .image_vfe_modules import ffn, f2v
 
 
 class ImageVFE(VFETemplate):
@@ -10,9 +10,7 @@ class ImageVFE(VFETemplate):
         self.grid_size = grid_size
         self.pc_range = point_cloud_range
         self.downsample_factor = depth_downsample_factor
-        self.module_topology = [
-            'ffn', 'f2v'
-        ]
+        self.module_topology = ["ffn", "f2v"]
         self.build_modules()
 
     def build_modules(self):
@@ -20,7 +18,7 @@ class ImageVFE(VFETemplate):
         Builds modules
         """
         for module_name in self.module_topology:
-            module = getattr(self, 'build_%s' % module_name)()
+            module = getattr(self, "build_%s" % module_name)()
             self.add_module(module_name, module)
 
     def build_ffn(self):
@@ -30,8 +28,7 @@ class ImageVFE(VFETemplate):
             ffn_module: nn.Module, Frustum feature network
         """
         ffn_module = ffn.__all__[self.model_cfg.FFN.NAME](
-            model_cfg=self.model_cfg.FFN,
-            downsample_factor=self.downsample_factor
+            model_cfg=self.model_cfg.FFN, downsample_factor=self.downsample_factor
         )
         self.disc_cfg = ffn_module.disc_cfg
         return ffn_module
@@ -46,7 +43,7 @@ class ImageVFE(VFETemplate):
             model_cfg=self.model_cfg.F2V,
             grid_size=self.grid_size,
             pc_range=self.pc_range,
-            disc_cfg=self.disc_cfg
+            disc_cfg=self.disc_cfg,
         )
         return f2v_module
 

@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 
 try:
-    from kornia.utils.grid import create_meshgrid3d
     from kornia.geometry.linalg import transform_points
+    from kornia.utils.grid import create_meshgrid3d
 except Exception as e:
     # Note: Kornia team will fix this import issue to try to allow the usage of lower torch versions.
     # print('Warning: kornia is not installed correctly, please ignore this warning if you do not use CaDDN. Otherwise, it is recommended to use torch version greater than 1.2 to use kornia properly.')
@@ -13,7 +13,6 @@ from pcdet.utils import transform_utils
 
 
 class FrustumGridGenerator(nn.Module):
-
     def __init__(self, grid_size, pc_range, disc_cfg):
         """
         Initializes Grid Generator for frustum features
@@ -27,8 +26,10 @@ class FrustumGridGenerator(nn.Module):
             import kornia
         except Exception as e:
             # Note: Kornia team will fix this import issue to try to allow the usage of lower torch versions.
-            print('Error: kornia is not installed correctly, please ignore this warning if you do not use CaDDN. '
-                  'Otherwise, it is recommended to use torch version greater than 1.2 to use kornia properly.')
+            print(
+                "Error: kornia is not installed correctly, please ignore this warning if you do not use CaDDN. "
+                "Otherwise, it is recommended to use torch version greater than 1.2 to use kornia properly."
+            )
             exit(-1)
 
         self.dtype = torch.float32
@@ -45,17 +46,17 @@ class FrustumGridGenerator(nn.Module):
 
         # Create voxel grid
         self.depth, self.width, self.height = self.grid_size.int()
-        self.voxel_grid = create_meshgrid3d(depth=self.depth,
-                                                         height=self.height,
-                                                         width=self.width,
-                                                         normalized_coordinates=False)
+        self.voxel_grid = create_meshgrid3d(
+            depth=self.depth, height=self.height, width=self.width, normalized_coordinates=False
+        )
 
         self.voxel_grid = self.voxel_grid.permute(0, 1, 3, 2, 4)  # XZY-> XYZ
 
         # Add offsets to center of voxel
         self.voxel_grid += 0.5
-        self.grid_to_lidar = self.grid_to_lidar_unproject(pc_min=self.pc_min,
-                                                          voxel_size=self.voxel_size)
+        self.grid_to_lidar = self.grid_to_lidar_unproject(
+            pc_min=self.pc_min, voxel_size=self.voxel_size
+        )
 
     def grid_to_lidar_unproject(self, pc_min, voxel_size):
         """
@@ -68,11 +69,10 @@ class FrustumGridGenerator(nn.Module):
         """
         x_size, y_size, z_size = voxel_size
         x_min, y_min, z_min = pc_min
-        unproject = torch.tensor([[x_size, 0, 0, x_min],
-                                  [0, y_size, 0, y_min],
-                                  [0,  0, z_size, z_min],
-                                  [0,  0, 0, 1]],
-                                 dtype=self.dtype)  # (4, 4)
+        unproject = torch.tensor(
+            [[x_size, 0, 0, x_min], [0, y_size, 0, y_min], [0, 0, z_size, z_min], [0, 0, 0, 1]],
+            dtype=self.dtype,
+        )  # (4, 4)
 
         return unproject
 
@@ -125,16 +125,18 @@ class FrustumGridGenerator(nn.Module):
             frustum_grid (B, X, Y, Z, 3), Sampling grids for frustum features
         """
 
-        frustum_grid = self.transform_grid(voxel_grid=self.voxel_grid.to(lidar_to_cam.device),
-                                           grid_to_lidar=self.grid_to_lidar.to(lidar_to_cam.device),
-                                           lidar_to_cam=lidar_to_cam,
-                                           cam_to_img=cam_to_img)
+        frustum_grid = self.transform_grid(
+            voxel_grid=self.voxel_grid.to(lidar_to_cam.device),
+            grid_to_lidar=self.grid_to_lidar.to(lidar_to_cam.device),
+            lidar_to_cam=lidar_to_cam,
+            cam_to_img=cam_to_img,
+        )
 
         # Normalize grid
         image_shape, _ = torch.max(image_shape, dim=0)
-        image_depth = torch.tensor([self.disc_cfg["num_bins"]],
-                                   device=image_shape.device,
-                                   dtype=image_shape.dtype)
+        image_depth = torch.tensor(
+            [self.disc_cfg["num_bins"]], device=image_shape.device, dtype=image_shape.dtype
+        )
         frustum_shape = torch.cat((image_depth, image_shape))
         frustum_grid = transform_utils.normalize_coords(coords=frustum_grid, shape=frustum_shape)
 

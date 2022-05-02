@@ -2,7 +2,6 @@ import torch.nn as nn
 
 
 class BasicBlock2D(nn.Module):
-
     def __init__(self, in_channels, out_channels, **kwargs):
         """
         Initializes convolutional block
@@ -14,9 +13,7 @@ class BasicBlock2D(nn.Module):
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.conv = nn.Conv2d(in_channels=in_channels,
-                              out_channels=out_channels,
-                              **kwargs)
+        self.conv = nn.Conv2d(in_channels=in_channels, out_channels=out_channels, **kwargs)
         self.bn = nn.BatchNorm2d(out_channels)
         self.relu = nn.ReLU(inplace=True)
 

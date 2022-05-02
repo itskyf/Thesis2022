@@ -278,7 +278,10 @@ def recall_precision(gt, predictions, iou_threshold_list):
     image_gts = group_by_key(gt, "sample_token")
     image_gts = wrap_in_box(image_gts)
 
-    sample_gt_checked = {sample_token: np.zeros((len(boxes), len(iou_threshold_list))) for sample_token, boxes in image_gts.items()}
+    sample_gt_checked = {
+        sample_token: np.zeros((len(boxes), len(iou_threshold_list)))
+        for sample_token, boxes in image_gts.items()
+    }
 
     predictions = sorted(predictions, key=lambda x: x["score"], reverse=True)
 
@@ -342,7 +345,9 @@ def recall_precision(gt, predictions, iou_threshold_list):
     return recalls, precisions, ap_list
 
 
-def get_average_precisions(gt: list, predictions: list, class_names: list, iou_thresholds: list) -> np.array:
+def get_average_precisions(
+    gt: list, predictions: list, class_names: list, iou_thresholds: list
+) -> np.array:
     """Returns an array with an average precision per class.
 
 

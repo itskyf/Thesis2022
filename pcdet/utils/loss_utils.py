@@ -23,7 +23,7 @@ class SigmoidFocalClassificationLoss(nn.Module):
 
     @staticmethod
     def sigmoid_cross_entropy_with_logits(input: torch.Tensor, target: torch.Tensor):
-        """ PyTorch Implementation for tf.nn.sigmoid_cross_entropy_with_logits:
+        """PyTorch Implementation for tf.nn.sigmoid_cross_entropy_with_logits:
             max(x, 0) - x * z + log(1 + exp(-abs(x))) in
             https://www.tensorflow.org/api_docs/python/tf/nn/sigmoid_cross_entropy_with_logits
 
@@ -37,8 +37,9 @@ class SigmoidFocalClassificationLoss(nn.Module):
             loss: (B, #anchors, #classes) float tensor.
                 Sigmoid cross entropy loss without reduction
         """
-        loss = torch.clamp(input, min=0) - input * target + \
-               torch.log1p(torch.exp(-torch.abs(input)))
+        loss = (
+            torch.clamp(input, min=0) - input * target + torch.log1p(torch.exp(-torch.abs(input)))
+        )
         return loss
 
     def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
@@ -63,8 +64,9 @@ class SigmoidFocalClassificationLoss(nn.Module):
 
         loss = focal_weight * bce_loss
 
-        if weights.shape.__len__() == 2 or \
-                (weights.shape.__len__() == 1 and target.shape.__len__() == 2):
+        if weights.shape.__len__() == 2 or (
+            weights.shape.__len__() == 1 and target.shape.__len__() == 2
+        ):
             weights = weights.unsqueeze(-1)
 
         assert weights.shape.__len__() == loss.shape.__len__()
@@ -81,6 +83,7 @@ class WeightedSmoothL1Loss(nn.Module):
                   | abs(x) - 0.5 * beta   otherwise,
     where x = input - target.
     """
+
     def __init__(self, beta: float = 1.0 / 9.0, code_weights: list = None):
         """
         Args:
@@ -102,7 +105,7 @@ class WeightedSmoothL1Loss(nn.Module):
             loss = torch.abs(diff)
         else:
             n = torch.abs(diff)
-            loss = torch.where(n < beta, 0.5 * n ** 2 / beta, n - 0.5 * beta)
+            loss = torch.where(n < beta, 0.5 * n**2 / beta, n - 0.5 * beta)
 
         return loss
 
@@ -183,6 +186,7 @@ class WeightedCrossEntropyLoss(nn.Module):
     Transform input to fit the fomation of PyTorch offical cross entropy loss
     with anchor-wise weighting.
     """
+
     def __init__(self):
         super(WeightedCrossEntropyLoss, self).__init__()
 
@@ -202,7 +206,7 @@ class WeightedCrossEntropyLoss(nn.Module):
         """
         input = input.permute(0, 2, 1)
         target = target.argmax(dim=-1)
-        loss = F.cross_entropy(input, target, reduction='none') * weights
+        loss = F.cross_entropy(input, target, reduction="none") * weights
         return loss
 
 
@@ -224,8 +228,10 @@ def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):
     gt_bbox3d_flip[:, 6] += np.pi
     gt_box_corners_flip = box_utils.boxes_to_corners_3d(gt_bbox3d_flip)
     # (N, 8)
-    corner_dist = torch.min(torch.norm(pred_box_corners - gt_box_corners, dim=2),
-                            torch.norm(pred_box_corners - gt_box_corners_flip, dim=2))
+    corner_dist = torch.min(
+        torch.norm(pred_box_corners - gt_box_corners, dim=2),
+        torch.norm(pred_box_corners - gt_box_corners_flip, dim=2),
+    )
     # (N, 8)
     corner_loss = WeightedSmoothL1Loss.smooth_l1_loss(corner_dist, beta=1.0)
 
@@ -303,6 +309,7 @@ class FocalLossCenterNet(nn.Module):
     """
     Refer to https://github.com/tianweiy/CenterPoint
     """
+
     def __init__(self):
         super(FocalLossCenterNet, self).__init__()
         self.neg_loss = neg_loss_cornernet
@@ -323,7 +330,7 @@ def _reg_loss(regr, gt_regr, mask):
     """
     num = mask.float().sum()
     mask = mask.unsqueeze(2).expand_as(gt_regr).float()
-    isnotnan = (~ torch.isnan(gt_regr)).float()
+    isnotnan = (~torch.isnan(gt_regr)).float()
     mask *= isnotnan
     regr = regr * mask
     gt_regr = gt_regr * mask
@@ -344,8 +351,8 @@ def _reg_loss(regr, gt_regr, mask):
 
 
 def _gather_feat(feat, ind, mask=None):
-    dim  = feat.size(2)
-    ind  = ind.unsqueeze(2).expand(ind.size(0), ind.size(1), dim)
+    dim = feat.size(2)
+    ind = ind.unsqueeze(2).expand(ind.size(0), ind.size(1), dim)
     feat = feat.gather(1, ind)
     if mask is not None:
         mask = mask.unsqueeze(2).expand_as(feat)

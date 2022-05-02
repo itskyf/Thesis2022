@@ -5,19 +5,21 @@ def get_calib_from_file(calib_file):
     with open(calib_file) as f:
         lines = f.readlines()
 
-    obj = lines[2].strip().split(' ')[1:]
+    obj = lines[2].strip().split(" ")[1:]
     P2 = np.array(obj, dtype=np.float32)
-    obj = lines[3].strip().split(' ')[1:]
+    obj = lines[3].strip().split(" ")[1:]
     P3 = np.array(obj, dtype=np.float32)
-    obj = lines[4].strip().split(' ')[1:]
+    obj = lines[4].strip().split(" ")[1:]
     R0 = np.array(obj, dtype=np.float32)
-    obj = lines[5].strip().split(' ')[1:]
+    obj = lines[5].strip().split(" ")[1:]
     Tr_velo_to_cam = np.array(obj, dtype=np.float32)
 
-    return {'P2': P2.reshape(3, 4),
-            'P3': P3.reshape(3, 4),
-            'R0': R0.reshape(3, 3),
-            'Tr_velo2cam': Tr_velo_to_cam.reshape(3, 4)}
+    return {
+        "P2": P2.reshape(3, 4),
+        "P3": P3.reshape(3, 4),
+        "R0": R0.reshape(3, 3),
+        "Tr_velo2cam": Tr_velo_to_cam.reshape(3, 4),
+    }
 
 
 class Calibration(object):
@@ -27,9 +29,9 @@ class Calibration(object):
         else:
             calib = calib_file
 
-        self.P2 = calib['P2']  # 3 x 4
-        self.R0 = calib['R0']  # 3 x 3
-        self.V2C = calib['Tr_velo2cam']  # 3 x 4
+        self.P2 = calib["P2"]  # 3 x 4
+        self.R0 = calib["R0"]  # 3 x 3
+        self.V2C = calib["Tr_velo2cam"]  # 3 x 4
 
         # Camera intrinsics and extrinsics
         self.cu = self.P2[0, 2]
@@ -101,7 +103,9 @@ class Calibration(object):
         """
         x = ((u - self.cu) * depth_rect) / self.fu + self.tx
         y = ((v - self.cv) * depth_rect) / self.fv + self.ty
-        pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1)
+        pts_rect = np.concatenate(
+            (x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1
+        )
         return pts_rect
 
     def corners3d_to_img_boxes(self, corners3d):
@@ -111,7 +115,9 @@ class Calibration(object):
         :return: boxes_corner: (None, 8) [xi, yi] in rgb coordinate
         """
         sample_num = corners3d.shape[0]
-        corners3d_hom = np.concatenate((corners3d, np.ones((sample_num, 8, 1))), axis=2)  # (N, 8, 4)
+        corners3d_hom = np.concatenate(
+            (corners3d, np.ones((sample_num, 8, 1))), axis=2
+        )  # (N, 8, 4)
 
         img_pts = np.matmul(corners3d_hom, self.P2.T)  # (N, 8, 3)
 
@@ -119,7 +125,9 @@ class Calibration(object):
         x1, y1 = np.min(x, axis=1), np.min(y, axis=1)
         x2, y2 = np.max(x, axis=1), np.max(y, axis=1)
 
-        boxes = np.concatenate((x1.reshape(-1, 1), y1.reshape(-1, 1), x2.reshape(-1, 1), y2.reshape(-1, 1)), axis=1)
+        boxes = np.concatenate(
+            (x1.reshape(-1, 1), y1.reshape(-1, 1), x2.reshape(-1, 1), y2.reshape(-1, 1)), axis=1
+        )
         boxes_corner = np.concatenate((x.reshape(-1, 8, 1), y.reshape(-1, 8, 1)), axis=2)
 
         return boxes, boxes_corner

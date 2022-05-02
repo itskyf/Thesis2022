@@ -1,27 +1,19 @@
 import torch
 import torch.nn as nn
 
+from pcdet.utils import transform_utils
 
 from .balancer import Balancer
-from pcdet.utils import transform_utils
 
 try:
     from kornia.losses.focal import FocalLoss
 except:
-    pass 
+    pass
     # print('Warning: kornia is not installed. This package is only required by CaDDN')
 
-    
-class DDNLoss(nn.Module):
 
-    def __init__(self,
-                 weight,
-                 alpha,
-                 gamma,
-                 disc_cfg,
-                 fg_weight,
-                 bg_weight,
-                 downsample_factor):
+class DDNLoss(nn.Module):
+    def __init__(self, weight, alpha, gamma, disc_cfg, fg_weight, bg_weight, downsample_factor):
         """
         Initializes DDNLoss module
         Args:
@@ -36,9 +28,9 @@ class DDNLoss(nn.Module):
         super().__init__()
         self.device = torch.cuda.current_device()
         self.disc_cfg = disc_cfg
-        self.balancer = Balancer(downsample_factor=downsample_factor,
-                                 fg_weight=fg_weight,
-                                 bg_weight=bg_weight)
+        self.balancer = Balancer(
+            downsample_factor=downsample_factor, fg_weight=fg_weight, bg_weight=bg_weight
+        )
 
         # Set loss function
         self.alpha = alpha

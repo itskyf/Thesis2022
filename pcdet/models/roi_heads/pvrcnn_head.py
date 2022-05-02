@@ -1,6 +1,8 @@
 import torch.nn as nn
 
-from ...ops.pointnet2.pointnet2_stack import pointnet2_modules as pointnet2_stack_modules
+from ...ops.pointnet2.pointnet2_stack import (
+    pointnet2_modules as pointnet2_stack_modules,
+)
 from ...utils import common_utils
 from .roi_head_template import RoIHeadTemplate
 
@@ -10,7 +12,10 @@ class PVRCNNHead(RoIHeadTemplate):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
 
-        self.roi_grid_pool_layer, num_c_out = pointnet2_stack_modules.build_local_aggregation_module(
+        (
+            self.roi_grid_pool_layer,
+            num_c_out,
+        ) = pointnet2_stack_modules.build_local_aggregation_module(
             input_channels=input_channels, config=self.model_cfg.ROI_GRID_POOL
         )
 
@@ -19,11 +24,13 @@ class PVRCNNHead(RoIHeadTemplate):
 
         shared_fc_list = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-            shared_fc_list.extend([
-                nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
-                nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-                nn.ReLU()
-            ])
+            shared_fc_list.extend(
+                [
+                    nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
+                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
+                    nn.ReLU(),
+                ]
+            )
             pre_channel = self.model_cfg.SHARED_FC[k]
 
             if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
@@ -32,28 +39,30 @@ class PVRCNNHead(RoIHeadTemplate):
         self.shared_fc_layer = nn.Sequential(*shared_fc_list)
 
         self.cls_layers = self.make_fc_layers(
-            input_channels=pre_channel, output_channels=self.num_class, fc_list=self.model_cfg.CLS_FC
+            input_channels=pre_channel,
+            output_channels=self.num_class,
+            fc_list=self.model_cfg.CLS_FC,
         )
         self.reg_layers = self.make_fc_layers(
             input_channels=pre_channel,
             output_channels=self.box_coder.code_size * self.num_class,
-            fc_list=self.model_cfg.REG_FC
+            fc_list=self.model_cfg.REG_FC,
         )
-        self.init_weights(weight_init='xavier')
+        self.init_weights(weight_init="xavier")
 
-    def init_weights(self, weight_init='xavier'):
-        if weight_init == 'kaiming':
+    def init_weights(self, weight_init="xavier"):
+        if weight_init == "kaiming":
             init_func = nn.init.kaiming_normal_
-        elif weight_init == 'xavier':
+        elif weight_init == "xavier":
             init_func = nn.init.xavier_normal_
-        elif weight_init == 'normal':
+        elif weight_init == "normal":
             init_func = nn.init.normal_
         else:
             raise NotImplementedError
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
-                if weight_init == 'normal':
+                if weight_init == "normal":
                     init_func(m.weight, mean=0, std=0.001)
                 else:
                     init_func(m.weight)
@@ -74,12 +83,12 @@ class PVRCNNHead(RoIHeadTemplate):
         Returns:
 
         """
-        batch_size = batch_dict['batch_size']
-        rois = batch_dict['rois']
-        point_coords = batch_dict['point_coords']
-        point_features = batch_dict['point_features']
+        batch_size = batch_dict["batch_size"]
+        rois = batch_dict["rois"]
+        point_coords = batch_dict["point_coords"]
+        point_features = batch_dict["point_features"]
 
-        point_features = point_features * batch_dict['point_cls_scores'].view(-1, 1)
+        point_features = point_features * batch_dict["point_cls_scores"].view(-1, 1)
 
         global_roi_grid_points, local_roi_grid_points = self.get_global_grid_points_of_roi(
             rois, grid_size=self.model_cfg.ROI_GRID_POOL.GRID_SIZE
@@ -103,8 +112,7 @@ class PVRCNNHead(RoIHeadTemplate):
         )  # (M1 + M2 ..., C)
 
         pooled_features = pooled_features.view(
-            -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE ** 3,
-            pooled_features.shape[-1]
+            -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE**3, pooled_features.shape[-1]
         )  # (BxN, 6x6x6, C)
         return pooled_features
 
@@ -112,7 +120,9 @@ class PVRCNNHead(RoIHeadTemplate):
         rois = rois.view(-1, rois.shape[-1])
         batch_size_rcnn = rois.shape[0]
 
-        local_roi_grid_points = self.get_dense_grid_points(rois, batch_size_rcnn, grid_size)  # (B, 6x6x6, 3)
+        local_roi_grid_points = self.get_dense_grid_points(
+            rois, batch_size_rcnn, grid_size
+        )  # (B, 6x6x6, 3)
         global_roi_grid_points = common_utils.rotate_points_along_z(
             local_roi_grid_points.clone(), rois[:, 6]
         ).squeeze(dim=1)
@@ -127,8 +137,9 @@ class PVRCNNHead(RoIHeadTemplate):
         dense_idx = dense_idx.repeat(batch_size_rcnn, 1, 1).float()  # (B, 6x6x6, 3)
 
         local_roi_size = rois.view(batch_size_rcnn, -1)[:, 3:6]
-        roi_grid_points = (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) \
-                          - (local_roi_size.unsqueeze(dim=1) / 2)  # (B, 6x6x6, 3)
+        roi_grid_points = (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) - (
+            local_roi_size.unsqueeze(dim=1) / 2
+        )  # (B, 6x6x6, 3)
         return roi_grid_points
 
     def forward(self, batch_dict):
@@ -138,37 +149,47 @@ class PVRCNNHead(RoIHeadTemplate):
         """
 
         targets_dict = self.proposal_layer(
-            batch_dict, nms_config=self.model_cfg.NMS_CONFIG['TRAIN' if self.training else 'TEST']
+            batch_dict, nms_config=self.model_cfg.NMS_CONFIG["TRAIN" if self.training else "TEST"]
         )
         if self.training:
-            targets_dict = batch_dict.get('roi_targets_dict', None)
+            targets_dict = batch_dict.get("roi_targets_dict", None)
             if targets_dict is None:
                 targets_dict = self.assign_targets(batch_dict)
-                batch_dict['rois'] = targets_dict['rois']
-                batch_dict['roi_labels'] = targets_dict['roi_labels']
+                batch_dict["rois"] = targets_dict["rois"]
+                batch_dict["roi_labels"] = targets_dict["roi_labels"]
 
         # RoI aware pooling
         pooled_features = self.roi_grid_pool(batch_dict)  # (BxN, 6x6x6, C)
 
         grid_size = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         batch_size_rcnn = pooled_features.shape[0]
-        pooled_features = pooled_features.permute(0, 2, 1).\
-            contiguous().view(batch_size_rcnn, -1, grid_size, grid_size, grid_size)  # (BxN, C, 6, 6, 6)
+        pooled_features = (
+            pooled_features.permute(0, 2, 1)
+            .contiguous()
+            .view(batch_size_rcnn, -1, grid_size, grid_size, grid_size)
+        )  # (BxN, C, 6, 6, 6)
 
         shared_features = self.shared_fc_layer(pooled_features.view(batch_size_rcnn, -1, 1))
-        rcnn_cls = self.cls_layers(shared_features).transpose(1, 2).contiguous().squeeze(dim=1)  # (B, 1 or 2)
-        rcnn_reg = self.reg_layers(shared_features).transpose(1, 2).contiguous().squeeze(dim=1)  # (B, C)
+        rcnn_cls = (
+            self.cls_layers(shared_features).transpose(1, 2).contiguous().squeeze(dim=1)
+        )  # (B, 1 or 2)
+        rcnn_reg = (
+            self.reg_layers(shared_features).transpose(1, 2).contiguous().squeeze(dim=1)
+        )  # (B, C)
 
         if not self.training:
             batch_cls_preds, batch_box_preds = self.generate_predicted_boxes(
-                batch_size=batch_dict['batch_size'], rois=batch_dict['rois'], cls_preds=rcnn_cls, box_preds=rcnn_reg
+                batch_size=batch_dict["batch_size"],
+                rois=batch_dict["rois"],
+                cls_preds=rcnn_cls,
+                box_preds=rcnn_reg,
             )
-            batch_dict['batch_cls_preds'] = batch_cls_preds
-            batch_dict['batch_box_preds'] = batch_box_preds
-            batch_dict['cls_preds_normalized'] = False
+            batch_dict["batch_cls_preds"] = batch_cls_preds
+            batch_dict["batch_box_preds"] = batch_box_preds
+            batch_dict["cls_preds_normalized"] = False
         else:
-            targets_dict['rcnn_cls'] = rcnn_cls
-            targets_dict['rcnn_reg'] = rcnn_reg
+            targets_dict["rcnn_cls"] = rcnn_cls
+            targets_dict["rcnn_reg"] = rcnn_reg
 
             self.forward_ret_dict = targets_dict
 

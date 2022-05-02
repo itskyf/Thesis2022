@@ -6,13 +6,9 @@ from .vfe_template import VFETemplate
 
 
 class PFNLayer(nn.Module):
-    def __init__(self,
-                 in_channels,
-                 out_channels,
-                 use_norm=True,
-                 last_layer=False):
+    def __init__(self, in_channels, out_channels, use_norm=True, last_layer=False):
         super().__init__()
-        
+
         self.last_vfe = last_layer
         self.use_norm = use_norm
         if not self.last_vfe:
@@ -30,8 +26,10 @@ class PFNLayer(nn.Module):
         if inputs.shape[0] > self.part:
             # nn.Linear performs randomly when batch size is too large
             num_parts = inputs.shape[0] // self.part
-            part_linear_out = [self.linear(inputs[num_part*self.part:(num_part+1)*self.part])
-                               for num_part in range(num_parts+1)]
+            part_linear_out = [
+                self.linear(inputs[num_part * self.part : (num_part + 1) * self.part])
+                for num_part in range(num_parts + 1)
+            ]
             x = torch.cat(part_linear_out, dim=0)
         else:
             x = self.linear(inputs)
@@ -69,7 +67,9 @@ class PillarVFE(VFETemplate):
             in_filters = num_filters[i]
             out_filters = num_filters[i + 1]
             pfn_layers.append(
-                PFNLayer(in_filters, out_filters, self.use_norm, last_layer=(i >= len(num_filters) - 2))
+                PFNLayer(
+                    in_filters, out_filters, self.use_norm, last_layer=(i >= len(num_filters) - 2)
+                )
             )
         self.pfn_layers = nn.ModuleList(pfn_layers)
 
@@ -87,20 +87,34 @@ class PillarVFE(VFETemplate):
         actual_num = torch.unsqueeze(actual_num, axis + 1)
         max_num_shape = [1] * len(actual_num.shape)
         max_num_shape[axis + 1] = -1
-        max_num = torch.arange(max_num, dtype=torch.int, device=actual_num.device).view(max_num_shape)
+        max_num = torch.arange(max_num, dtype=torch.int, device=actual_num.device).view(
+            max_num_shape
+        )
         paddings_indicator = actual_num.int() > max_num
         return paddings_indicator
 
     def forward(self, batch_dict, **kwargs):
-  
-        voxel_features, voxel_num_points, coords = batch_dict['voxels'], batch_dict['voxel_num_points'], batch_dict['voxel_coords']
-        points_mean = voxel_features[:, :, :3].sum(dim=1, keepdim=True) / voxel_num_points.type_as(voxel_features).view(-1, 1, 1)
+
+        voxel_features, voxel_num_points, coords = (
+            batch_dict["voxels"],
+            batch_dict["voxel_num_points"],
+            batch_dict["voxel_coords"],
+        )
+        points_mean = voxel_features[:, :, :3].sum(dim=1, keepdim=True) / voxel_num_points.type_as(
+            voxel_features
+        ).view(-1, 1, 1)
         f_cluster = voxel_features[:, :, :3] - points_mean
 
         f_center = torch.zeros_like(voxel_features[:, :, :3])
-        f_center[:, :, 0] = voxel_features[:, :, 0] - (coords[:, 3].to(voxel_features.dtype).unsqueeze(1) * self.voxel_x + self.x_offset)
-        f_center[:, :, 1] = voxel_features[:, :, 1] - (coords[:, 2].to(voxel_features.dtype).unsqueeze(1) * self.voxel_y + self.y_offset)
-        f_center[:, :, 2] = voxel_features[:, :, 2] - (coords[:, 1].to(voxel_features.dtype).unsqueeze(1) * self.voxel_z + self.z_offset)
+        f_center[:, :, 0] = voxel_features[:, :, 0] - (
+            coords[:, 3].to(voxel_features.dtype).unsqueeze(1) * self.voxel_x + self.x_offset
+        )
+        f_center[:, :, 1] = voxel_features[:, :, 1] - (
+            coords[:, 2].to(voxel_features.dtype).unsqueeze(1) * self.voxel_y + self.y_offset
+        )
+        f_center[:, :, 2] = voxel_features[:, :, 2] - (
+            coords[:, 1].to(voxel_features.dtype).unsqueeze(1) * self.voxel_z + self.z_offset
+        )
 
         if self.use_absolute_xyz:
             features = [voxel_features, f_cluster, f_center]
@@ -119,5 +133,5 @@ class PillarVFE(VFETemplate):
         for pfn in self.pfn_layers:
             features = pfn(features)
         features = features.squeeze()
-        batch_dict['pillar_features'] = features
+        batch_dict["pillar_features"] = features
         return batch_dict

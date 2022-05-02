@@ -6,18 +6,20 @@
 
 import os
 import pickle
+
 import numpy as np
-from ...utils import common_utils
 import tensorflow as tf
-from waymo_open_dataset.utils import frame_utils, transform_utils, range_image_utils
 from waymo_open_dataset import dataset_pb2
+from waymo_open_dataset.utils import frame_utils, range_image_utils, transform_utils
+
+from ...utils import common_utils
 
 try:
     tf.enable_eager_execution()
 except:
     pass
 
-WAYMO_CLASSES = ['unknown', 'Vehicle', 'Pedestrian', 'Sign', 'Cyclist']
+WAYMO_CLASSES = ["unknown", "Vehicle", "Pedestrian", "Sign", "Cyclist"]
 
 
 def generate_labels(frame):
@@ -33,35 +35,43 @@ def generate_labels(frame):
         obj_name.append(WAYMO_CLASSES[class_ind])
         difficulty.append(laser_labels[i].detection_difficulty_level)
         tracking_difficulty.append(laser_labels[i].tracking_difficulty_level)
-        dimensions.append([box.length, box.width, box.height])  # lwh in unified coordinate of OpenPCDet
+        dimensions.append(
+            [box.length, box.width, box.height]
+        )  # lwh in unified coordinate of OpenPCDet
         locations.append(loc)
         obj_ids.append(laser_labels[i].id)
         num_points_in_gt.append(laser_labels[i].num_lidar_points_in_box)
 
     annotations = {}
-    annotations['name'] = np.array(obj_name)
-    annotations['difficulty'] = np.array(difficulty)
-    annotations['dimensions'] = np.array(dimensions)
-    annotations['location'] = np.array(locations)
-    annotations['heading_angles'] = np.array(heading_angles)
+    annotations["name"] = np.array(obj_name)
+    annotations["difficulty"] = np.array(difficulty)
+    annotations["dimensions"] = np.array(dimensions)
+    annotations["location"] = np.array(locations)
+    annotations["heading_angles"] = np.array(heading_angles)
 
-    annotations['obj_ids'] = np.array(obj_ids)
-    annotations['tracking_difficulty'] = np.array(tracking_difficulty)
-    annotations['num_points_in_gt'] = np.array(num_points_in_gt)
+    annotations["obj_ids"] = np.array(obj_ids)
+    annotations["tracking_difficulty"] = np.array(tracking_difficulty)
+    annotations["num_points_in_gt"] = np.array(num_points_in_gt)
 
-    annotations = common_utils.drop_info_with_name(annotations, name='unknown')
-    if annotations['name'].__len__() > 0:
-        gt_boxes_lidar = np.concatenate([
-            annotations['location'], annotations['dimensions'], annotations['heading_angles'][..., np.newaxis]],
-            axis=1
+    annotations = common_utils.drop_info_with_name(annotations, name="unknown")
+    if annotations["name"].__len__() > 0:
+        gt_boxes_lidar = np.concatenate(
+            [
+                annotations["location"],
+                annotations["dimensions"],
+                annotations["heading_angles"][..., np.newaxis],
+            ],
+            axis=1,
         )
     else:
         gt_boxes_lidar = np.zeros((0, 7))
-    annotations['gt_boxes_lidar'] = gt_boxes_lidar
+    annotations["gt_boxes_lidar"] = gt_boxes_lidar
     return annotations
 
 
-def convert_range_image_to_point_cloud(frame, range_images, camera_projections, range_image_top_pose, ri_index=(0, 1)):
+def convert_range_image_to_point_cloud(
+    frame, range_images, camera_projections, range_image_top_pose, ri_index=(0, 1)
+):
     """
     Modified from the codes of Waymo Open Dataset.
     Convert range images to point cloud.
@@ -91,22 +101,30 @@ def convert_range_image_to_point_cloud(frame, range_images, camera_projections, 
     )
     # [H, W, 3, 3]
     range_image_top_pose_tensor_rotation = transform_utils.get_rotation_matrix(
-        range_image_top_pose_tensor[..., 0], range_image_top_pose_tensor[..., 1],
-        range_image_top_pose_tensor[..., 2])
+        range_image_top_pose_tensor[..., 0],
+        range_image_top_pose_tensor[..., 1],
+        range_image_top_pose_tensor[..., 2],
+    )
     range_image_top_pose_tensor_translation = range_image_top_pose_tensor[..., 3:]
     range_image_top_pose_tensor = transform_utils.get_transform(
-        range_image_top_pose_tensor_rotation,
-        range_image_top_pose_tensor_translation)
+        range_image_top_pose_tensor_rotation, range_image_top_pose_tensor_translation
+    )
 
     for c in calibrations:
-        points_single, cp_points_single, points_NLZ_single, points_intensity_single, points_elongation_single \
-            = [], [], [], [], []
+        (
+            points_single,
+            cp_points_single,
+            points_NLZ_single,
+            points_intensity_single,
+            points_elongation_single,
+        ) = ([], [], [], [], [])
         for cur_ri_index in ri_index:
             range_image = range_images[c.name][cur_ri_index]
             if len(c.beam_inclinations) == 0:  # pylint: disable=g-explicit-length-test
                 beam_inclinations = range_image_utils.compute_inclination(
                     tf.constant([c.beam_inclination_min, c.beam_inclination_max]),
-                    height=range_image.shape.dims[0])
+                    height=range_image.shape.dims[0],
+                )
             else:
                 beam_inclinations = tf.constant(c.beam_inclinations)
 
@@ -114,7 +132,8 @@ def convert_range_image_to_point_cloud(frame, range_images, camera_projections, 
             extrinsic = np.reshape(np.array(c.extrinsic.transform), [4, 4])
 
             range_image_tensor = tf.reshape(
-                tf.convert_to_tensor(range_image.data), range_image.shape.dims)
+                tf.convert_to_tensor(range_image.data), range_image.shape.dims
+            )
             pixel_pose_local = None
             frame_pose_local = None
             if c.name == dataset_pb2.LaserName.TOP:
@@ -130,14 +149,18 @@ def convert_range_image_to_point_cloud(frame, range_images, camera_projections, 
                 tf.expand_dims(extrinsic, axis=0),
                 tf.expand_dims(tf.convert_to_tensor(beam_inclinations), axis=0),
                 pixel_pose=pixel_pose_local,
-                frame_pose=frame_pose_local)
+                frame_pose=frame_pose_local,
+            )
 
             range_image_cartesian = tf.squeeze(range_image_cartesian, axis=0)
-            points_tensor = tf.gather_nd(range_image_cartesian,
-                                         tf.where(range_image_mask))
+            points_tensor = tf.gather_nd(range_image_cartesian, tf.where(range_image_mask))
             points_NLZ_tensor = tf.gather_nd(range_image_NLZ, tf.compat.v1.where(range_image_mask))
-            points_intensity_tensor = tf.gather_nd(range_image_intensity, tf.compat.v1.where(range_image_mask))
-            points_elongation_tensor = tf.gather_nd(range_image_elongation, tf.compat.v1.where(range_image_mask))
+            points_intensity_tensor = tf.gather_nd(
+                range_image_intensity, tf.compat.v1.where(range_image_mask)
+            )
+            points_elongation_tensor = tf.gather_nd(
+                range_image_elongation, tf.compat.v1.where(range_image_mask)
+            )
             cp = camera_projections[c.name][0]
             cp_tensor = tf.reshape(tf.convert_to_tensor(cp.data), cp.shape.dims)
             cp_points_tensor = tf.gather_nd(cp_tensor, tf.where(range_image_mask))
@@ -158,11 +181,24 @@ def convert_range_image_to_point_cloud(frame, range_images, camera_projections, 
 
 
 def save_lidar_points(frame, cur_save_path, use_two_returns=True):
-    range_images, camera_projections, range_image_top_pose = \
-        frame_utils.parse_range_image_and_camera_projection(frame)
+    (
+        range_images,
+        camera_projections,
+        range_image_top_pose,
+    ) = frame_utils.parse_range_image_and_camera_projection(frame)
 
-    points, cp_points, points_in_NLZ_flag, points_intensity, points_elongation = convert_range_image_to_point_cloud(
-        frame, range_images, camera_projections, range_image_top_pose, ri_index=(0, 1) if use_two_returns else (0,)
+    (
+        points,
+        cp_points,
+        points_in_NLZ_flag,
+        points_intensity,
+        points_elongation,
+    ) = convert_range_image_to_point_cloud(
+        frame,
+        range_images,
+        camera_projections,
+        range_image_top_pose,
+        ri_index=(0, 1) if use_two_returns else (0,),
     )
 
     # 3d points in vehicle frame.
@@ -172,32 +208,34 @@ def save_lidar_points(frame, cur_save_path, use_two_returns=True):
     points_elongation = np.concatenate(points_elongation, axis=0).reshape(-1, 1)
 
     num_points_of_each_lidar = [point.shape[0] for point in points]
-    save_points = np.concatenate([
-        points_all, points_intensity, points_elongation, points_in_NLZ_flag
-    ], axis=-1).astype(np.float32)
+    save_points = np.concatenate(
+        [points_all, points_intensity, points_elongation, points_in_NLZ_flag], axis=-1
+    ).astype(np.float32)
 
     np.save(cur_save_path, save_points)
     # print('saving to ', cur_save_path)
     return num_points_of_each_lidar
 
 
-def process_single_sequence(sequence_file, save_path, sampled_interval, has_label=True, use_two_returns=True):
+def process_single_sequence(
+    sequence_file, save_path, sampled_interval, has_label=True, use_two_returns=True
+):
     sequence_name = os.path.splitext(os.path.basename(sequence_file))[0]
 
     # print('Load record (sampled_interval=%d): %s' % (sampled_interval, sequence_name))
     if not sequence_file.exists():
-        print('NotFoundError: %s' % sequence_file)
+        print("NotFoundError: %s" % sequence_file)
         return []
 
-    dataset = tf.data.TFRecordDataset(str(sequence_file), compression_type='')
+    dataset = tf.data.TFRecordDataset(str(sequence_file), compression_type="")
     cur_save_dir = save_path / sequence_name
     cur_save_dir.mkdir(parents=True, exist_ok=True)
-    pkl_file = cur_save_dir / ('%s.pkl' % sequence_name)
+    pkl_file = cur_save_dir / ("%s.pkl" % sequence_name)
 
     sequence_infos = []
     if pkl_file.exists():
-        sequence_infos = pickle.load(open(pkl_file, 'rb'))
-        print('Skip sequence since it has been processed before: %s' % pkl_file)
+        sequence_infos = pickle.load(open(pkl_file, "rb"))
+        print("Skip sequence since it has been processed before: %s" % pkl_file)
         return sequence_infos
 
     for cnt, data in enumerate(dataset):
@@ -208,39 +246,37 @@ def process_single_sequence(sequence_file, save_path, sampled_interval, has_labe
         frame.ParseFromString(bytearray(data.numpy()))
 
         info = {}
-        pc_info = {'num_features': 5, 'lidar_sequence': sequence_name, 'sample_idx': cnt}
-        info['point_cloud'] = pc_info
+        pc_info = {"num_features": 5, "lidar_sequence": sequence_name, "sample_idx": cnt}
+        info["point_cloud"] = pc_info
 
-        info['frame_id'] = sequence_name + ('_%03d' % cnt)
-        info['metadata'] = {
-            'context_name': frame.context.name,
-            'timestamp_micros': frame.timestamp_micros
+        info["frame_id"] = sequence_name + ("_%03d" % cnt)
+        info["metadata"] = {
+            "context_name": frame.context.name,
+            "timestamp_micros": frame.timestamp_micros,
         }
         image_info = {}
         for j in range(5):
             width = frame.context.camera_calibrations[j].width
             height = frame.context.camera_calibrations[j].height
-            image_info.update({'image_shape_%d' % j: (height, width)})
-        info['image'] = image_info
+            image_info.update({"image_shape_%d" % j: (height, width)})
+        info["image"] = image_info
 
         pose = np.array(frame.pose.transform, dtype=np.float32).reshape(4, 4)
-        info['pose'] = pose
+        info["pose"] = pose
 
         if has_label:
             annotations = generate_labels(frame)
-            info['annos'] = annotations
+            info["annos"] = annotations
 
         num_points_of_each_lidar = save_lidar_points(
-            frame, cur_save_dir / ('%04d.npy' % cnt), use_two_returns=use_two_returns
+            frame, cur_save_dir / ("%04d.npy" % cnt), use_two_returns=use_two_returns
         )
-        info['num_points_of_each_lidar'] = num_points_of_each_lidar
+        info["num_points_of_each_lidar"] = num_points_of_each_lidar
 
         sequence_infos.append(info)
 
-    with open(pkl_file, 'wb') as f:
+    with open(pkl_file, "wb") as f:
         pickle.dump(sequence_infos, f)
 
-    print('Infos are saved to (sampled_interval=%d): %s' % (sampled_interval, pkl_file))
+    print("Infos are saved to (sampled_interval=%d): %s" % (sampled_interval, pkl_file))
     return sequence_infos
-
-

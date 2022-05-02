@@ -14,16 +14,19 @@ class PVRCNNPlusPlus(Detector3DTemplate):
         batch_dict = self.dense_head(batch_dict)
 
         batch_dict = self.roi_head.proposal_layer(
-            batch_dict, nms_config=self.roi_head.model_cfg.NMS_CONFIG['TRAIN' if self.training else 'TEST']
+            batch_dict,
+            nms_config=self.roi_head.model_cfg.NMS_CONFIG["TRAIN" if self.training else "TEST"],
         )
         if self.training:
             targets_dict = self.roi_head.assign_targets(batch_dict)
-            batch_dict['rois'] = targets_dict['rois']
-            batch_dict['roi_labels'] = targets_dict['roi_labels']
-            batch_dict['roi_targets_dict'] = targets_dict
-            num_rois_per_scene = targets_dict['rois'].shape[1]
-            if 'roi_valid_num' in batch_dict:
-                batch_dict['roi_valid_num'] = [num_rois_per_scene for _ in range(batch_dict['batch_size'])]
+            batch_dict["rois"] = targets_dict["rois"]
+            batch_dict["roi_labels"] = targets_dict["roi_labels"]
+            batch_dict["roi_targets_dict"] = targets_dict
+            num_rois_per_scene = targets_dict["rois"].shape[1]
+            if "roi_valid_num" in batch_dict:
+                batch_dict["roi_valid_num"] = [
+                    num_rois_per_scene for _ in range(batch_dict["batch_size"])
+                ]
 
         batch_dict = self.pfe(batch_dict)
         batch_dict = self.point_head(batch_dict)
@@ -32,9 +35,7 @@ class PVRCNNPlusPlus(Detector3DTemplate):
         if self.training:
             loss, tb_dict, disp_dict = self.get_training_loss()
 
-            ret_dict = {
-                'loss': loss
-            }
+            ret_dict = {"loss": loss}
             return ret_dict, tb_dict, disp_dict
         else:
             pred_dicts, recall_dicts = self.post_processing(batch_dict)

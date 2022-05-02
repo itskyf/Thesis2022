@@ -7,7 +7,6 @@ except:
 
 
 class DDNDeepLabV3(DDNTemplate):
-
     def __init__(self, backbone_name, **kwargs):
         """
         Initializes DDNDeepLabV3 model

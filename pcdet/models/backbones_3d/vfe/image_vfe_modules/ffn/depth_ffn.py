@@ -1,12 +1,12 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-from . import ddn, ddn_loss
 from pcdet.models.model_utils.basic_block_2d import BasicBlock2D
+
+from . import ddn, ddn_loss
 
 
 class DepthFFN(nn.Module):
-
     def __init__(self, model_cfg, downsample_factor):
         """
         Initialize frustum feature network via depth distribution estimation
@@ -27,9 +27,7 @@ class DepthFFN(nn.Module):
         )
         self.channel_reduce = BasicBlock2D(**model_cfg.CHANNEL_REDUCE)
         self.ddn_loss = ddn_loss.__all__[model_cfg.LOSS.NAME](
-            disc_cfg=self.disc_cfg,
-            downsample_factor=downsample_factor,
-            **model_cfg.LOSS.ARGS
+            disc_cfg=self.disc_cfg, downsample_factor=downsample_factor, **model_cfg.LOSS.ARGS
         )
         self.forward_ret_dict = {}
 
@@ -57,8 +55,9 @@ class DepthFFN(nn.Module):
             image_features = self.channel_reduce(image_features)
 
         # Create image feature plane-sweep volume
-        frustum_features = self.create_frustum_features(image_features=image_features,
-                                                        depth_logits=depth_logits)
+        frustum_features = self.create_frustum_features(
+            image_features=image_features, depth_logits=depth_logits
+        )
         batch_dict["frustum_features"] = frustum_features
 
         if self.training:

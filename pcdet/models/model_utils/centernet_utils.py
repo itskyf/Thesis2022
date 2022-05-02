@@ -1,9 +1,9 @@
 # This file is modified from https://github.com/tianweiy/CenterPoint
 
+import numba
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
-import numba
 
 
 def gaussian_radius(height, width, min_overlap=0.5):
@@ -15,29 +15,29 @@ def gaussian_radius(height, width, min_overlap=0.5):
     Returns:
     """
     a1 = 1
-    b1 = (height + width)
+    b1 = height + width
     c1 = width * height * (1 - min_overlap) / (1 + min_overlap)
-    sq1 = (b1 ** 2 - 4 * a1 * c1).sqrt()
+    sq1 = (b1**2 - 4 * a1 * c1).sqrt()
     r1 = (b1 + sq1) / 2
 
     a2 = 4
     b2 = 2 * (height + width)
     c2 = (1 - min_overlap) * width * height
-    sq2 = (b2 ** 2 - 4 * a2 * c2).sqrt()
+    sq2 = (b2**2 - 4 * a2 * c2).sqrt()
     r2 = (b2 + sq2) / 2
 
     a3 = 4 * min_overlap
     b3 = -2 * min_overlap * (height + width)
     c3 = (min_overlap - 1) * width * height
-    sq3 = (b3 ** 2 - 4 * a3 * c3).sqrt()
+    sq3 = (b3**2 - 4 * a3 * c3).sqrt()
     r3 = (b3 + sq3) / 2
     ret = torch.min(torch.min(r1, r2), r3)
     return ret
 
 
 def gaussian2D(shape, sigma=1):
-    m, n = [(ss - 1.) / 2. for ss in shape]
-    y, x = np.ogrid[-m:m + 1, -n:n + 1]
+    m, n = [(ss - 1.0) / 2.0 for ss in shape]
+    y, x = np.ogrid[-m : m + 1, -n : n + 1]
 
     h = np.exp(-(x * x + y * y) / (2 * sigma * sigma))
     h[h < np.finfo(h.dtype).eps * h.max()] = 0
@@ -55,14 +55,16 @@ def draw_gaussian_to_heatmap(heatmap, center, radius, k=1, valid_mask=None):
     left, right = min(x, radius), min(width - x, radius + 1)
     top, bottom = min(y, radius), min(height - y, radius + 1)
 
-    masked_heatmap = heatmap[y - top:y + bottom, x - left:x + right]
-    masked_gaussian = torch.from_numpy(
-        gaussian[radius - top:radius + bottom, radius - left:radius + right]
-    ).to(heatmap.device).float()
+    masked_heatmap = heatmap[y - top : y + bottom, x - left : x + right]
+    masked_gaussian = (
+        torch.from_numpy(gaussian[radius - top : radius + bottom, radius - left : radius + right])
+        .to(heatmap.device)
+        .float()
+    )
 
     if min(masked_gaussian.shape) > 0 and min(masked_heatmap.shape) > 0:  # TODO debug
         if valid_mask is not None:
-            cur_valid_mask = valid_mask[y - top:y + bottom, x - left:x + right]
+            cur_valid_mask = valid_mask[y - top : y + bottom, x - left : x + right]
             masked_gaussian = masked_gaussian * cur_valid_mask.float()
 
         torch.max(masked_heatmap, masked_gaussian * k, out=masked_heatmap)
@@ -151,14 +153,27 @@ def _topk(scores, K=40):
     return topk_score, topk_inds, topk_classes, topk_ys, topk_xs
 
 
-def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
-                             point_cloud_range=None, voxel_size=None, feature_map_stride=None, vel=None, K=100,
-                             circle_nms=False, score_thresh=None, post_center_limit_range=None):
+def decode_bbox_from_heatmap(
+    heatmap,
+    rot_cos,
+    rot_sin,
+    center,
+    center_z,
+    dim,
+    point_cloud_range=None,
+    voxel_size=None,
+    feature_map_stride=None,
+    vel=None,
+    K=100,
+    circle_nms=False,
+    score_thresh=None,
+    post_center_limit_range=None,
+):
     batch_size, num_class, _, _ = heatmap.size()
 
     if circle_nms:
         # TODO: not checked yet
-        assert False, 'not checked yet'
+        assert False, "not checked yet"
         heatmap = _nms(heatmap)
 
     scores, inds, class_ids, ys, xs = _topk(heatmap, K=K)
@@ -189,7 +204,7 @@ def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
     mask &= (final_box_preds[..., :3] <= post_center_limit_range[3:]).all(2)
 
     if score_thresh is not None:
-        mask &= (final_scores > score_thresh)
+        mask &= final_scores > score_thresh
 
     ret_pred_dicts = []
     for k in range(batch_size):
@@ -199,7 +214,7 @@ def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
         cur_labels = final_class_ids[k, cur_mask]
 
         if circle_nms:
-            assert False, 'not checked yet'
+            assert False, "not checked yet"
             centers = cur_boxes[:, [0, 1]]
             boxes = torch.cat((centers, scores.view(-1, 1)), dim=1)
             keep = _circle_nms(boxes, min_radius=min_radius, post_max_size=nms_post_max_size)
@@ -208,9 +223,7 @@ def decode_bbox_from_heatmap(heatmap, rot_cos, rot_sin, center, center_z, dim,
             cur_scores = cur_scores[keep]
             cur_labels = cur_labels[keep]
 
-        ret_pred_dicts.append({
-            'pred_boxes': cur_boxes,
-            'pred_scores': cur_scores,
-            'pred_labels': cur_labels
-        })
+        ret_pred_dicts.append(
+            {"pred_boxes": cur_boxes, "pred_scores": cur_scores, "pred_labels": cur_labels}
+        )
     return ret_pred_dicts

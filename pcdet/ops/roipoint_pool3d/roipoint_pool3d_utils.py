@@ -45,15 +45,26 @@ class RoIPointPool3dFunction(Function):
             pooled_empty_flag: (B, num_boxes)
         """
         assert points.shape.__len__() == 3 and points.shape[2] == 3
-        batch_size, boxes_num, feature_len = points.shape[0], boxes3d.shape[1], point_features.shape[2]
-        pooled_boxes3d = box_utils.enlarge_box3d(boxes3d.view(-1, 7), pool_extra_width).view(batch_size, -1, 7)
+        batch_size, boxes_num, feature_len = (
+            points.shape[0],
+            boxes3d.shape[1],
+            point_features.shape[2],
+        )
+        pooled_boxes3d = box_utils.enlarge_box3d(boxes3d.view(-1, 7), pool_extra_width).view(
+            batch_size, -1, 7
+        )
 
-        pooled_features = point_features.new_zeros((batch_size, boxes_num, num_sampled_points, 3 + feature_len))
+        pooled_features = point_features.new_zeros(
+            (batch_size, boxes_num, num_sampled_points, 3 + feature_len)
+        )
         pooled_empty_flag = point_features.new_zeros((batch_size, boxes_num)).int()
 
         roipoint_pool3d_cuda.forward(
-            points.contiguous(), pooled_boxes3d.contiguous(),
-            point_features.contiguous(), pooled_features, pooled_empty_flag
+            points.contiguous(),
+            pooled_boxes3d.contiguous(),
+            point_features.contiguous(),
+            pooled_features,
+            pooled_empty_flag,
         )
 
         return pooled_features, pooled_empty_flag
@@ -63,5 +74,5 @@ class RoIPointPool3dFunction(Function):
         raise NotImplementedError
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
