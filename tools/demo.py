@@ -101,12 +101,12 @@ def parse_config():
 
 
 def main():
-    args, config = parse_config()
+    args, cfg = parse_config()
     logger = common_utils.create_logger()
     logger.info("-----------------Quick Demo of OpenPCDet-------------------------")
     demo_dataset = DemoDataset(
-        dataset_cfg=config.DATA_CONFIG,
-        class_names=config.CLASS_NAMES,
+        dataset_cfg=cfg.DATA_CONFIG,
+        class_names=cfg.CLASS_NAMES,
         training=False,
         root_path=Path(args.data_path),
         ext=args.ext,
@@ -114,9 +114,7 @@ def main():
     )
     logger.info("Total number of samples: \t%d", len(demo_dataset))
 
-    model = build_network(
-        model_cfg=config.MODEL, num_class=len(config.CLASS_NAMES), dataset=demo_dataset
-    )
+    model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=demo_dataset)
     model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
     model.cuda()
     model.eval()

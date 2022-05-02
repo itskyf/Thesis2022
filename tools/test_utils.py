@@ -19,18 +19,14 @@ from pcdet.utils import common_utils
 
 def parse_config():
     parser = argparse.ArgumentParser(description="arg parser")
-    parser.add_argument(
-        "--cfg_file", type=str, default=None, help="specify the config for training"
-    )
+    parser.add_argument("--cfg_file", type=str, help="specify the config for training")
 
-    parser.add_argument(
-        "--batch_size", type=int, default=None, required=False, help="batch size for training"
-    )
+    parser.add_argument("--batch_size", type=int, required=False, help="batch size for training")
     parser.add_argument("--workers", type=int, default=4, help="number of workers for dataloader")
     parser.add_argument(
         "--extra_tag", type=str, default="default", help="extra tag for this experiment"
     )
-    parser.add_argument("--ckpt", type=str, default=None, help="checkpoint to start from")
+    parser.add_argument("--ckpt", type=str, help="checkpoint to start from")
     parser.add_argument("--launcher", choices=["none", "pytorch", "slurm"], default="none")
     parser.add_argument(
         "--tcp_port", type=int, default=18888, help="tcp port for distrbuted training"
@@ -39,15 +35,11 @@ def parse_config():
         "--local_rank", type=int, default=0, help="local rank for distributed training"
     )
     parser.add_argument(
-        "--set",
-        dest="set_cfgs",
-        default=None,
-        nargs=argparse.REMAINDER,
-        help="set extra config keys if needed",
+        "--set", dest="set_cfgs", nargs=argparse.REMAINDER, help="set extra config keys if needed"
     )
 
     parser.add_argument("--max_waiting_mins", type=int, default=30, help="max waiting minutes")
-    parser.add_argument("--start_epoch", type=int, default=0, help="")
+    parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument(
         "--eval_tag", type=str, default="default", help="eval tag for this experiment"
     )
@@ -55,19 +47,14 @@ def parse_config():
         "--eval_all", action="store_true", default=False, help="whether to evaluate all checkpoints"
     )
     parser.add_argument(
-        "--ckpt_dir",
-        type=str,
-        default=None,
-        help="specify a ckpt directory to be evaluated if needed",
+        "--ckpt_dir", type=str, help="specify a ckpt directory to be evaluated if needed"
     )
-    parser.add_argument("--save_to_file", action="store_true", default=False, help="")
-
+    parser.add_argument("--save_to_file", action="store_true", default=False)
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_file, cfg)
     cfg.TAG = Path(args.cfg_file).stem
-    # remove 'cfgs' and 'xxxx.yaml'
-    cfg.EXP_GROUP_PATH = "/".join(args.cfg_file.split("/")[1:-1])
+    cfg.EXP_GROUP_PATH = "/".join(args.cfg_file.split("/")[1:-1])  # remove 'cfgs' and 'xxxx.yaml'
 
     np.random.seed(1024)
 
@@ -115,7 +102,7 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
 
 def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=False):
     # evaluated ckpt record
-    ckpt_record_file = eval_output_dir / f"eval_list_{cfg.DATA_CONFIG.DATA_SPLIT['test']}.txt"
+    ckpt_record_file = eval_output_dir / ("eval_list_%s.txt" % cfg.DATA_CONFIG.DATA_SPLIT["test"])
     with open(ckpt_record_file, "a"):
         pass
 
@@ -171,32 +158,29 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
                 tb_log.add_scalar(key, val, cur_epoch_id)
 
         # record this epoch which has been evaluated
-        with open(ckpt_record_file, "a", encoding="utf-8") as ckpt_file:
-            print(str(cur_epoch_id), file=ckpt_file)
-        logger.info("Epoch %s has been evaluated", cur_epoch_id)
+        with open(ckpt_record_file, "a") as f:
+            print("%s" % cur_epoch_id, file=f)
+        logger.info("Epoch %s has been evaluated" % cur_epoch_id)
 
 
 def main():
-    args, cfgconfig = parse_config()
+    args, cfg = parse_config()
     if args.launcher == "none":
         dist_test = False
         total_gpus = 1
     else:
-        init_dist_fn = getattr(common_utils, f"init_dist_{args.launcher}")
-        total_gpus, cfgconfig.LOCAL_RANK = init_dist_fn(
+        total_gpus, cfg.LOCAL_RANK = getattr(common_utils, "init_dist_%s" % args.launcher)(
             args.tcp_port, args.local_rank, backend="nccl"
         )
         dist_test = True
 
     if args.batch_size is None:
-        args.batch_size = cfgconfig.OPTIMIZATION.BATCH_SIZE_PER_GPU
+        args.batch_size = cfg.OPTIMIZATION.BATCH_SIZE_PER_GPU
     else:
         assert args.batch_size % total_gpus == 0, "Batch size should match the number of gpus"
         args.batch_size = args.batch_size // total_gpus
 
-    output_dir = (
-        cfgconfig.ROOT_DIR / "output" / cfgconfig.EXP_GROUP_PATH / cfgconfig.TAG / args.extra_tag
-    )
+    output_dir = cfg.ROOT_DIR / "output" / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     output_dir.mkdir(parents=True, exist_ok=True)
 
     eval_output_dir = output_dir / "eval"
@@ -205,7 +189,7 @@ def main():
         num_list = re.findall(r"\d+", args.ckpt) if args.ckpt is not None else []
         epoch_id = num_list[-1] if num_list.__len__() > 0 else "no_number"
         eval_output_dir = (
-            eval_output_dir / ("epoch_%s" % epoch_id) / cfgconfig.DATA_CONFIG.DATA_SPLIT["test"]
+            eval_output_dir / ("epoch_%s" % epoch_id) / cfg.DATA_CONFIG.DATA_SPLIT["test"]
         )
     else:
         eval_output_dir = eval_output_dir / "eval_all_default"
@@ -217,24 +201,26 @@ def main():
     log_file = eval_output_dir / (
         "log_eval_%s.txt" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
     )
-    logger = common_utils.create_logger(log_file, rank=cfgconfig.LOCAL_RANK)
+    logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
 
     # log to file
     logger.info("**********************Start logging**********************")
-    gpu_list = os.environ["CUDA_VISIBLE_DEVICES"] if "CUDA_VISIBLE_DEVICES" in os.environ else "ALL"
-    logger.info("CUDA_VISIBLE_DEVICES=%s", gpu_list)
+    gpu_list = (
+        os.environ["CUDA_VISIBLE_DEVICES"] if "CUDA_VISIBLE_DEVICES" in os.environ.keys() else "ALL"
+    )
+    logger.info("CUDA_VISIBLE_DEVICES=%s" % gpu_list)
 
     if dist_test:
-        logger.info("total_batch_size: %d", total_gpus * args.batch_size)
+        logger.info("total_batch_size: %d" % (total_gpus * args.batch_size))
     for key, val in vars(args).items():
-        logger.info("%-16s %s", key, val)
-    log_config_to_file(cfgconfig, logger=logger)
+        logger.info("{:16} {}".format(key, val))
+    log_config_to_file(cfg, logger=logger)
 
     ckpt_dir = args.ckpt_dir if args.ckpt_dir is not None else output_dir / "ckpt"
 
     test_set, test_loader, sampler = build_dataloader(
-        dataset_cfg=cfgconfig.DATA_CONFIG,
-        class_names=cfgconfig.CLASS_NAMES,
+        dataset_cfg=cfg.DATA_CONFIG,
+        class_names=cfg.CLASS_NAMES,
         batch_size=args.batch_size,
         dist=dist_test,
         workers=args.workers,
@@ -242,9 +228,7 @@ def main():
         training=False,
     )
 
-    model = build_network(
-        model_cfg=cfgconfig.MODEL, num_class=len(cfgconfig.CLASS_NAMES), dataset=test_set
-    )
+    model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=test_set)
     with torch.no_grad():
         if args.eval_all:
             repeat_eval_ckpt(

@@ -3,10 +3,10 @@ Open3d visualization tool box
 Written by Jihan YANG
 All rights preserved from 2021 - present.
 """
-import open3d
-import torch
 import matplotlib
 import numpy as np
+import open3d
+import torch
 
 box_colormap = [
     [1, 1, 1],
@@ -27,7 +27,7 @@ def get_coor_colors(obj_labels):
     colors = matplotlib.colors.XKCD_COLORS.values()
     max_color_num = obj_labels.max()
 
-    color_list = list(colors)[:max_color_num+1]
+    color_list = list(colors)[: max_color_num + 1]
     colors_rgba = [matplotlib.colors.to_rgba_array(color) for color in color_list]
     label_rgba = np.array(colors_rgba)[obj_labels]
     label_rgba = label_rgba.squeeze()[:, :3]
@@ -35,7 +35,15 @@ def get_coor_colors(obj_labels):
     return label_rgba
 
 
-def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scores=None, point_colors=None, draw_origin=True):
+def draw_scenes(
+    points,
+    gt_boxes=None,
+    ref_boxes=None,
+    ref_labels=None,
+    ref_scores=None,
+    point_colors=None,
+    draw_origin=True,
+):
     if isinstance(points, torch.Tensor):
         points = points.cpu().numpy()
     if isinstance(gt_boxes, torch.Tensor):
@@ -67,7 +75,7 @@ def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scor
         vis = draw_box(vis, gt_boxes, (0, 0, 1))
 
     if ref_boxes is not None:
-        vis = draw_box(vis, ref_boxes, (0, 1, 0), ref_labels, ref_scores)
+        vis = draw_box(vis, ref_boxes, (0, 1, 0), ref_labels)
 
     vis.run()
     vis.destroy_window()
@@ -75,13 +83,13 @@ def draw_scenes(points, gt_boxes=None, ref_boxes=None, ref_labels=None, ref_scor
 
 def translate_boxes_to_open3d_instance(gt_boxes):
     """
-             4-------- 6
-           /|         /|
-          5 -------- 3 .
-          | |        | |
-          . 7 -------- 1
-          |/         |/
-          2 -------- 0
+       4-------- 6
+     /|         /|
+    5 -------- 3 .
+    | |        | |
+    . 7 -------- 1
+    |/         |/
+    2 -------- 0
     """
     center = gt_boxes[0:3]
     lwh = gt_boxes[3:6]
@@ -102,7 +110,7 @@ def translate_boxes_to_open3d_instance(gt_boxes):
 
 def draw_box(vis, gt_boxes, color=(0, 1, 0), ref_labels=None, score=None):
     for i in range(gt_boxes.shape[0]):
-        line_set, box3d = translate_boxes_to_open3d_instance(gt_boxes[i])
+        line_set, _ = translate_boxes_to_open3d_instance(gt_boxes[i])
         if ref_labels is None:
             line_set.paint_uniform_color(color)
         else:
