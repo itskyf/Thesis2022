@@ -96,7 +96,7 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file = output_dir / ("log_train_%s.txt" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
+    log_file = output_dir / (f"log_train_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt")
     logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
 
     # log to file
