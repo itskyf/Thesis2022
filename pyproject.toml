@@ -1,8 +1,36 @@
+[build-system]
+requires = ['setuptools']
+build-backend = 'setuptools.build_meta'
+
+[project]
+name = 'pcdet'
+authors = [{ email = 'shaoshuaics@egmail.com' }, { name = 'Shaoshuai Shi' }]
+description = 'OpenPCDet is a general codebase for 3D object detection from point cloud'
+license = { file = 'LICENSE' }
+version = '0.5.2-dev'
+dependencies = [
+  'easydict',
+  'llvmlite',
+  'ninja',
+  'numba',
+  'numpy',
+  'pyyaml',
+  'scikit-image',
+  'SharedArray',
+  'spconv-cu113',
+  'tensorboardX',
+  'torch',
+  'tqdm',
+]
+
+[tool.setuptools]
+packages = ['pcdet']
+
 [tool.black]
 line-length = 100
 
+[tool.flake8]
+max-line-length = 100
+
 [tool.isort]
 profile = 'black'
-
-[tool.pylint.'MESSAGES CONTROL']
-disable = 'missing-module-docstring'

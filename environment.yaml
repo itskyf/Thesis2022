@@ -6,9 +6,8 @@ channels:
 dependencies:
   - cudatoolkit=11.3
   - cudatoolkit-dev=11.3
-  - python=3.7  # Colab's Python version
+  - pip
   - pytorch
-  - torchvision
   - wget
   # spconv requirements
   - fire
@@ -24,14 +23,26 @@ dependencies:
   - sharedarray
   - tensorboardx
   - tqdm
-  - pip
   # Linter
-  - autopep8
+  - autoflake
   - black
+  - clang-tools
+  - cmake-format
+  - cppcheck
+  - flake8-bugbear
+  - flake8-builtins
+  - flake8-comprehensions
+  - flake8-isort
+  - flake8-logging-format
+  - flake8-mutable
+  - flake8-simplify
+  - flake8-typing-imports
+  - flake8-use-fstring
+  - flake8-use-pathlib
   - isort
-  - pylint
+  - pep8-naming
   - yamllint
   - pip:
       - open3d  # Visualize
+      - pyproject-flake8
       - spconv-cu113
-      - --editable .
