@@ -1,4 +1,5 @@
-#pragma once
+#ifndef VOTR_CUDA_UTILS_H
+#define VOTR_CUDA_UTILS_H
 
 #include <cmath>
 
@@ -6,3 +7,5 @@
 #define DIVUP(m, n) ((m) / (n) + ((m) % (n) > 0))
 #define EMPTY_KEY -1
 #define BLK_SIGNAL -2
+
+#endif

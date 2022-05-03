@@ -77,5 +77,18 @@ if __name__ == "__main__":
                     "sampling_gpu.cu",
                 ],
             ),
+            make_cuda_ext(
+                name="votr_ops_cuda",
+                module="pcdet.ops.votr_ops",
+                sources=[
+                    "votr_api.cpp",
+                    "build_mapping.cpp",
+                    "build_mapping_gpu.cu",
+                    "build_attention_indices.cpp",
+                    "build_attention_indices_gpu.cu",
+                    "group_features.cpp",
+                    "group_features_gpu.cu",
+                ],
+            ),
         ],
     )
