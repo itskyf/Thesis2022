@@ -1,5 +1,5 @@
 [build-system]
-requires = ['setuptools']
+requires = ['setuptools>=61']
 build-backend = 'setuptools.build_meta'
 
 [project]
@@ -7,7 +7,6 @@ name = 'pcdet'
 authors = [{ email = 'shaoshuaics@egmail.com' }, { name = 'Shaoshuai Shi' }]
 description = 'OpenPCDet is a general codebase for 3D object detection from point cloud'
 license = { file = 'LICENSE' }
-version = '0.5.2-dev'
 dependencies = [
   'easydict',
   'llvmlite',
@@ -17,14 +16,17 @@ dependencies = [
   'pyyaml',
   'scikit-image',
   'SharedArray',
-  'spconv-cu113',
   'tensorboardX',
   'torch',
   'tqdm',
 ]
+dynamic = ['version']
 
 [tool.setuptools]
 packages = ['pcdet']
+
+[tool.setuptools.dynamic]
+version = { attr = 'pcdet.__version__' }
 
 [tool.black]
 line-length = 100
