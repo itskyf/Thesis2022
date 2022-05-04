@@ -30,6 +30,7 @@ dependencies:
   - clang-tools
   - cmake-format
   - cppcheck
+  - debugpy
   - flake8-bugbear
   - flake8-builtins
   - flake8-comprehensions

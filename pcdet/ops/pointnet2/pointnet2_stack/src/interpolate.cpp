@@ -16,7 +16,7 @@ official PointNet++ codes. Written by Shaoshuai Shi All Rights Reserved 2019-202
 
 #define CHECK_CUDA(x)                                                               \
   do {                                                                              \
-    if (!x.type().is_cuda()) {                                                      \
+    if (!x.is_cuda()) {                                                      \
       fprintf(stderr, "%s must be CUDA tensor at %s:%d\n", #x, __FILE__, __LINE__); \
       exit(-1);                                                                     \
     }                                                                               \
