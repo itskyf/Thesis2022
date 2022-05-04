@@ -103,7 +103,7 @@ class SSFA(nn.Module):
                         padding=padding,
                         bias=False,
                     ),
-                    nn.BatchNorm2d(trans_layer_strides[i + 1], eps=1e-3, momentum=0.01),
+                    nn.BatchNorm2d(trans_num_filters[i + 1], eps=1e-3, momentum=0.01),
                     nn.ReLU(),
                 ),
             )
@@ -225,6 +225,7 @@ class SSFA(nn.Module):
                     nn.BatchNorm2d(w_0_layer_filters[i + 1]),
                 ),
             )
+        self.num_bev_features = conv_0_layer_filters[-1]
 
     def forward(self, data_dict):
         """
