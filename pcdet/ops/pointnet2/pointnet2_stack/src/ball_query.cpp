@@ -37,11 +37,11 @@ int ball_query_wrapper_stack(int B, int M, float radius, int nsample, at::Tensor
   CHECK_INPUT(new_xyz_batch_cnt_tensor);
   CHECK_INPUT(xyz_batch_cnt_tensor);
 
-  const float *new_xyz = new_xyz_tensor.data<float>();
-  const float *xyz = xyz_tensor.data<float>();
-  const int *new_xyz_batch_cnt = new_xyz_batch_cnt_tensor.data<int>();
-  const int *xyz_batch_cnt = xyz_batch_cnt_tensor.data<int>();
-  int *idx = idx_tensor.data<int>();
+  const float *new_xyz = new_xyz_tensor.data_ptr<float>();
+  const float *xyz = xyz_tensor.data_ptr<float>();
+  const int *new_xyz_batch_cnt = new_xyz_batch_cnt_tensor.data_ptr<int>();
+  const int *xyz_batch_cnt = xyz_batch_cnt_tensor.data_ptr<int>();
+  int *idx = idx_tensor.data_ptr<int>();
 
   ball_query_kernel_launcher_stack(B, M, radius, nsample, new_xyz, new_xyz_batch_cnt, xyz,
                                    xyz_batch_cnt, idx);

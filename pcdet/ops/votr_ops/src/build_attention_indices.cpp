@@ -38,9 +38,9 @@ int sparse_local_attention_with_tensor_wrapper(
   CHECK_INPUT(v_indices_tensor);
   CHECK_INPUT(xyz_to_vidx_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
 
   sparse_local_attention_with_tensor_kernel_launcher(
       x_max, y_max, z_max, x_stride, y_stride, z_stride, num_voxels,
@@ -57,9 +57,9 @@ int sparse_local_attention_with_hash_wrapper(
   CHECK_INPUT(v_indices_tensor);
   CHECK_INPUT(xyz_to_vidx_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
 
   sparse_local_attention_with_hash_kernel_launcher(
       x_max, y_max, z_max, x_stride, y_stride, z_stride, num_voxels,
@@ -78,9 +78,9 @@ int subm_local_attention_with_tensor_wrapper(int x_max, int y_max, int z_max,
   CHECK_INPUT(v_indices_tensor);
   CHECK_INPUT(xyz_to_vidx_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
 
   subm_local_attention_with_tensor_kernel_launcher(
       x_max, y_max, z_max, num_voxels, attend_size, attend_range,
@@ -98,9 +98,9 @@ int subm_local_attention_with_hash_wrapper(int x_max, int y_max, int z_max,
   CHECK_INPUT(v_indices_tensor);
   CHECK_INPUT(xyz_to_vidx_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
 
   subm_local_attention_with_hash_kernel_launcher(
       x_max, y_max, z_max, num_voxels, attend_size, attend_range, hash_size,
@@ -118,10 +118,10 @@ int sparse_strided_attention_with_tensor_wrapper(
   CHECK_INPUT(xyz_to_vidx_tensor);
   CHECK_INPUT(range_spec_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
-  const int *range_spec = range_spec_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
+  const int *range_spec = range_spec_tensor.data_ptr<int>();
 
   sparse_strided_attention_with_tensor_kernel_launcher(
       x_max, y_max, z_max, x_stride, y_stride, z_stride, num_voxels,
@@ -140,10 +140,10 @@ int sparse_strided_attention_with_hash_wrapper(
   CHECK_INPUT(xyz_to_vidx_tensor);
   CHECK_INPUT(range_spec_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
-  const int *range_spec = range_spec_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
+  const int *range_spec = range_spec_tensor.data_ptr<int>();
 
   sparse_strided_attention_with_hash_kernel_launcher(
       x_max, y_max, z_max, x_stride, y_stride, z_stride, num_voxels,
@@ -164,10 +164,10 @@ int subm_strided_attention_with_tensor_wrapper(int x_max, int y_max, int z_max,
   CHECK_INPUT(xyz_to_vidx_tensor);
   CHECK_INPUT(range_spec_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
-  const int *range_spec = range_spec_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
+  const int *range_spec = range_spec_tensor.data_ptr<int>();
 
   subm_strided_attention_with_tensor_kernel_launcher(
       x_max, y_max, z_max, num_voxels, attend_size, num_range, attend_indices,
@@ -187,10 +187,10 @@ int subm_strided_attention_with_hash_wrapper(int x_max, int y_max, int z_max,
   CHECK_INPUT(xyz_to_vidx_tensor);
   CHECK_INPUT(range_spec_tensor);
 
-  int *attend_indices = attend_indices_tensor.data<int>();
-  const int *v_indices = v_indices_tensor.data<int>();
-  const int *xyz_to_vidx = xyz_to_vidx_tensor.data<int>();
-  const int *range_spec = range_spec_tensor.data<int>();
+  int *attend_indices = attend_indices_tensor.data_ptr<int>();
+  const int *v_indices = v_indices_tensor.data_ptr<int>();
+  const int *xyz_to_vidx = xyz_to_vidx_tensor.data_ptr<int>();
+  const int *range_spec = range_spec_tensor.data_ptr<int>();
 
   subm_strided_attention_with_hash_kernel_launcher(
       x_max, y_max, z_max, num_voxels, attend_size, num_range, hash_size,

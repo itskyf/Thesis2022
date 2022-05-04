@@ -43,11 +43,11 @@ int group_features_grad_wrapper_stack(int B, int M, int C, int N, int nsample,
   CHECK_INPUT(features_batch_cnt_tensor);
   CHECK_INPUT(grad_features_tensor);
 
-  const float *grad_out = grad_out_tensor.data<float>();
-  const int *idx = idx_tensor.data<int>();
-  const int *idx_batch_cnt = idx_batch_cnt_tensor.data<int>();
-  const int *features_batch_cnt = features_batch_cnt_tensor.data<int>();
-  float *grad_features = grad_features_tensor.data<float>();
+  const float *grad_out = grad_out_tensor.data_ptr<float>();
+  const int *idx = idx_tensor.data_ptr<int>();
+  const int *idx_batch_cnt = idx_batch_cnt_tensor.data_ptr<int>();
+  const int *features_batch_cnt = features_batch_cnt_tensor.data_ptr<int>();
+  float *grad_features = grad_features_tensor.data_ptr<float>();
 
   group_features_grad_kernel_launcher_stack(B, M, C, N, nsample, grad_out, idx,
                                             idx_batch_cnt, features_batch_cnt,
@@ -68,11 +68,11 @@ int group_features_wrapper_stack(int B, int M, int C, int nsample,
   CHECK_INPUT(idx_batch_cnt_tensor);
   CHECK_INPUT(out_tensor);
 
-  const float *features = features_tensor.data<float>();
-  const int *idx = idx_tensor.data<int>();
-  const int *features_batch_cnt = features_batch_cnt_tensor.data<int>();
-  const int *idx_batch_cnt = idx_batch_cnt_tensor.data<int>();
-  float *out = out_tensor.data<float>();
+  const float *features = features_tensor.data_ptr<float>();
+  const int *idx = idx_tensor.data_ptr<int>();
+  const int *features_batch_cnt = features_batch_cnt_tensor.data_ptr<int>();
+  const int *idx_batch_cnt = idx_batch_cnt_tensor.data_ptr<int>();
+  float *out = out_tensor.data_ptr<float>();
 
   group_features_kernel_launcher_stack(
       B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, out);
