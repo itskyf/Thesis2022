@@ -1,3 +1,4 @@
+from .ct3d_head import CT3DHead
 from .partA2_head import PartA2FCHead
 from .pointrcnn_head import PointRCNNHead
 from .pvrcnn_head import PVRCNNHead
@@ -6,10 +7,11 @@ from .second_head import SECONDHead
 from .voxelrcnn_head import VoxelRCNNHead
 
 __all__ = {
-    "RoIHeadTemplate": RoIHeadTemplate,
+    "CT3DHead": CT3DHead,
     "PartA2FCHead": PartA2FCHead,
-    "PVRCNNHead": PVRCNNHead,
-    "SECONDHead": SECONDHead,
     "PointRCNNHead": PointRCNNHead,
+    "PVRCNNHead": PVRCNNHead,
+    "RoIHeadTemplate": RoIHeadTemplate,
+    "SECONDHead": SECONDHead,
     "VoxelRCNNHead": VoxelRCNNHead,
 }

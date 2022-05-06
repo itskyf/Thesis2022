@@ -1,7 +1,7 @@
 import os
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.iou3d_nms import iou3d_nms_utils
 from ...utils.spconv_utils import find_all_spconv_keys
@@ -49,7 +49,7 @@ class Detector3DTemplate(nn.Module):
             "depth_downsample_factor": self.dataset.depth_downsample_factor,
         }
         for module_name in self.module_topology:
-            module, model_info_dict = getattr(self, "build_%s" % module_name)(
+            module, model_info_dict = getattr(self, f"build_{module_name}")(
                 model_info_dict=model_info_dict
             )
             self.add_module(module_name, module)
@@ -317,8 +317,8 @@ class Detector3DTemplate(nn.Module):
         if recall_dict.__len__() == 0:
             recall_dict = {"gt": 0}
             for cur_thresh in thresh_list:
-                recall_dict["roi_%s" % (str(cur_thresh))] = 0
-                recall_dict["rcnn_%s" % (str(cur_thresh))] = 0
+                recall_dict[f"roi_{cur_thresh}"] = 0
+                recall_dict[f"rcnn_{cur_thresh}"] = 0
 
         cur_gt = gt_boxes
         k = cur_gt.__len__() - 1
