@@ -6,7 +6,7 @@ from .roi_head_template import RoIHeadTemplate
 from ..model_utils.attention_utils import TransformerEncoder, get_positional_encoder
 
 
-class VoxelRCNNHead(RoIHeadTemplate):
+class VoxelRCNNHeadTrans(RoIHeadTemplate):
     def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
@@ -261,8 +261,8 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
         src_key_padding_mask = None
         # TODO
-        # if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
-            # src_key_padding_mask = 
+        if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
+            src_key_padding_mask = (pooled_features == 0).all(-1)
 
         # positional_input = self.get_positional_input(batch_dict['points'], )
         positional_input = local_roi_grid_points
