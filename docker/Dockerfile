@@ -1,15 +1,6 @@
-FROM mambaorg/micromamba:latest
-
-COPY --chown=$MAMBA_USER:$MAMBA_USER kitti /home/$MAMBA_USER/kitti
+FROM kerry347/thesis2022:spconv113
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
-
-RUN micromamba install --yes --channel pytorch --channel conda-forge \
-	cudatoolkit=11.3 pip python=3.9 pytorch \
-	fire lark portalocker pybind11 requests \
-	easydict numba scikit-image sharedarray tensorboardx tqdm &&\
-	pip install --no-cache-dir --upgrade spconv-cu113 &&\
-	micromamba clean --yes --all
 
 RUN micromamba install --yes --channel conda-forge git gxx=10 libxml2 wget &&\
 	LD_LIBRARY_PATH=/opt/conda/lib \
