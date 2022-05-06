@@ -7,10 +7,10 @@ from easydict import EasyDict
 def log_config_to_file(cfg, pre="cfg", logger=None):
     for key, val in cfg.items():
         if isinstance(cfg[key], EasyDict):
-            logger.info("\n%s.%s = edict()" % (pre, key))
+            logger.info("\n%s.%s = edict()", pre, key)
             log_config_to_file(cfg[key], pre=pre + "." + key, logger=logger)
             continue
-        logger.info("%s.%s: %s" % (pre, key, val))
+        logger.info("%s.%s: %s", pre, key, val)
 
 
 def cfg_from_list(cfg_list, config):
@@ -22,10 +22,10 @@ def cfg_from_list(cfg_list, config):
         key_list = k.split(".")
         d = config
         for subkey in key_list[:-1]:
-            assert subkey in d, "NotFoundKey: %s" % subkey
+            assert subkey in d, f"NotFoundKey: {subkey}"
             d = d[subkey]
         subkey = key_list[-1]
-        assert subkey in d, "NotFoundKey: %s" % subkey
+        assert subkey in d, f"NotFoundKey: {subkey}"
         try:
             value = literal_eval(v)
         except:

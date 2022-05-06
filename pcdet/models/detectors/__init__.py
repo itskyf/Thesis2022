@@ -1,5 +1,7 @@
 from .caddn import CaDDN
 from .centerpoint import CenterPoint
+from .ct3d import CT3D
+from .ct3d_3cat import CT3D_3CAT
 from .detector3d_template import Detector3DTemplate
 from .parta2_net import PartA2Net
 from .point_rcnn import PointRCNN
@@ -15,6 +17,8 @@ from .voxel_rcnn import VoxelRCNN
 __all__ = {
     "CaDDN": CaDDN,
     "CenterPoint": CenterPoint,
+    "CT3D_3CAT": CT3D_3CAT,
+    "CT3D": CT3D,
     "Detector3DTemplate": Detector3DTemplate,
     "PartA2Net": PartA2Net,
     "PointPillar": PointPillar,
@@ -31,6 +35,4 @@ __all__ = {
 
 
 def build_detector(model_cfg, num_class, dataset):
-    model = __all__[model_cfg.NAME](model_cfg=model_cfg, num_class=num_class, dataset=dataset)
-
-    return model
+    return __all__[model_cfg.NAME](model_cfg=model_cfg, num_class=num_class, dataset=dataset)
