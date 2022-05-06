@@ -1,13 +1,18 @@
 import torch
 from torch import nn
-from ...ops.pointnet2.pointnet2_stack import voxel_pool_modules as voxelpool_stack_modules
+
+from ...ops.pointnet2.pointnet2_stack import (
+    voxel_pool_modules as voxelpool_stack_modules,
+)
 from ...utils import common_utils
-from .roi_head_template import RoIHeadTemplate
 from ..model_utils.attention_utils import TransformerEncoder, get_positional_encoder
+from .roi_head_template import RoIHeadTemplate
 
 
 class VoxelRCNNHead(RoIHeadTemplate):
-    def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
+    def __init__(
+        self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs
+    ):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.pool_cfg = model_cfg.ROI_GRID_POOL
@@ -33,28 +38,29 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
             c_out += sum([x[-1] for x in mlps])
 
-
         GRID_SIZE = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         # c_out = sum([x[-1] for x in mlps])
 
-        assert self.pool_cfg.ATTENTION.NUM_FEATURES == c_out, f'ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}.'
+        assert (
+            self.pool_cfg.ATTENTION.NUM_FEATURES == c_out
+        ), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
         pos_encoder = get_positional_encoder(self.pool_cfg)
         self.attention_head = TransformerEncoder(self.pool_cfg.ATTENTION, pos_encoder)
         for p in self.attention_head.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform_(p)
 
-        
-
         pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
 
         shared_fc_list = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-            shared_fc_list.extend([
-                nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
-                nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-                nn.ReLU(inplace=True)
-            ])
+            shared_fc_list.extend(
+                [
+                    nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
+                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
+                    nn.ReLU(inplace=True),
+                ]
+            )
             pre_channel = self.model_cfg.SHARED_FC[k]
 
             if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
@@ -63,11 +69,13 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
         cls_fc_list = []
         for k in range(0, self.model_cfg.CLS_FC.__len__()):
-            cls_fc_list.extend([
-                nn.Linear(pre_channel, self.model_cfg.CLS_FC[k], bias=False),
-                nn.BatchNorm1d(self.model_cfg.CLS_FC[k]),
-                nn.ReLU()
-            ])
+            cls_fc_list.extend(
+                [
+                    nn.Linear(pre_channel, self.model_cfg.CLS_FC[k], bias=False),
+                    nn.BatchNorm1d(self.model_cfg.CLS_FC[k]),
+                    nn.ReLU(),
+                ]
+            )
             pre_channel = self.model_cfg.CLS_FC[k]
 
             if k != self.model_cfg.CLS_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
@@ -82,17 +90,21 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
         reg_fc_list = []
         for k in range(0, self.model_cfg.REG_FC.__len__()):
-            reg_fc_list.extend([
-                nn.Linear(pre_channel, self.model_cfg.REG_FC[k], bias=False),
-                nn.BatchNorm1d(self.model_cfg.REG_FC[k]),
-                nn.ReLU()
-            ])
+            reg_fc_list.extend(
+                [
+                    nn.Linear(pre_channel, self.model_cfg.REG_FC[k], bias=False),
+                    nn.BatchNorm1d(self.model_cfg.REG_FC[k]),
+                    nn.ReLU(),
+                ]
+            )
             pre_channel = self.model_cfg.REG_FC[k]
 
             if k != self.model_cfg.REG_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
                 reg_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
         self.reg_fc_layers = nn.Sequential(*reg_fc_list)
-        self.reg_pred_layer = nn.Linear(pre_channel, self.box_coder.code_size * self.num_class, bias=True)
+        self.reg_pred_layer = nn.Linear(
+            pre_channel, self.box_coder.code_size * self.num_class, bias=True
+        )
 
         self.init_weights()
 
@@ -132,9 +144,9 @@ class VoxelRCNNHead(RoIHeadTemplate):
         Returns:
 
         """
-        rois = batch_dict['rois']
-        batch_size = batch_dict['batch_size']
-        with_vf_transform = batch_dict.get('with_voxel_feature_transform', False)
+        rois = batch_dict["rois"]
+        batch_size = batch_dict["batch_size"]
+        with_vf_transform = batch_dict.get("with_voxel_feature_transform", False)
 
         roi_grid_xyz, local_roi_grid_points = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
@@ -143,11 +155,19 @@ class VoxelRCNNHead(RoIHeadTemplate):
         roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)
 
         # compute the voxel coordinates of grid points
-        roi_grid_coords_x = (roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0]) // self.voxel_size[0]
-        roi_grid_coords_y = (roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1]) // self.voxel_size[1]
-        roi_grid_coords_z = (roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2]) // self.voxel_size[2]
+        roi_grid_coords_x = (
+            roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0]
+        ) // self.voxel_size[0]
+        roi_grid_coords_y = (
+            roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1]
+        ) // self.voxel_size[1]
+        roi_grid_coords_z = (
+            roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2]
+        ) // self.voxel_size[2]
         # roi_grid_coords: (B, Nx6x6x6, 3)
-        roi_grid_coords = torch.cat([roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=-1)
+        roi_grid_coords = torch.cat(
+            [roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=-1
+        )
 
         batch_idx = rois.new_zeros(batch_size, roi_grid_coords.shape[1], 1)
         for bs_idx in range(batch_size):
@@ -160,13 +180,13 @@ class VoxelRCNNHead(RoIHeadTemplate):
         pooled_features_list = []
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
             pool_layer = self.roi_grid_pool_layers[k]
-            cur_stride = batch_dict['multi_scale_3d_strides'][src_name]
-            cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
+            cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
+            cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
 
             if with_vf_transform:
-                cur_sp_tensors = batch_dict['multi_scale_3d_features_post'][src_name]
+                cur_sp_tensors = batch_dict["multi_scale_3d_features_post"][src_name]
             else:
-                cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
+                cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
 
             # compute voxel center xyz and batch_cnt
             cur_coords = cur_sp_tensors.indices
@@ -174,7 +194,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 cur_coords[:, 1:4],
                 downsample_times=cur_stride,
                 voxel_size=self.voxel_size,
-                point_cloud_range=self.point_cloud_range
+                point_cloud_range=self.point_cloud_range,
             )
             cur_voxel_xyz_batch_cnt = cur_voxel_xyz.new_zeros(batch_size).int()
             for bs_idx in range(batch_size):
@@ -193,12 +213,11 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 new_xyz_batch_cnt=roi_grid_batch_cnt,
                 new_coords=cur_roi_grid_coords.contiguous().view(-1, 4),
                 features=cur_sp_tensors.features.contiguous(),
-                voxel2point_indices=v2p_ind_tensor
+                voxel2point_indices=v2p_ind_tensor,
             )
 
             pooled_features = pooled_features.view(
-                -1, self.pool_cfg.GRID_SIZE ** 3,
-                pooled_features.shape[-1]
+                -1, self.pool_cfg.GRID_SIZE**3, pooled_features.shape[-1]
             )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
 
@@ -206,12 +225,13 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
         return ms_pooled_features, local_roi_grid_points
 
-
     def get_global_grid_points_of_roi(self, rois, grid_size):
         rois = rois.view(-1, rois.shape[-1])
         batch_size_rcnn = rois.shape[0]
 
-        local_roi_grid_points = self.get_dense_grid_points(rois, batch_size_rcnn, grid_size)  # (B, 6x6x6, 3)
+        local_roi_grid_points = self.get_dense_grid_points(
+            rois, batch_size_rcnn, grid_size
+        )  # (B, 6x6x6, 3)
         global_roi_grid_points = common_utils.rotate_points_along_z(
             local_roi_grid_points.clone(), rois[:, 6]
         ).squeeze(dim=1)
@@ -226,13 +246,14 @@ class VoxelRCNNHead(RoIHeadTemplate):
         dense_idx = dense_idx.repeat(batch_size_rcnn, 1, 1).float()  # (B, 6x6x6, 3)
 
         local_roi_size = rois.view(batch_size_rcnn, -1)[:, 3:6]
-        roi_grid_points = (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) \
-                          - (local_roi_size.unsqueeze(dim=1) / 2)  # (B, 6x6x6, 3)
+        roi_grid_points = (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) - (
+            local_roi_size.unsqueeze(dim=1) / 2
+        )  # (B, 6x6x6, 3)
         return roi_grid_points
 
     def get_positional_input(self, local_roi_grid_points):
         # TODO: Add more positional input here.
-        if self.pool_cfg.ATTENTION.POSITIONAL_ENCODER == 'grid_points':
+        if self.pool_cfg.ATTENTION.POSITIONAL_ENCODER == "grid_points":
             positional_input = local_roi_grid_points
         # elif self.pool_cfg.ATTENTION.POSITIONAL_ENCODER == 'density':
         #     positional_input = points_per_part
@@ -249,12 +270,12 @@ class VoxelRCNNHead(RoIHeadTemplate):
         """
 
         targets_dict = self.proposal_layer(
-            batch_dict, nms_config=self.model_cfg.NMS_CONFIG['TRAIN' if self.training else 'TEST']
+            batch_dict, nms_config=self.model_cfg.NMS_CONFIG["TRAIN" if self.training else "TEST"]
         )
         if self.training:
             targets_dict = self.assign_targets(batch_dict)
-            batch_dict['rois'] = targets_dict['rois']
-            batch_dict['roi_labels'] = targets_dict['roi_labels']
+            batch_dict["rois"] = targets_dict["rois"]
+            batch_dict["roi_labels"] = targets_dict["roi_labels"]
 
         # RoI aware pooling
         pooled_features, local_roi_grid_points = self.roi_grid_pool(batch_dict)  # (BxN, 6x6x6, C)
@@ -262,18 +283,19 @@ class VoxelRCNNHead(RoIHeadTemplate):
         src_key_padding_mask = None
         # TODO
         # if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
-            # src_key_padding_mask = 
+        # src_key_padding_mask =
 
         # positional_input = self.get_positional_input(batch_dict['points'], )
         positional_input = local_roi_grid_points
         # Attention
-        attention_ouput = self.attention_head(pooled_features, positional_input, src_key_padding_mask)
+        attention_ouput = self.attention_head(
+            pooled_features, positional_input, src_key_padding_mask
+        )
 
-        if self.pool_cfg.ATTENTION.get('COMBINE'):
+        if self.pool_cfg.ATTENTION.get("COMBINE"):
             attention_ouput = pooled_features + attention_ouput
 
         # Permute
-
 
         # Box Refinement
         pooled_features = attention_ouput.view(pooled_features.size(0), -1)
@@ -292,14 +314,17 @@ class VoxelRCNNHead(RoIHeadTemplate):
 
         if not self.training:
             batch_cls_preds, batch_box_preds = self.generate_predicted_boxes(
-                batch_size=batch_dict['batch_size'], rois=batch_dict['rois'], cls_preds=rcnn_cls, box_preds=rcnn_reg
+                batch_size=batch_dict["batch_size"],
+                rois=batch_dict["rois"],
+                cls_preds=rcnn_cls,
+                box_preds=rcnn_reg,
             )
-            batch_dict['batch_cls_preds'] = batch_cls_preds
-            batch_dict['batch_box_preds'] = batch_box_preds
-            batch_dict['cls_preds_normalized'] = False
+            batch_dict["batch_cls_preds"] = batch_cls_preds
+            batch_dict["batch_box_preds"] = batch_box_preds
+            batch_dict["cls_preds_normalized"] = False
         else:
-            targets_dict['rcnn_cls'] = rcnn_cls
-            targets_dict['rcnn_reg'] = rcnn_reg
+            targets_dict["rcnn_cls"] = rcnn_cls
+            targets_dict["rcnn_reg"] = rcnn_reg
 
             self.forward_ret_dict = targets_dict
 
