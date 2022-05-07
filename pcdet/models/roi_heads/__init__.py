@@ -5,6 +5,7 @@ from .pvrcnn_head import PVRCNNHead
 from .roi_head_template import RoIHeadTemplate
 from .second_head import SECONDHead
 from .voxelrcnn_head import VoxelRCNNHead
+from .voxelrcnn_trans_head import VoxelRCNNHeadTrans
 
 __all__ = {
     "CT3DHead": CT3DHead,
@@ -14,4 +15,5 @@ __all__ = {
     "RoIHeadTemplate": RoIHeadTemplate,
     "SECONDHead": SECONDHead,
     "VoxelRCNNHead": VoxelRCNNHead,
+    "VoxelRCNNTrans": VoxelRCNNHeadTrans
 }
