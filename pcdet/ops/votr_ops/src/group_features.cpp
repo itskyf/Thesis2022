@@ -4,39 +4,37 @@ implementation of official PointNet++ codes. Written by Shaoshuai Shi All Rights
 Reserved 2019-2020.
 */
 
-#include "group_features_gpu.h"
 #include <cuda.h>
 #include <cuda_runtime_api.h>
 #include <torch/serialize/tensor.h>
+
 #include <vector>
 
-#define CHECK_CUDA(x)                                                          \
-  do {                                                                         \
-    if (!x.is_cuda()) {                                                 \
-      fprintf(stderr, "%s must be CUDA tensor at %s:%d\n", #x, __FILE__,       \
-              __LINE__);                                                       \
-      exit(-1);                                                                \
-    }                                                                          \
+#include "group_features_gpu.h"
+
+#define CHECK_CUDA(x)                                                               \
+  do {                                                                              \
+    if (!x.is_cuda()) {                                                             \
+      fprintf(stderr, "%s must be CUDA tensor at %s:%d\n", #x, __FILE__, __LINE__); \
+      exit(-1);                                                                     \
+    }                                                                               \
   } while (0)
-#define CHECK_CONTIGUOUS(x)                                                    \
-  do {                                                                         \
-    if (!x.is_contiguous()) {                                                  \
-      fprintf(stderr, "%s must be contiguous tensor at %s:%d\n", #x, __FILE__, \
-              __LINE__);                                                       \
-      exit(-1);                                                                \
-    }                                                                          \
+#define CHECK_CONTIGUOUS(x)                                                               \
+  do {                                                                                    \
+    if (!x.is_contiguous()) {                                                             \
+      fprintf(stderr, "%s must be contiguous tensor at %s:%d\n", #x, __FILE__, __LINE__); \
+      exit(-1);                                                                           \
+    }                                                                                     \
   } while (0)
-#define CHECK_INPUT(x)                                                         \
-  CHECK_CUDA(x);                                                               \
+#define CHECK_INPUT(x) \
+  CHECK_CUDA(x);       \
   CHECK_CONTIGUOUS(x)
 
 int group_features_grad_wrapper_stack(int B, int M, int C, int N, int nsample,
-                                      at::Tensor grad_out_tensor,
-                                      at::Tensor idx_tensor,
+                                      at::Tensor grad_out_tensor, at::Tensor idx_tensor,
                                       at::Tensor idx_batch_cnt_tensor,
                                       at::Tensor features_batch_cnt_tensor,
                                       at::Tensor grad_features_tensor) {
-
   CHECK_INPUT(grad_out_tensor);
   CHECK_INPUT(idx_tensor);
   CHECK_INPUT(idx_batch_cnt_tensor);
@@ -49,19 +47,14 @@ int group_features_grad_wrapper_stack(int B, int M, int C, int N, int nsample,
   const int *features_batch_cnt = features_batch_cnt_tensor.data_ptr<int>();
   float *grad_features = grad_features_tensor.data_ptr<float>();
 
-  group_features_grad_kernel_launcher_stack(B, M, C, N, nsample, grad_out, idx,
-                                            idx_batch_cnt, features_batch_cnt,
-                                            grad_features);
+  group_features_grad_kernel_launcher_stack(B, M, C, N, nsample, grad_out, idx, idx_batch_cnt,
+                                            features_batch_cnt, grad_features);
   return 1;
 }
 
-int group_features_wrapper_stack(int B, int M, int C, int nsample,
-                                 at::Tensor features_tensor,
-                                 at::Tensor features_batch_cnt_tensor,
-                                 at::Tensor idx_tensor,
-                                 at::Tensor idx_batch_cnt_tensor,
-                                 at::Tensor out_tensor) {
-
+int group_features_wrapper_stack(int B, int M, int C, int nsample, at::Tensor features_tensor,
+                                 at::Tensor features_batch_cnt_tensor, at::Tensor idx_tensor,
+                                 at::Tensor idx_batch_cnt_tensor, at::Tensor out_tensor) {
   CHECK_INPUT(features_tensor);
   CHECK_INPUT(features_batch_cnt_tensor);
   CHECK_INPUT(idx_tensor);
@@ -74,7 +67,7 @@ int group_features_wrapper_stack(int B, int M, int C, int nsample,
   const int *idx_batch_cnt = idx_batch_cnt_tensor.data_ptr<int>();
   float *out = out_tensor.data_ptr<float>();
 
-  group_features_kernel_launcher_stack(
-      B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, out);
+  group_features_kernel_launcher_stack(B, M, C, nsample, features, features_batch_cnt, idx,
+                                       idx_batch_cnt, out);
   return 1;
 }

@@ -17,7 +17,7 @@ All Rights Reserved 2020.
 
 #define CHECK_CUDA(x)                                                               \
   do {                                                                              \
-    if (!x.is_cuda()) {                                                      \
+    if (!x.is_cuda()) {                                                             \
       fprintf(stderr, "%s must be CUDA tensor at %s:%d\n", #x, __FILE__, __LINE__); \
       exit(-1);                                                                     \
     }                                                                               \
