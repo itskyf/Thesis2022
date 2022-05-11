@@ -19,7 +19,7 @@ if __name__ == "__main__":
         commit_short_hash = (
             subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
         )
-    except subprocess.CalledProcessError:
+    except FileNotFoundError:
         print("Not found latest commit hash, fallback to", commit_short_hash)
     with Path("pcdet/__init__.py").open("w", encoding="utf-8") as ver_file:
         ver_file.write(f'__version__ = "0.5.2+{commit_short_hash}"')
