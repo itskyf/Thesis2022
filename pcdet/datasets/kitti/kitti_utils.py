@@ -1,9 +1,13 @@
+from typing import Dict
+
 import numpy as np
 
 from ...utils import box_utils
 
 
-def transform_annotations_to_kitti_format(annos, map_name_to_kitti=None, info_with_fakelidar=False):
+def transform_annotations_to_kitti_format(
+    annos, map_name_to_kitti: Dict[str, str], info_with_fakelidar=False
+):
     """
     Args:
         annos:

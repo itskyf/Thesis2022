@@ -1,5 +1,5 @@
 import torch
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 
 from . import votr_ops_cuda as votr
 
@@ -16,8 +16,9 @@ class BuildTensorTable(Function):
         x_max, y_max, z_max = spatial_shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        dense_map = torch.zeros((batch_size, x_max, y_max, z_max)).int().fill_(-1)
-        dense_map = dense_map.to(voxel_indices.device)
+        dense_map = torch.full(
+            (batch_size, x_max, y_max, z_max), -1, dtype=torch.int, device=voxel_indices.device
+        )
 
         votr.build_mapping_with_tensor_wrapper(
             x_max, y_max, z_max, num_voxels, voxel_indices, v_bs_cnt, dense_map
@@ -44,8 +45,9 @@ class BuildHashTable(Function):
         x_max, y_max, z_max = spatial_shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        dense_map = torch.zeros((batch_size, hash_size, 2)).int().fill_(-1)
-        dense_map = dense_map.to(voxel_indices.device)
+        dense_map = torch.full(
+            (batch_size, hash_size, 2), -1, dtype=torch.int, device=voxel_indices.device
+        )
 
         votr.build_mapping_with_hash_wrapper(
             x_max, y_max, z_max, num_voxels, hash_size, voxel_indices, v_bs_cnt, dense_map
@@ -71,14 +73,15 @@ class TensorDownSample(Function):
         """
         x_stride, y_stride, z_stride = strides
         x_max, y_max, z_max = spatial_shape
-        dense_map = torch.zeros((batch_size, x_max, y_max, z_max)).int().fill_(-1)
-        dense_map = dense_map.to(voxel_indices.device)
+        dense_map = torch.full(
+            (batch_size, x_max, y_max, z_max), -1, dtype=torch.int, device=voxel_indices.device
+        )
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        ds_voxel_indices = (
-            torch.zeros((batch_size, num_ds_voxels, 3)).int().fill_(-1).to(voxel_indices.device)
+        ds_voxel_indices = torch.full(
+            (batch_size, num_ds_voxels, 3), -1, dtype=torch.int, device=voxel_indices.device
         )
-        vcount = torch.zeros(batch_size).int().to(voxel_indices.device)
+        vcount = torch.zeros(batch_size, dtype=torch.int, device=voxel_indices.device)
         votr.downsample_with_tensor_wrapper(
             x_max,
             y_max,
@@ -97,7 +100,9 @@ class TensorDownSample(Function):
         for i in range(batch_size):
             ds_voxel = ds_voxel_indices[i]
             ds_voxel = ds_voxel[ds_voxel[:, 0] >= 0]  # not -1
-            bs_idx = torch.zeros((ds_voxel.shape[0], 1)).int().fill_(i).to(voxel_indices.device)
+            bs_idx = torch.full(
+                (ds_voxel.shape[0], 1), i, dtype=torch.int, device=voxel_indices.device
+            )
             ds_voxel = torch.cat([bs_idx, ds_voxel], dim=1)
             ds_voxel_list.append(ds_voxel)
 
@@ -123,14 +128,15 @@ class HashTableDownSample(Function):
         """
         x_stride, y_stride, z_stride = strides
         x_max, y_max, z_max = spatial_shape
-        dense_map = torch.zeros((batch_size, hash_size, 2)).int().fill_(-1)
-        dense_map = dense_map.to(voxel_indices.device)
+        dense_map = torch.full(
+            (batch_size, hash_size, 2), -1, dtype=torch.int, device=voxel_indices.device
+        )
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        ds_voxel_indices = (
-            torch.zeros((batch_size, num_ds_voxels, 3)).int().fill_(-1).to(voxel_indices.device)
+        ds_voxel_indices = torch.full(
+            (batch_size, num_ds_voxels, 3), -1, dtype=torch.int, device=voxel_indices.device
         )
-        vcount = torch.zeros(batch_size).int().to(voxel_indices.device)
+        vcount = torch.zeros(batch_size, dtype=torch.int, device=voxel_indices.device)
         votr.downsample_with_hash_wrapper(
             x_max,
             y_max,
@@ -150,7 +156,9 @@ class HashTableDownSample(Function):
         for i in range(batch_size):
             ds_voxel = ds_voxel_indices[i]
             ds_voxel = ds_voxel[ds_voxel[:, 0] >= 0]  # not -1
-            bs_idx = torch.zeros((ds_voxel.shape[0], 1)).int().fill_(i).to(voxel_indices.device)
+            bs_idx = torch.full(
+                (ds_voxel.shape[0], 1), i, dtype=torch.int, device=voxel_indices.device
+            )
             ds_voxel = torch.cat([bs_idx, ds_voxel], dim=1)
             ds_voxel_list.append(ds_voxel)
 
@@ -180,8 +188,8 @@ class SparseLocalAttentionTensorIndices(Function):
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
 
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.sparse_local_attention_with_tensor_wrapper(
@@ -224,8 +232,8 @@ class SparseLocalAttentionHashIndices(Function):
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
 
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.sparse_local_attention_with_hash_wrapper(
@@ -264,13 +272,13 @@ class SparseStridedAttentionTensorIndices(Function):
         Returns:
         """
         x_stride, y_stride, z_stride = strides
-        batch_size, x_max, y_max, z_max = dense_map.shape
+        _, x_max, y_max, z_max = dense_map.shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        range_spec = torch.tensor(range_spec).int().to(voxel_indices.device)
+        range_spec = torch.tensor(range_spec, dtype=torch.int, device=voxel_indices.device)
         num_range = range_spec.shape[0]
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.sparse_strided_attention_with_tensor_wrapper(
@@ -313,10 +321,10 @@ class SparseStridedAttentionHashIndices(Function):
         batch_size, hash_size, _ = dense_map.shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        range_spec = torch.tensor(range_spec).int().to(voxel_indices.device)
+        range_spec = torch.tensor(range_spec, dtype=torch.int, device=voxel_indices.device)
         num_range = range_spec.shape[0]
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.sparse_strided_attention_with_hash_wrapper(
@@ -359,8 +367,8 @@ class SubMLocalAttentionTensorIndices(Function):
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
 
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.subm_local_attention_with_tensor_wrapper(
@@ -399,8 +407,8 @@ class SubMLocalAttentionHashIndices(Function):
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
 
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.subm_local_attention_with_hash_wrapper(
@@ -437,10 +445,10 @@ class SubMStridedAttentionTensorIndices(Function):
         batch_size, x_max, y_max, z_max = dense_map.shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        range_spec = torch.tensor(range_spec).int().to(voxel_indices.device)
+        range_spec = torch.tensor(range_spec, dtype=torch.int, device=voxel_indices.device)
         num_range = range_spec.shape[0]
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.subm_strided_attention_with_tensor_wrapper(
@@ -475,13 +483,13 @@ class SubMStridedAttentionHashIndices(Function):
         Returns:
         """
         x_max, y_max, z_max = spatial_shape
-        batch_size, hash_size, _ = dense_map.shape
+        _, hash_size, _ = dense_map.shape
         num_voxels = voxel_indices.shape[0]
         assert voxel_indices.is_contiguous()
-        range_spec = torch.tensor(range_spec).int().to(voxel_indices.device)
+        range_spec = torch.tensor(range_spec, dtype=torch.int, device=voxel_indices.device)
         num_range = range_spec.shape[0]
-        attend_indices = (
-            torch.zeros((num_voxels, attend_size)).int().fill_(-1).to(voxel_indices.device)
+        attend_indices = torch.full(
+            (num_voxels, attend_size), -1, dtype=torch.int, device=voxel_indices.device
         )
 
         votr.subm_strided_attention_with_hash_wrapper(
@@ -534,22 +542,21 @@ class GroupingOperation(Function):
 
         assert (
             features.shape[0] == features_batch_cnt.sum()
-        ), "features: %s, features_batch_cnt: %s" % (str(features.shape), str(features_batch_cnt))
-        assert idx.shape[0] == idx_batch_cnt.sum(), "idx: %s, idx_batch_cnt: %s" % (
-            str(idx.shape),
-            str(idx_batch_cnt),
-        )
+        ), f"features: {features.shape}, features_batch_cnt: {features_batch_cnt}"
+        assert (
+            idx.shape[0] == idx_batch_cnt.sum()
+        ), f"idx: {idx.shape}, idx_batch_cnt: {idx_batch_cnt}"
 
-        M, nsample = idx.size()
-        N, C = features.size()
-        B = idx_batch_cnt.shape[0]
-        output = torch.cuda.FloatTensor(M, C, nsample).zero_()
+        m, nsample = idx.size()
+        n, c = features.size()
+        b = idx_batch_cnt.shape[0]
+        output = torch.zeros((m, c, nsample), dtype=torch.float, device=torch.device("cuda"))
 
         votr.group_features_wrapper(
-            B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output
+            b, m, c, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output
         )
 
-        ctx.for_backwards = (B, N, idx, features_batch_cnt, idx_batch_cnt)
+        ctx.for_backwards = (b, n, idx, features_batch_cnt, idx_batch_cnt)
         return output
 
     @staticmethod
@@ -562,17 +569,19 @@ class GroupingOperation(Function):
         Returns:
             grad_features: (N1 + N2 ..., C) gradient of the features
         """
-        B, N, idx, features_batch_cnt, idx_batch_cnt = ctx.for_backwards
+        b, n, idx, features_batch_cnt, idx_batch_cnt = ctx.for_backwards
 
-        M, C, nsample = grad_out.size()
-        grad_features = Variable(torch.cuda.FloatTensor(N, C).zero_())
+        m, c, nsample = grad_out.size()
+        grad_features = torch.zeros(
+            (n, c), dtype=torch.float, device=torch.device("cuda"), requires_grad=True
+        )
 
         grad_out_data = grad_out.data.contiguous()
         votr.group_features_grad_wrapper(
-            B,
-            M,
-            C,
-            N,
+            b,
+            m,
+            c,
+            n,
             nsample,
             grad_out_data,
             idx,

@@ -1,5 +1,7 @@
+import itertools
+
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.votr_ops import votr_utils
 
@@ -20,7 +22,7 @@ def scatter_nd(indices, updates, shape):
     return ret
 
 
-class SparseTensor(object):
+class SparseTensor:
     def __init__(
         self,
         features,
@@ -41,7 +43,7 @@ class SparseTensor(object):
         self.point_cloud_range = point_cloud_range
         self.hash_size = hash_size
         self.gather_dict = gather_dict
-        self.map_table = self.build_map_table() if not map_table else map_table
+        self.map_table = map_table if map_table else self.build_map_table()
 
     @torch.no_grad()
     def build_map_table(self):
@@ -49,14 +51,13 @@ class SparseTensor(object):
         for i in range(self.batch_size):
             bs_cnt[i] = (self.indices[:, 0] == i).sum().item()
         bs_cnt = bs_cnt.to(self.indices.device)
-        map_table = votr_utils.build_hash_table(
+        return votr_utils.build_hash_table(
             self.batch_size,
             self.hash_size,
             self.spatial_shape,
             self.indices,
             bs_cnt,
         )
-        return map_table
 
     def dense(self, channels_first=True):
         reverse_spatial_shape = self.spatial_shape[::-1]  # (ZYX)
@@ -74,7 +75,7 @@ class Attention3d(nn.Module):
     def __init__(
         self, input_channels, output_channels, ff_channels, dropout, num_heads, attention_modes
     ):
-        super(Attention3d, self).__init__()
+        super().__init__()
         self.attention_modes = attention_modes
 
         self.mhead_attention = nn.MultiheadAttention(
@@ -98,18 +99,16 @@ class Attention3d(nn.Module):
 
     @torch.no_grad()
     def with_bs_cnt(self, indices, batch_size):
-        bs_cnt = torch.zeros(batch_size).int()
+        bs_cnt = torch.zeros(batch_size, dtype=torch.int)
         for i in range(batch_size):
             bs_cnt[i] = (indices[:, 0] == i).sum().item()
-        bs_cnt = bs_cnt.to(indices.device)
-        return bs_cnt
+        return bs_cnt.to(indices.device)
 
     @torch.no_grad()
     def with_coords(self, indices, point_cloud_range, voxel_size):
         voxel_size = torch.tensor(voxel_size).unsqueeze(0).to(indices.device)
         min_range = torch.tensor(point_cloud_range[0:3]).unsqueeze(0).to(indices.device)
-        coords = (indices[:, [3, 2, 1]].float() + 0.5) * voxel_size + min_range
-        return coords
+        return (indices[:, [3, 2, 1]].float() + 0.5) * voxel_size + min_range
 
     def forward(self, sp_tensor):
         raise NotImplementedError
@@ -130,7 +129,7 @@ class SparseAttention3d(Attention3d):
         use_pooled_feature=False,
         use_no_query_coords=False,
     ):
-        super(SparseAttention3d, self).__init__(
+        super().__init__(
             input_channels, output_channels, ff_channels, dropout, num_heads, attention_modes
         )
 
@@ -206,7 +205,7 @@ class SparseAttention3d(Attention3d):
         k_bs_cnt = self.with_bs_cnt(new_indices, sp_tensor.batch_size)
 
         a_key_indices, a_key_mask = [], []
-        for attention_idx, attetion_mode in enumerate(self.attention_modes):
+        for attetion_mode in self.attention_modes:
             key_indices, key_mask = gather_dict[attetion_mode.NAME]
             a_key_indices.append(key_indices)
             a_key_mask.append(key_mask)
@@ -282,7 +281,7 @@ class SubMAttention3d(Attention3d):
         use_relative_coords=False,
         use_no_query_coords=False,
     ):
-        super(SubMAttention3d, self).__init__(
+        super().__init__(
             input_channels, output_channels, ff_channels, dropout, num_heads, attention_modes
         )
 
@@ -342,7 +341,7 @@ class SubMAttention3d(Attention3d):
         k_bs_cnt = v_bs_cnt.clone()
 
         a_key_indices, a_key_mask = [], []
-        for attention_idx, attetion_mode in enumerate(self.attention_modes):
+        for attetion_mode in self.attention_modes:
             key_indices, key_mask = sp_tensor.gather_dict[attetion_mode.NAME]
             a_key_indices.append(key_indices)
             a_key_mask.append(key_mask)
@@ -367,9 +366,7 @@ class SubMAttention3d(Attention3d):
             key_pos_emb = self.k_pos_proj(key_coords)
             key_features = key_features + key_pos_emb
 
-            if self.use_no_query_coords:
-                pass
-            else:
+            if not self.use_no_query_coords:
                 query_pos_emb = self.q_pos_proj(voxel_coords).unsqueeze(0)
                 query_features = query_features + query_pos_emb
 
@@ -388,8 +385,7 @@ class SubMAttention3d(Attention3d):
         act_features = self.linear2(self.dropout1(self.activation(self.linear1(voxel_features))))
         voxel_features = voxel_features + self.dropout2(act_features)
         voxel_features = self.norm2(voxel_features)
-        voxel_features = self.output_layer(voxel_features)
-        sp_tensor.features = voxel_features
+        sp_tensor.features = self.output_layer(voxel_features)
         return sp_tensor
 
 
@@ -401,7 +397,7 @@ class AttentionResBlock(nn.Module):
         use_pooled_feature=False,
         use_no_query_coords=False,
     ):
-        super(AttentionResBlock, self).__init__()
+        super().__init__()
         sp_cfg = model_cfg.SP_CFGS
         self.sp_attention = SparseAttention3d(
             input_channels=sp_cfg.CHANNELS[0],
@@ -417,9 +413,8 @@ class AttentionResBlock(nn.Module):
             use_no_query_coords=use_no_query_coords,
         )
         subm_cfg = model_cfg.SUBM_CFGS
-        self.subm_attention_modules = nn.ModuleList()
-        for i in range(subm_cfg.NUM_BLOCKS):
-            self.subm_attention_modules.append(
+        self.subm_attention_modules = nn.ModuleList(
+            itertools.repeat(
                 SubMAttention3d(
                     input_channels=subm_cfg.CHANNELS[0],
                     output_channels=subm_cfg.CHANNELS[2],
@@ -430,21 +425,23 @@ class AttentionResBlock(nn.Module):
                     use_pos_emb=subm_cfg.USE_POS_EMB,
                     use_relative_coords=use_relative_coords,
                     use_no_query_coords=use_no_query_coords,
-                )
+                ),
+                subm_cfg.NUM_BLOCKS,
             )
+        )
 
     def forward(self, sp_tensor):
         sp_tensor = self.sp_attention(sp_tensor)
         indentity_features = sp_tensor.features
         for subm_module in self.subm_attention_modules:
             sp_tensor = subm_module(sp_tensor)
-        sp_tensor.features += indentity_features
+        sp_tensor.features = sp_tensor.features + indentity_features
         return sp_tensor
 
 
 class VoxelTransformer(nn.Module):
     def __init__(self, model_cfg, input_channels, grid_size, voxel_size, point_cloud_range):
-        super(VoxelTransformer, self).__init__()
+        super().__init__()
         self.model_cfg = model_cfg
 
         self.use_relative_coords = self.model_cfg.get("USE_RELATIVE_COORDS", False)
@@ -732,7 +729,7 @@ class SubMAttention3dv2(Attention3d):
         use_no_query_coords=False,
         global_mode=None,
     ):
-        super(SubMAttention3dv2, self).__init__(
+        super().__init__(
             input_channels, output_channels, ff_channels, dropout, num_heads, attention_modes
         )
 
@@ -848,7 +845,7 @@ class SubMAttention3dv2(Attention3d):
         k_bs_cnt = v_bs_cnt.clone()
 
         a_key_indices, a_key_mask = [], []
-        for attention_idx, attetion_mode in enumerate(self.attention_modes):
+        for attetion_mode in self.attention_modes:
             key_indices, key_mask = sp_tensor.gather_dict[attetion_mode.NAME]
             a_key_indices.append(key_indices)
             a_key_mask.append(key_mask)
@@ -924,7 +921,7 @@ class AttentionResBlockv2(nn.Module):
         use_pooled_feature=False,
         use_no_query_coords=False,
     ):
-        super(AttentionResBlockv2, self).__init__()
+        super().__init__()
         sp_cfg = model_cfg.SP_CFGS
         self.sp_attention = SparseAttention3dv2(
             input_channels=sp_cfg.CHANNELS[0],
@@ -969,7 +966,7 @@ class AttentionResBlockv2(nn.Module):
 
 class VoxelTransformerV2(nn.Module):
     def __init__(self, model_cfg, input_channels, grid_size, voxel_size, point_cloud_range):
-        super(VoxelTransformerV2, self).__init__()
+        super().__init__()
         self.model_cfg = model_cfg
 
         self.use_relative_coords = self.model_cfg.get("USE_RELATIVE_COORDS", False)
@@ -1019,7 +1016,7 @@ class VoxelTransformerV2(nn.Module):
         return batch_dict
 
 
-class SparseConvTensor(object):
+class SparseConvTensor:
     def __init__(self, features, indices):
         self.features = features
         self.indices = indices
@@ -1027,7 +1024,7 @@ class SparseConvTensor(object):
 
 class VoxelTransformerV3(nn.Module):
     def __init__(self, model_cfg, input_channels, grid_size, voxel_size, point_cloud_range):
-        super(VoxelTransformerV3, self).__init__()
+        super().__init__()
         self.model_cfg = model_cfg
 
         self.use_relative_coords = self.model_cfg.get("USE_RELATIVE_COORDS", False)

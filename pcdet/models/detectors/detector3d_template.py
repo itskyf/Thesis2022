@@ -18,7 +18,7 @@ class Detector3DTemplate(nn.Module):
         self.num_class = num_class
         self.dataset = dataset
         self.class_names = dataset.class_names
-        self.register_buffer("global_step", torch.LongTensor(1).zero_())
+        self.register_buffer("global_step", torch.zeros((1,), dtype=torch.int64))
 
         self.module_topology = [
             "vfe",
