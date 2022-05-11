@@ -1,8 +1,6 @@
-from typing import List
-
 import torch
 import torch.nn as nn
-from torch.autograd import Function, Variable
+from torch.autograd import Function
 
 from . import pointnet2_stack_cuda as pointnet2
 from . import pointnet2_utils
@@ -36,16 +34,16 @@ class VoxelQuery(Function):
         assert new_coords.is_contiguous()
         assert point_indices.is_contiguous()
 
-        M = new_coords.shape[0]
-        B, Z, Y, X = point_indices.shape
-        idx = torch.cuda.IntTensor(M, nsample).zero_()
+        m = new_coords.shape[0]
+        _, z, y, x = point_indices.shape  # b z y x
+        idx = torch.zeros((m, nsample), dtype=torch.int, device=torch.device("cuda"))
 
         z_range, y_range, x_range = max_range
         pointnet2.voxel_query_wrapper(
-            M,
-            Z,
-            Y,
-            X,
+            m,
+            z,
+            y,
+            x,
             nsample,
             radius,
             z_range,

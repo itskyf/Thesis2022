@@ -4,7 +4,7 @@ from ....ops.iou3d_nms import iou3d_nms_utils
 from ....utils import common_utils
 
 
-class ATSSTargetAssigner(object):
+class ATSSTargetAssigner:
     """
     Reference: https://arxiv.org/abs/1912.02424
     """

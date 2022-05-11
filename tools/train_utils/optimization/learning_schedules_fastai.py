@@ -9,7 +9,7 @@ import torch.optim.lr_scheduler as lr_sched
 from .fastai_optim import OptimWrapper
 
 
-class LRSchedulerStep(object):
+class LRSchedulerStep:
     def __init__(self, fai_optimizer: OptimWrapper, total_step, lr_phases, mom_phases):
         # if not isinstance(fai_optimizer, OptimWrapper):
         #     raise TypeError('{} is not a fastai OptimWrapper'.format(

@@ -188,9 +188,9 @@ class WeightedCrossEntropyLoss(nn.Module):
     """
 
     def __init__(self):
-        super(WeightedCrossEntropyLoss, self).__init__()
+        super().__init__()
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+    def forward(self, x: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
         Args:
             input: (B, #anchors, #classes) float tensor.
@@ -204,10 +204,9 @@ class WeightedCrossEntropyLoss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted cross entropy loss without reduction
         """
-        input = input.permute(0, 2, 1)
+        x = x.permute(0, 2, 1)
         target = target.argmax(dim=-1)
-        loss = F.cross_entropy(input, target, reduction="none") * weights
-        return loss
+        return F.cross_entropy(x, target, reduction="none") * weights
 
 
 def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):

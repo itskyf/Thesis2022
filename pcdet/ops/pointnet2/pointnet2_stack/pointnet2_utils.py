@@ -34,12 +34,12 @@ class BallQuery(Function):
         assert xyz.is_contiguous()
         assert xyz_batch_cnt.is_contiguous()
 
-        B = xyz_batch_cnt.shape[0]
-        M = new_xyz.shape[0]
-        idx = torch.cuda.IntTensor(M, nsample).zero_()
+        b = xyz_batch_cnt.shape[0]
+        m = new_xyz.shape[0]
+        idx = torch.zeros((m, nsample), dtype=torch.int, device=torch.device("cuda"))
 
         pointnet2.ball_query_wrapper(
-            B, M, radius, nsample, new_xyz, new_xyz_batch_cnt, xyz, xyz_batch_cnt, idx
+            b, m, radius, nsample, new_xyz, new_xyz_batch_cnt, xyz, xyz_batch_cnt, idx
         )
         empty_ball_mask = idx[:, 0] == -1
         idx[empty_ball_mask] = 0
@@ -90,16 +90,16 @@ class GroupingOperation(Function):
             str(idx_batch_cnt),
         )
 
-        M, nsample = idx.size()
-        N, C = features.size()
-        B = idx_batch_cnt.shape[0]
-        output = torch.cuda.FloatTensor(M, C, nsample)
+        m, nsample = idx.size()
+        n, c = features.size()
+        b = idx_batch_cnt.shape[0]
+        output = torch.empty((m, c, nsample), dtype=torch.float, device=torch.device("cuda"))
 
         pointnet2.group_points_wrapper(
-            B, M, C, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output
+            b, m, c, nsample, features, features_batch_cnt, idx, idx_batch_cnt, output
         )
 
-        ctx.for_backwards = (B, N, idx, features_batch_cnt, idx_batch_cnt)
+        ctx.for_backwards = (b, n, idx, features_batch_cnt, idx_batch_cnt)
         return output
 
     @staticmethod
@@ -112,17 +112,18 @@ class GroupingOperation(Function):
         Returns:
             grad_features: (N1 + N2 ..., C) gradient of the features
         """
-        B, N, idx, features_batch_cnt, idx_batch_cnt = ctx.for_backwards
-
-        M, C, nsample = grad_out.size()
-        grad_features = Variable(torch.cuda.FloatTensor(N, C).zero_())
+        b, n, idx, features_batch_cnt, idx_batch_cnt = ctx.for_backwards
+        m, c, nsample = grad_out.size()
+        grad_features = torch.zeros(
+            (n, c), dtype=torch.float, device=torch.device("cuda"), requires_grad=True
+        )
 
         grad_out_data = grad_out.data.contiguous()
         pointnet2.group_points_grad_wrapper(
-            B,
-            M,
-            C,
-            N,
+            b,
+            m,
+            c,
+            n,
             nsample,
             grad_out_data,
             idx,
@@ -218,11 +219,12 @@ class FarthestPointSampling(Function):
         """
         assert xyz.is_contiguous()
 
-        B, N, _ = xyz.size()
-        output = torch.cuda.IntTensor(B, npoint)
-        temp = torch.cuda.FloatTensor(B, N).fill_(1e10)
+        b, n, _ = xyz.size()
+        cuda = torch.device("cuda")
+        output = torch.empty((b, npoint), dtype=torch.int, device=cuda)
+        temp = torch.full((b, n), 1e10, dtype=torch.float, device=cuda)
 
-        pointnet2.farthest_point_sampling_wrapper(B, N, npoint, xyz, temp, output)
+        pointnet2.farthest_point_sampling_wrapper(b, n, npoint, xyz, temp, output)
         return output
 
     @staticmethod
@@ -252,12 +254,13 @@ class StackFarthestPointSampling(Function):
         batch_size = xyz_batch_cnt.__len__()
         if not isinstance(npoint, torch.Tensor):
             if not isinstance(npoint, list):
-                npoint = [npoint for i in range(batch_size)]
-            npoint = torch.tensor(npoint, device=xyz.device).int()
+                npoint = [npoint for _ in range(batch_size)]  # TODO convert to itertools
+            npoint = torch.tensor(npoint, dtype=torch.int, device=xyz.device)
 
-        N, _ = xyz.size()
-        temp = torch.cuda.FloatTensor(N).fill_(1e10)
-        output = torch.cuda.IntTensor(npoint.sum().item())
+        n, _ = xyz.size()
+        cuda = torch.device("cuda")
+        temp = torch.full((n,), 1e10, dtype=torch.float, device=cuda)
+        output = torch.tensor(npoint.sum().item(), dtype=torch.int, device=cuda)
 
         pointnet2.stack_farthest_point_sampling_wrapper(xyz, temp, xyz_batch_cnt, output, npoint)
         return output

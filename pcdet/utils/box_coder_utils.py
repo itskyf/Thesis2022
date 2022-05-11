@@ -2,7 +2,7 @@ import numpy as np
 import torch
 
 
-class ResidualCoder(object):
+class ResidualCoder:
     def __init__(self, code_size=7, encode_angle_by_sincos=False, **kwargs):
         super().__init__()
         self.code_size = code_size
@@ -77,7 +77,7 @@ class ResidualCoder(object):
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)
 
 
-class PreviousResidualDecoder(object):
+class PreviousResidualDecoder:
     def __init__(self, code_size=7, **kwargs):
         super().__init__()
         self.code_size = code_size
@@ -109,7 +109,7 @@ class PreviousResidualDecoder(object):
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)
 
 
-class PreviousResidualRoIDecoder(object):
+class PreviousResidualRoIDecoder:
     def __init__(self, code_size=7, **kwargs):
         super().__init__()
         self.code_size = code_size
@@ -141,7 +141,7 @@ class PreviousResidualRoIDecoder(object):
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)
 
 
-class PointResidualCoder(object):
+class PointResidualCoder:
     def __init__(self, code_size=8, use_mean_size=True, **kwargs):
         super().__init__()
         self.code_size = code_size

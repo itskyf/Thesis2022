@@ -1,7 +1,7 @@
 import torch
 
 
-class AnchorGenerator(object):
+class AnchorGenerator:
     def __init__(self, anchor_range, anchor_generator_config):
         super().__init__()
         self.anchor_generator_cfg = anchor_generator_config

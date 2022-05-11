@@ -5,7 +5,7 @@ from ....ops.iou3d_nms import iou3d_nms_utils
 from ....utils import box_utils
 
 
-class AxisAlignedTargetAssigner(object):
+class AxisAlignedTargetAssigner:
     def __init__(self, model_cfg, class_names, box_coder, match_height=False):
         super().__init__()
 

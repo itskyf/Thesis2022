@@ -98,7 +98,7 @@ class ProposalTargetLayer(nn.Module):
         batch_roi_ious = rois.new_zeros(batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE)
         batch_roi_scores = rois.new_zeros(batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE)
         batch_roi_labels = rois.new_zeros(
-            (batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE), dtype=torch.long
+            (batch_size, self.roi_sampler_cfg.ROI_PER_IMAGE), dtype=torch.int64
         )
 
         for index in range(batch_size):

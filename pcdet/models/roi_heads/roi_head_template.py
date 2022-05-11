@@ -76,7 +76,7 @@ class RoIHeadTemplate(nn.Module):
         )
         roi_scores = batch_box_preds.new_zeros((batch_size, nms_config.NMS_POST_MAXSIZE))
         roi_labels = batch_box_preds.new_zeros(
-            (batch_size, nms_config.NMS_POST_MAXSIZE), dtype=torch.long
+            (batch_size, nms_config.NMS_POST_MAXSIZE), dtype=torch.int64
         )
 
         for index in range(batch_size):

@@ -63,7 +63,7 @@ class VoxelGeneratorWrapper:
             else:
                 voxels, coordinates, num_points = voxel_output
         else:
-            assert tv is not None, f"Unexpected error, library: 'cumm' wasn't imported properly."
+            assert tv is not None, "Unexpected error, library: 'cumm' wasn't imported properly."
             voxel_output = self._voxel_generator.point_to_voxel(tv.from_numpy(points))
             tv_voxels, tv_coordinates, tv_num_points = voxel_output
             # make copy with numpy(), since numpy_view() will disappear as soon as the generator is deleted
@@ -73,7 +73,7 @@ class VoxelGeneratorWrapper:
         return voxels, coordinates, num_points
 
 
-class DataProcessor(object):
+class DataProcessor:
     def __init__(self, processor_configs, point_cloud_range, training, num_point_features):
         self.point_cloud_range = point_cloud_range
         self.training = training

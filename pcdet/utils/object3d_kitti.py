@@ -15,7 +15,7 @@ def cls_type_to_id(cls_type):
     return type_to_id[cls_type]
 
 
-class Object3d(object):
+class Object3d:
     def __init__(self, line):
         label = line.strip().split(" ")
         self.src = line

@@ -22,7 +22,7 @@ def get_calib_from_file(calib_file):
     }
 
 
-class Calibration(object):
+class Calibration:
     def __init__(self, calib_file):
         if not isinstance(calib_file, dict):
             calib = get_calib_from_file(calib_file)

@@ -6,7 +6,7 @@ from ...utils import common_utils
 from . import augmentor_utils, database_sampler
 
 
-class DataAugmentor(object):
+class DataAugmentor:
     def __init__(self, root_path, augmentor_configs, class_names, logger=None):
         self.root_path = root_path
         self.class_names = class_names
@@ -20,9 +20,11 @@ class DataAugmentor(object):
         )
 
         for cur_cfg in aug_config_list:
-            if not isinstance(augmentor_configs, list):
-                if cur_cfg.NAME in augmentor_configs.DISABLE_AUG_LIST:
-                    continue
+            if (
+                not isinstance(augmentor_configs, list)
+                and cur_cfg.NAME in augmentor_configs.DISABLE_AUG_LIST
+            ):
+                continue
             cur_augmentor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
             self.data_augmentor_queue.append(cur_augmentor)
 
