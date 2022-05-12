@@ -1,12 +1,14 @@
 ---
 name: OpenPCDet
 channels:
+  - pyg
   - pytorch
   - conda-forge
 dependencies:
   - cudatoolkit=11.3
   - cudatoolkit-dev=11.3
   - pip
+  - python=3.8
   - pytorch
   - wget
   # spconv requirements
@@ -18,7 +20,9 @@ dependencies:
   # OpenPCDet requirements
   - easydict
   - gxx=10
+  - kornia
   - numba
+  - pytorch-scatter
   - scikit-image
   - sharedarray
   - tensorboardx

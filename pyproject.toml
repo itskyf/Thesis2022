@@ -1,5 +1,5 @@
 [build-system]
-requires = ['setuptools>=61']
+requires = ['setuptools>=61', 'wheel']
 build-backend = 'setuptools.build_meta'
 
 [project]
@@ -16,13 +16,12 @@ dependencies = [
   'scikit-image',
   'SharedArray',
   'tensorboardX',
-  'torch',
   'tqdm',
 ]
 dynamic = ['version']
 
-[tool.setuptools]
-packages = ['pcdet']
+[tool.setuptools.package-dir]
+pcdet = 'pcdet'
 
 [tool.setuptools.dynamic]
 version = { attr = 'pcdet.__version__' }
