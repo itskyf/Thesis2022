@@ -3,8 +3,8 @@ import os
 import time
 
 import torch
+import torch.nn.utils
 import tqdm
-from torch.nn.utils import clip_grad_norm_
 
 from pcdet.utils import common_utils, commu_utils
 
@@ -66,7 +66,7 @@ def train_one_epoch(
         cur_forward_time = forward_timer - data_timer
 
         loss.backward()
-        clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
 
         accumulated_iter += 1
@@ -165,7 +165,6 @@ def train_model(
             # save trained model
             trained_epoch = cur_epoch + 1
             if trained_epoch % ckpt_save_interval == 0 and rank == 0:
-
                 ckpt_list = glob.glob(str(ckpt_save_dir / "checkpoint_epoch_*.pth"))
                 ckpt_list.sort(key=os.path.getmtime)
 
@@ -173,10 +172,10 @@ def train_model(
                     for cur_file_idx in range(0, len(ckpt_list) - max_ckpt_save_num + 1):
                         os.remove(ckpt_list[cur_file_idx])
 
-                ckpt_name = ckpt_save_dir / ("checkpoint_epoch_%d" % trained_epoch)
-                save_checkpoint(
+                ckpt_name = ckpt_save_dir / f"checkpoint_epoch_{trained_epoch}"
+                torch.save(
                     checkpoint_state(model, optimizer, trained_epoch, accumulated_iter),
-                    filename=ckpt_name,
+                    f"{ckpt_name}.pth",
                 )
 
 
@@ -201,7 +200,7 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
         import pcdet
 
         version = "pcdet+" + pcdet.__version__
-    except:
+    except ModuleNotFoundError:
         version = "none"
 
     return {
@@ -211,14 +210,3 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
         "optimizer_state": optim_state,
         "version": version,
     }
-
-
-def save_checkpoint(state, filename="checkpoint"):
-    if False and "optimizer_state" in state:
-        optimizer_state = state["optimizer_state"]
-        state.pop("optimizer_state", None)
-        optimizer_filename = "{}_optim.pth".format(filename)
-        torch.save({"optimizer_state": optimizer_state}, optimizer_filename)
-
-    filename = "{}.pth".format(filename)
-    torch.save(state, filename)

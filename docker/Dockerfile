@@ -18,7 +18,7 @@ ARG MAMBA_DOCKERFILE_ACTIVATE=1
 RUN --mount=target=/tmp/context,source=. \
 	install -m755 /tmp/context/start.sh ~ &&\
 	chmod a+rwx,g-rwx,o-rwx ~ &&\
-	micromamba install -y --channel conda-forge openssh tmux &&\
+	micromamba install -y --channel conda-forge gdown openssh tmux unzip &&\
 	ssh-keygen -N "" -t ed25519 -f /opt/conda/etc/ssh_host_ed25519_key &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
 	micromamba clean -y --all

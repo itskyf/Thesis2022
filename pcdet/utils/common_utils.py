@@ -8,6 +8,7 @@ import subprocess
 import numpy as np
 import SharedArray
 import torch
+import torch.backends.cudnn
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
@@ -150,7 +151,7 @@ def init_dist_slurm(tcp_port, local_rank, backend="nccl"):
     node_list = os.environ["SLURM_NODELIST"]
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput("scontrol show hostname {} | head -n1".format(node_list))
+    addr = subprocess.getoutput(f"scontrol show hostname {node_list} | head -n1")
     os.environ["MASTER_PORT"] = str(tcp_port)
     os.environ["MASTER_ADDR"] = addr
     os.environ["WORLD_SIZE"] = str(ntasks)
@@ -181,14 +182,7 @@ def init_dist_pytorch(tcp_port, local_rank, backend="nccl"):
 
 
 def get_dist_info(return_gpu_per_machine=False):
-    if torch.__version__ < "1.0":
-        initialized = dist._initialized
-    else:
-        if dist.is_available():
-            initialized = dist.is_initialized()
-        else:
-            initialized = False
-    if initialized:
+    if dist.is_available() and dist.is_initialized():
         rank = dist.get_rank()
         world_size = dist.get_world_size()
     else:
@@ -207,7 +201,7 @@ def merge_results_dist(result_part, size, tmpdir):
     os.makedirs(tmpdir, exist_ok=True)
 
     dist.barrier()
-    pickle.dump(result_part, open(os.path.join(tmpdir, "result_part_{}.pkl".format(rank)), "wb"))
+    pickle.dump(result_part, open(os.path.join(tmpdir, f"result_part_{rank}.pkl"), "wb"))
     dist.barrier()
 
     if rank != 0:
