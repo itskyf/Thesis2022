@@ -132,7 +132,7 @@ MODEL:
           POOL_RADIUS: [1.6]
           NSAMPLE: [16]
           POOL_METHOD: max_pool
-      ATEENTION:
+      ATTENTION:
         NUM_FEATURES: 128
         NUM_HEADS: 1
         NUM_HIDDEN_FEATURES: 128
