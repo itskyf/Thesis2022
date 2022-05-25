@@ -2,15 +2,16 @@ import copy
 import pickle
 
 import numpy as np
-from skimage import io
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
-from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
-from ..dataset import DatasetTemplate
+from ...utils import box_utils, common_utils
+from ..idataset import IDataset
 from . import kitti_utils
+from .calibration import Calibration
+from .object3d import get_objects_from_label
 
 
-class KittiDataset(DatasetTemplate):
+class KittiDataset(IDataset):
     def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
         """
         Args:
@@ -100,7 +101,7 @@ class KittiDataset(DatasetTemplate):
     def get_label(self, idx):
         label_file = self.root_split_path / "label_2" / ("%s.txt" % idx)
         assert label_file.exists()
-        return object3d_kitti.get_objects_from_label(label_file)
+        return get_objects_from_label(label_file)
 
     def get_depth_map(self, idx):
         """
@@ -118,9 +119,9 @@ class KittiDataset(DatasetTemplate):
         return depth
 
     def get_calib(self, idx):
-        calib_file = self.root_split_path / "calib" / ("%s.txt" % idx)
-        assert calib_file.exists()
-        return calibration_kitti.Calibration(calib_file)
+        calib_path = self.root_split_path / "calib" / ("%s.txt" % idx)
+        assert calib_path.exists()
+        return Calibration(calib_path)
 
     def get_road_plane(self, idx):
         plane_file = self.root_split_path / "planes" / ("%s.txt" % idx)
