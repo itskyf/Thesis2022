@@ -1,13 +1,7 @@
 import torch
 import torch.nn as nn
-
-try:
-    from kornia.geometry.linalg import transform_points
-    from kornia.utils.grid import create_meshgrid3d
-except Exception as e:
-    # Note: Kornia team will fix this import issue to try to allow the usage of lower torch versions.
-    # print('Warning: kornia is not installed correctly, please ignore this warning if you do not use CaDDN. Otherwise, it is recommended to use torch version greater than 1.2 to use kornia properly.')
-    pass
+from kornia.geometry.linalg import transform_points
+from kornia.utils.grid import create_meshgrid3d
 
 from pcdet.utils import transform_utils
 
@@ -22,15 +16,6 @@ class FrustumGridGenerator(nn.Module):
             disc_cfg: EasyDict, Depth discretiziation configuration
         """
         super().__init__()
-        try:
-            import kornia
-        except Exception as e:
-            # Note: Kornia team will fix this import issue to try to allow the usage of lower torch versions.
-            print(
-                "Error: kornia is not installed correctly, please ignore this warning if you do not use CaDDN. "
-                "Otherwise, it is recommended to use torch version greater than 1.2 to use kornia properly."
-            )
-            exit(-1)
 
         self.dtype = torch.float32
         self.grid_size = torch.as_tensor(grid_size, dtype=self.dtype)

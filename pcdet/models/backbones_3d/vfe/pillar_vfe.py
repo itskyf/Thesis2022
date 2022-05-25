@@ -1,8 +1,9 @@
 import torch
+import torch.backends.cudnn
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn import functional
 
-from .vfe_template import VFETemplate
+from .vfe_interface import IVoxelFE
 
 
 class PFNLayer(nn.Module):
@@ -36,7 +37,7 @@ class PFNLayer(nn.Module):
         torch.backends.cudnn.enabled = False
         x = self.norm(x.permute(0, 2, 1)).permute(0, 2, 1) if self.use_norm else x
         torch.backends.cudnn.enabled = True
-        x = F.relu(x)
+        x = functional.relu(x)
         x_max = torch.max(x, dim=1, keepdim=True)[0]
 
         if self.last_vfe:
@@ -47,7 +48,7 @@ class PFNLayer(nn.Module):
             return x_concatenated
 
 
-class PillarVFE(VFETemplate):
+class PillarVFE(IVoxelFE):
     def __init__(self, model_cfg, num_point_features, voxel_size, point_cloud_range, **kwargs):
         super().__init__(model_cfg=model_cfg)
 

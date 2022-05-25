@@ -1,5 +1,5 @@
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn import functional
 
 from pcdet.models.model_utils.basic_block_2d import BasicBlock2D
 
@@ -83,7 +83,7 @@ class DepthFFN(nn.Module):
         depth_logits = depth_logits.unsqueeze(channel_dim)
 
         # Apply softmax along depth axis and remove last depth category (> Max Range)
-        depth_probs = F.softmax(depth_logits, dim=depth_dim)
+        depth_probs = functional.softmax(depth_logits, dim=depth_dim)
         depth_probs = depth_probs[:, :, :-1]
 
         # Multiply to form image depth feature volume

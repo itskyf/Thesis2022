@@ -1,6 +1,5 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from torch.nn import functional
 
 
 class Sampler(nn.Module):
@@ -25,7 +24,4 @@ class Sampler(nn.Module):
             output_features: (B, C, X, Y, Z) Output voxel features
         """
         # Sample from grid
-        output = F.grid_sample(
-            input=input_features, grid=grid, mode=self.mode, padding_mode=self.padding_mode
-        )
-        return output
+        return functional.grid_sample(input_features, grid, self.mode, self.padding_mode)

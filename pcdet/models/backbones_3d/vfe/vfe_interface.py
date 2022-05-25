@@ -1,7 +1,7 @@
 import torch.nn as nn
 
 
-class VFETemplate(nn.Module):
+class IVoxelFE(nn.Module):
     def __init__(self, model_cfg, **kwargs):
         super().__init__()
         self.model_cfg = model_cfg
