@@ -2,7 +2,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import numpy as np
-import torch.utils.data as torch_data
+from torch.utils.data import Dataset
 
 from ..utils import common_utils
 from .augmentor.data_augmentor import DataAugmentor
@@ -10,7 +10,7 @@ from .processor.data_processor import DataProcessor
 from .processor.point_feature_encoder import PointFeatureEncoder
 
 
-class DatasetTemplate(torch_data.Dataset):
+class IDataset(Dataset):
     def __init__(
         self, dataset_cfg=None, class_names=None, training=True, root_path=None, logger=None
     ):
@@ -169,7 +169,7 @@ class DatasetTemplate(torch_data.Dataset):
         return data_dict
 
     @staticmethod
-    def collate_batch(batch_list, _unused=False):
+    def collate_batch(batch_list):
         data_dict = defaultdict(list)
         for cur_sample in batch_list:
             for key, val in cur_sample.items():
