@@ -1,4 +1,3 @@
-import torch
 import torch.nn as nn
 
 from .frustum_grid_generator import FrustumGridGenerator

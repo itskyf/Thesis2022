@@ -1,9 +1,9 @@
 import torch
 
-from .vfe_template import VFETemplate
+from .vfe_interface import IVoxelFE
 
 
-class MeanVFE(VFETemplate):
+class MeanVFE(IVoxelFE):
     def __init__(self, model_cfg, num_point_features, **kwargs):
         super().__init__(model_cfg=model_cfg)
         self.num_point_features = num_point_features

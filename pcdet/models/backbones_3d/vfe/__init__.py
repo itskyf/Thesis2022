@@ -3,13 +3,13 @@ from .dynamic_pillar_vfe import DynamicPillarVFE
 from .image_vfe import ImageVFE
 from .mean_vfe import MeanVFE
 from .pillar_vfe import PillarVFE
-from .vfe_template import VFETemplate
+from .vfe_interface import IVoxelFE
 
-__all__ = {
-    "VFETemplate": VFETemplate,
-    "MeanVFE": MeanVFE,
-    "PillarVFE": PillarVFE,
-    "ImageVFE": ImageVFE,
-    "DynMeanVFE": DynamicMeanVFE,
-    "DynPillarVFE": DynamicPillarVFE,
-}
+__all__ = [
+    "IVoxelFE",
+    "DynamicMeanVFE",
+    "DynamicPillarVFE",
+    "ImageVFE",
+    "MeanVFE",
+    "PillarVFE",
+]

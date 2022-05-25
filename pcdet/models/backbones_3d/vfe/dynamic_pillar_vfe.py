@@ -1,14 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
-try:
-    import torch_scatter
-except Exception as e:
-    # Incase someone doesn't want to use dynamic pillar vfe and hasn't installed torch_scatter
-    pass
-
-from .vfe_template import VFETemplate
+from .vfe_interface import IVoxelFE
 
 
 class PFNLayerV2(nn.Module):
@@ -42,7 +35,7 @@ class PFNLayerV2(nn.Module):
             return x_concatenated
 
 
-class DynamicPillarVFE(VFETemplate):
+class DynamicPillarVFE(IVoxelFE):
     def __init__(
         self, model_cfg, num_point_features, voxel_size, grid_size, point_cloud_range, **kwargs
     ):

@@ -2,10 +2,10 @@ import torch
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ..model_utils.model_nms_utils import class_agnostic_nms
-from .detector3d_template import Detector3DTemplate
+from .detector3d_interface import IDetector3D
 
 
-class SECONDNetIoU(Detector3DTemplate):
+class SECONDNetIoU(IDetector3D):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
         self.module_list = self.build_networks()

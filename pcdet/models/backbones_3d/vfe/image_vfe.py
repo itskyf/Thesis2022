@@ -1,10 +1,8 @@
-import torch
-
 from .image_vfe_modules import f2v, ffn
-from .vfe_template import VFETemplate
+from .vfe_interface import IVoxelFE
 
 
-class ImageVFE(VFETemplate):
+class ImageVFE(IVoxelFE):
     def __init__(self, model_cfg, grid_size, point_cloud_range, depth_downsample_factor, **kwargs):
         super().__init__(model_cfg=model_cfg)
         self.grid_size = grid_size

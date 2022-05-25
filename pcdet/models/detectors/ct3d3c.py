@@ -1,10 +1,10 @@
 import torch
 
 from ..model_utils import model_nms_utils
-from .detector3d_template import Detector3DTemplate
+from .detector3d_interface import IDetector3D
 
 
-class CT3D_3CAT(Detector3DTemplate):
+class CT3D3C(IDetector3D):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
         self.module_list = self.build_networks()

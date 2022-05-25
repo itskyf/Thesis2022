@@ -3,14 +3,9 @@ from pathlib import Path
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
+from kornia.enhance.normalize import normalize
 from torch import hub
-
-try:
-    from kornia.enhance.normalize import normalize
-except:
-    pass
-    # print('Warning: kornia is not installed. This package is only required by CaDDN')
+from torch.nn import functional
 
 
 class DDNTemplate(nn.Module):
@@ -136,14 +131,14 @@ class DDNTemplate(nn.Module):
         # Prediction classification logits
         x = features["out"]
         x = self.model.classifier(x)
-        x = F.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
+        x = functional.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
         result["logits"] = x
 
         # Prediction auxillary classification logits
         if self.model.aux_classifier is not None:
             x = features["aux"]
             x = self.model.aux_classifier(x)
-            x = F.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
+            x = functional.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
             result["aux"] = x
 
         return result
@@ -166,5 +161,4 @@ class DDNTemplate(nn.Module):
 
             # Make padded pixels = 0
             x[mask] = 0
-
         return x

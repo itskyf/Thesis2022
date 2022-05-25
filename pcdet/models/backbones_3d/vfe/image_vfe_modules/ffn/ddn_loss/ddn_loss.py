@@ -1,15 +1,10 @@
 import torch
 import torch.nn as nn
+from kornia.losses.focal import FocalLoss
 
 from pcdet.utils import transform_utils
 
 from .balancer import Balancer
-
-try:
-    from kornia.losses.focal import FocalLoss
-except:
-    pass
-    # print('Warning: kornia is not installed. This package is only required by CaDDN')
 
 
 class DDNLoss(nn.Module):
