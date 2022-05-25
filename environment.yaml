@@ -1,14 +1,12 @@
 ---
-name: OpenPCDet
+name: Thesis
 channels:
-  - pyg
   - pytorch
   - conda-forge
 dependencies:
   - cudatoolkit=11.3
   - cudatoolkit-dev=11.3
   - pip
-  - python=3.8
   - pytorch
   - wget
   # spconv requirements
@@ -16,22 +14,20 @@ dependencies:
   - lark
   - portalocker
   - pybind11
-  - requests
   # OpenPCDet requirements
-  - easydict
   - gxx=10
+  - hydra-core
   - kornia
+  - mayavi
   - numba
-  - pytorch-scatter
-  - scikit-image
+  - scipy
   - sharedarray
-  - tensorboardx
+  - tensorboard
   - tqdm
   # Linter
   - autoflake
   - black
   - clang-tools
-  - cmake-format
   - cppcheck
   - debugpy
   - flake8-bugbear
@@ -48,6 +44,5 @@ dependencies:
   - pep8-naming
   - yamllint
   - pip:
-      - open3d  # Visualize
       - pyproject-flake8
       - spconv-cu113
