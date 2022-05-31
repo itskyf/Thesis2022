@@ -30,7 +30,7 @@ DATA_CONFIG:
               WORLD_SCALE_RANGE: [0.95, 1.05]
 
 MODEL:
-    NAME: PVRCNN
+    NAME: VoxelRCNNTrans
 
     VFE:
         NAME: MeanVFE
@@ -113,7 +113,6 @@ MODEL:
       NAME: VoxelRCNNHeadTrans
       CLASS_AGNOSTIC: True
 
-      SHARED_FC: [256, 256]
       CLS_FC: [256, 256]
       REG_FC: [256, 256]
       DP_RATIO: 0.3
@@ -159,7 +158,7 @@ MODEL:
         NUM_FEATURES: 192
         NUM_HEADS: 1
         NUM_HIDDEN_FEATURES: 192
-        NUM_LAYERS: 1
+        NUM_LAYERS: 2
         POSITIONAL_ENCODER: grid_points
         DROPOUT: 0.1
         MASK_EMPTY_POINTS: True

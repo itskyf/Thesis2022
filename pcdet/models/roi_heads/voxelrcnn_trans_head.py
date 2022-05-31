@@ -50,20 +50,23 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
 
-        shared_fc_list = []
-        for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-            shared_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-                    nn.ReLU(inplace=True),
-                ]
-            )
-            pre_channel = self.model_cfg.SHARED_FC[k]
+        # shared_fc_list = []
+        # for k in range(0, self.model_cfg.SHARED_FC.__len__()):
+        #     shared_fc_list.extend(
+        #         [
+        #             nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
+        #             nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
+        #             nn.ReLU(inplace=True),
+        #         ]
+        #     )
+        #     pre_channel = self.model_cfg.SHARED_FC[k]
 
-            if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                shared_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.shared_fc_layer = nn.Sequential(*shared_fc_list)
+        #     if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
+        #         shared_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
+        # if len(shared_fc_list):
+        #     self.shared_fc_layer = nn.Sequential(*shared_fc_list)
+        # else:
+        #     self.shared_fc_layer = None
 
         cls_fc_list = []
         for k in range(0, self.model_cfg.CLS_FC.__len__()):
@@ -108,7 +111,8 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
     def init_weights(self):
         init_func = nn.init.xavier_normal_
-        for module_list in [self.shared_fc_layer, self.cls_fc_layers, self.reg_fc_layers]:
+        # for module_list in [self.shared_fc_layer, self.cls_fc_layers, self.reg_fc_layers]:
+        for module_list in [self.cls_fc_layers, self.reg_fc_layers]:
             for m in module_list.modules():
                 if isinstance(m, nn.Linear):
                     init_func(m.weight)
@@ -297,9 +301,9 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         # Box Refinement
         pooled_features = attention_ouput.view(pooled_features.size(0), -1)
-        shared_features = self.shared_fc_layer(pooled_features)
-        rcnn_cls = self.cls_pred_layer(self.cls_fc_layers(shared_features))
-        rcnn_reg = self.reg_pred_layer(self.reg_fc_layers(shared_features))
+        # pooled_features = self.shared_fc_layer(pooled_features)
+        rcnn_cls = self.cls_pred_layer(self.cls_fc_layers(pooled_features))
+        rcnn_reg = self.reg_pred_layer(self.reg_fc_layers(pooled_features))
 
         # grid_size = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         # batch_size_rcnn = pooled_features.shape[0]
