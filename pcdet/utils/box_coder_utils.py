@@ -1,16 +1,30 @@
+import abc
+
 import numpy as np
 import torch
 
 
-class ResidualCoder:
-    def __init__(self, code_size=7, encode_angle_by_sincos=False, **kwargs):
-        super().__init__()
+class IBoxCoder(abc.ABC):
+    def __init__(self, code_size: int):
         self.code_size = code_size
+
+    @abc.abstractmethod
+    def encode_torch(self, boxes: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+        ...
+
+    @abc.abstractmethod
+    def decode_torch(self, box_encodings: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
+        ...
+
+
+class ResidualCoder(IBoxCoder):
+    def __init__(self, code_size=7, encode_angle_by_sincos=False):
+        super().__init__(code_size)
         self.encode_angle_by_sincos = encode_angle_by_sincos
         if self.encode_angle_by_sincos:
             self.code_size += 1
 
-    def encode_torch(self, boxes, anchors):
+    def encode_torch(self, boxes: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
         """
         Args:
             boxes: (N, 7 + C) [x, y, z, dx, dy, dz, heading, ...]
@@ -32,6 +46,7 @@ class ResidualCoder:
         dxt = torch.log(dxg / dxa)
         dyt = torch.log(dyg / dya)
         dzt = torch.log(dzg / dza)
+
         if self.encode_angle_by_sincos:
             rt_cos = torch.cos(rg) - torch.cos(ra)
             rt_sin = torch.sin(rg) - torch.sin(ra)
@@ -42,20 +57,25 @@ class ResidualCoder:
         cts = [g - a for g, a in zip(cgs, cas)]
         return torch.cat([xt, yt, zt, dxt, dyt, dzt, *rts, *cts], dim=-1)
 
-    def decode_torch(self, box_encodings, anchors):
+    def decode_torch(self, box_encodings: torch.Tensor, anchors: torch.Tensor) -> torch.Tensor:
         """
         Args:
-            box_encodings: (B, N, 7 + C) or (N, 7 + C) [x, y, z, dx, dy, dz, heading or *[cos, sin], ...]
+            box_encodings: (B, N, 7 + C) or
+            (N, 7 + C) [x, y, z, dx, dy, dz, heading or *[cos, sin], ...]
             anchors: (B, N, 7 + C) or (N, 7 + C) [x, y, z, dx, dy, dz, heading, ...]
 
         Returns:
 
         """
         xa, ya, za, dxa, dya, dza, ra, *cas = torch.split(anchors, 1, dim=-1)
-        if not self.encode_angle_by_sincos:
-            xt, yt, zt, dxt, dyt, dzt, rt, *cts = torch.split(box_encodings, 1, dim=-1)
-        else:
+        if self.encode_angle_by_sincos:
             xt, yt, zt, dxt, dyt, dzt, cost, sint, *cts = torch.split(box_encodings, 1, dim=-1)
+            rg_cos = cost + torch.cos(ra)
+            rg_sin = sint + torch.sin(ra)
+            rg = torch.atan2(rg_sin, rg_cos)
+        else:
+            xt, yt, zt, dxt, dyt, dzt, rt, *cts = torch.split(box_encodings, 1, dim=-1)
+            rg = rt + ra
 
         diagonal = torch.sqrt(dxa**2 + dya**2)
         xg = xt * diagonal + xa
@@ -66,19 +86,12 @@ class ResidualCoder:
         dyg = torch.exp(dyt) * dya
         dzg = torch.exp(dzt) * dza
 
-        if self.encode_angle_by_sincos:
-            rg_cos = cost + torch.cos(ra)
-            rg_sin = sint + torch.sin(ra)
-            rg = torch.atan2(rg_sin, rg_cos)
-        else:
-            rg = rt + ra
-
         cgs = [t + a for t, a in zip(cts, cas)]
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)
 
 
 class PreviousResidualDecoder:
-    def __init__(self, code_size=7, **kwargs):
+    def __init__(self, code_size=7):
         super().__init__()
         self.code_size = code_size
 
@@ -110,7 +123,7 @@ class PreviousResidualDecoder:
 
 
 class PreviousResidualRoIDecoder:
-    def __init__(self, code_size=7, **kwargs):
+    def __init__(self, code_size=7):
         super().__init__()
         self.code_size = code_size
 
@@ -183,7 +196,7 @@ class PointResidualCoder:
             dyt = torch.log(dyg)
             dzt = torch.log(dzg)
 
-        cts = [g for g in cgs]
+        cts = list(cgs)
         return torch.cat([xt, yt, zt, dxt, dyt, dzt, torch.cos(rg), torch.sin(rg), *cts], dim=-1)
 
     def decode_torch(self, box_encodings, points, pred_classes=None):
@@ -218,5 +231,5 @@ class PointResidualCoder:
 
         rg = torch.atan2(sint, cost)
 
-        cgs = [t for t in cts]
+        cgs = list(cts)
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)

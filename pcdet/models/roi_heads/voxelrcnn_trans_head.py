@@ -1,16 +1,14 @@
 import torch
 from torch import nn
 
-from ...ops.pointnet2.pointnet2_stack import (
-    voxel_pool_modules as voxelpool_stack_modules,
-)
+from ...ops.pointnet2.pointnet2_stack import voxel_pool_modules
 from ...utils import common_utils
 from ..model_utils.attention_utils import TransformerEncoder, get_positional_encoder
-from .roi_head_template import RoIHeadTemplate
+from .roi_head_interface import IRoIHead
 
 
-class VoxelRCNNHeadTrans(RoIHeadTemplate):
-    def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
+class VoxelRCNNHeadTrans(IRoIHead):
+    def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.pool_cfg = model_cfg.ROI_GRID_POOL
@@ -24,7 +22,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
             mlps = LAYER_cfg[src_name].MLPS
             for k in range(len(mlps)):
                 mlps[k] = [backbone_channels[src_name]] + mlps[k]
-            pool_layer = voxelpool_stack_modules.NeighborVoxelSAModuleMSG(
+            pool_layer = voxel_pool_modules.NeighborVoxelSAModuleMSG(
                 query_ranges=LAYER_cfg[src_name].QUERY_RANGES,
                 nsamples=LAYER_cfg[src_name].NSAMPLE,
                 radii=LAYER_cfg[src_name].POOL_RADIUS,
@@ -280,7 +278,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         src_key_padding_mask = None
         # TODO
-        if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
+        if self.pool_cfg.ATTENTION.get("MASK_EMPTY_POINTS"):
             src_key_padding_mask = (pooled_features == 0).all(-1)
 
         # positional_input = self.get_positional_input(batch_dict['points'], )

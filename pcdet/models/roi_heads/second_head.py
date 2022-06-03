@@ -1,11 +1,11 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...utils import common_utils, loss_utils
-from .roi_head_template import RoIHeadTemplate
+from .roi_head_interface import IRoIHead
 
 
-class SECONDHead(RoIHeadTemplate):
+class SECONDHead(IRoIHead):
     def __init__(self, input_channels, model_cfg, num_class=1, **kwargs):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg

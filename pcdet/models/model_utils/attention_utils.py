@@ -136,7 +136,7 @@ class FrequencyPositionalEncoding3d(nn.Module):
         Returns:
             point_features: (b, xyz, f)
         """
-        assert len(point_features.shape) == 3
+        assert point_features.dim() == 3
         num_points = point_features.shape[1]
         num_features = point_features.shape[2]
         if grid_size == None:

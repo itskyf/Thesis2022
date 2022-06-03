@@ -3,7 +3,7 @@ import torch
 from torch import nn
 
 from ..backbones_2d import BaseBEVBackbone
-from .anchor_head_template import AnchorHeadTemplate
+from .anchor_head_interface import IAnchorHead
 
 
 class SingleHead(BaseBEVBackbone):
@@ -110,14 +110,6 @@ class SingleHead(BaseBEVBackbone):
                 input_channels, self.num_anchors_per_location * self.code_size, kernel_size=1
             )
 
-        if self.model_cfg.get("USE_DIRECTION_CLASSIFIER", None) is not None:
-            self.conv_dir_cls = nn.Conv2d(
-                input_channels,
-                self.num_anchors_per_location * self.model_cfg.NUM_DIR_BINS,
-                kernel_size=1,
-            )
-        else:
-            self.conv_dir_cls = None
         self.use_multihead = self.model_cfg.get("USE_MULTIHEAD", False)
         self.init_weights()
 
@@ -187,7 +179,7 @@ class SingleHead(BaseBEVBackbone):
         return ret_dict
 
 
-class AnchorHeadMulti(AnchorHeadTemplate):
+class AnchorHeadMulti(IAnchorHead):
     def __init__(
         self,
         model_cfg,
@@ -310,7 +302,7 @@ class AnchorHeadMulti(AnchorHeadTemplate):
 
         return data_dict
 
-    def get_cls_layer_loss(self):
+    def get_classification_loss(self):
         loss_weights = self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS
         if "pos_cls_weight" in loss_weights:
             pos_cls_weight = loss_weights["pos_cls_weight"]
@@ -372,7 +364,7 @@ class AnchorHeadMulti(AnchorHeadTemplate):
         tb_dict = {"rpn_loss_cls": cls_losses.item()}
         return cls_losses, tb_dict
 
-    def get_box_reg_layer_loss(self):
+    def get_box_regression_loss(self):
         box_preds = self.forward_ret_dict["box_preds"]
         box_dir_cls_preds = self.forward_ret_dict.get("dir_cls_preds", None)
         box_reg_targets = self.forward_ret_dict["box_reg_targets"]

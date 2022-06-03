@@ -1,86 +1,85 @@
+import math
+from dataclasses import dataclass
+from typing import List
+
 import numpy as np
-import torch.nn as nn
+import numpy.typing as npt
+import torch
+from torch import nn
 
-from .anchor_head_template import AnchorHeadTemplate
+from ...utils.box_coder_utils import IBoxCoder
+from .anchor_head_interface import IAnchorHead, LossWeight
+from .target_assigner import AnchorConf
 
 
-class AnchorHeadSingle(AnchorHeadTemplate):
+@dataclass
+class AnchorHeadSingleOut:
+    batch_cls_preds: torch.Tensor
+    batch_box_preds: torch.Tensor
+    cls_preds_normalized: bool
+
+
+class AnchorHeadSingle(IAnchorHead):
     def __init__(
         self,
-        model_cfg,
-        input_channels,
-        num_class,
-        class_names,
-        grid_size,
-        point_cloud_range,
-        predict_boxes_when_training=True,
-        **kwargs
+        in_channels: int,
+        dir_offset: float,
+        dir_limit_offset: float,
+        loss_weights: LossWeight,
+        num_class: int,
+        num_dir_bins: int,
+        box_coder: IBoxCoder,
+        target_assigner_partial,  # TODO typing
+        anchor_range: List[int],
+        anchor_cfgs: List[AnchorConf],
+        use_direction_classifier: bool,
+        predict_boxes_when_training: bool,
+        grid_size: npt.NDArray[np.int32],
+        reg_loss: nn.Module,
     ):
         super().__init__(
-            model_cfg=model_cfg,
-            num_class=num_class,
-            class_names=class_names,
-            grid_size=grid_size,
-            point_cloud_range=point_cloud_range,
-            predict_boxes_when_training=predict_boxes_when_training,
+            in_channels,
+            dir_offset,
+            dir_limit_offset,
+            loss_weights,
+            num_class,
+            num_dir_bins,
+            box_coder,
+            target_assigner_partial,  # TODO typing
+            anchor_range,
+            anchor_cfgs,
+            use_direction_classifier,
+            grid_size,
+            reg_loss,
         )
-
-        self.num_anchors_per_location = sum(self.num_anchors_per_location)
-
+        self.predict_boxes_when_training = predict_boxes_when_training
         self.conv_cls = nn.Conv2d(
-            input_channels, self.num_anchors_per_location * self.num_class, kernel_size=1
+            in_channels, self.num_anchors_per_location * self.num_class, kernel_size=1
         )
         self.conv_box = nn.Conv2d(
-            input_channels, self.num_anchors_per_location * self.box_coder.code_size, kernel_size=1
+            in_channels, self.num_anchors_per_location * self.box_coder.code_size, kernel_size=1
         )
 
-        if self.model_cfg.get("USE_DIRECTION_CLASSIFIER", None) is not None:
-            self.conv_dir_cls = nn.Conv2d(
-                input_channels,
-                self.num_anchors_per_location * self.model_cfg.NUM_DIR_BINS,
-                kernel_size=1,
-            )
-        else:
-            self.conv_dir_cls = None
-        self.init_weights()
-
-    def init_weights(self):
-        pi = 0.01
-        nn.init.constant_(self.conv_cls.bias, -np.log((1 - pi) / pi))
+        eps = 0.01
+        if self.conv_cls.bias is not None:
+            nn.init.constant_(self.conv_cls.bias, -math.log((1 - eps) / eps))
         nn.init.normal_(self.conv_box.weight, mean=0, std=0.001)
 
-    def forward(self, data_dict):
-        spatial_features_2d = data_dict["spatial_features_2d"]
-
-        cls_preds = self.conv_cls(spatial_features_2d)
-        box_preds = self.conv_box(spatial_features_2d)
-
-        cls_preds = cls_preds.permute(0, 2, 3, 1).contiguous()  # [N, H, W, C]
-        box_preds = box_preds.permute(0, 2, 3, 1).contiguous()  # [N, H, W, C]
-
-        self.forward_ret_dict["cls_preds"] = cls_preds
-        self.forward_ret_dict["box_preds"] = box_preds
+    def forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
+        # [N, H, W, C]
+        cls_preds = self.conv_cls(spatial_features_2d).permute(0, 2, 3, 1).contiguous()
+        box_preds = self.conv_box(spatial_features_2d).permute(0, 2, 3, 1).contiguous()
+        self.fw_data.cls_preds = cls_preds
+        self.fw_data.box_preds = box_preds
 
         if self.conv_dir_cls is not None:
             dir_cls_preds = self.conv_dir_cls(spatial_features_2d)
-            dir_cls_preds = dir_cls_preds.permute(0, 2, 3, 1).contiguous()
-            self.forward_ret_dict["dir_cls_preds"] = dir_cls_preds
+            self.fw_data.dir_cls_preds = dir_cls_preds.permute(0, 2, 3, 1).contiguous()
         else:
             dir_cls_preds = None
 
-        if self.training:
-            targets_dict = self.assign_targets(gt_boxes=data_dict["gt_boxes"])
-            self.forward_ret_dict.update(targets_dict)
-
         if not self.training or self.predict_boxes_when_training:
             batch_cls_preds, batch_box_preds = self.generate_predicted_boxes(
-                batch_size=data_dict["batch_size"],
-                cls_preds=cls_preds,
-                box_preds=box_preds,
-                dir_cls_preds=dir_cls_preds,
+                batch_size, cls_preds, box_preds, dir_cls_preds
             )
-            data_dict["batch_cls_preds"] = batch_cls_preds
-            data_dict["batch_box_preds"] = batch_box_preds
-            data_dict["cls_preds_normalized"] = False
-
-        return data_dict
+            return AnchorHeadSingleOut(batch_cls_preds, batch_box_preds, False)

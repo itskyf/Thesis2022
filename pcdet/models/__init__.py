@@ -1,6 +1,6 @@
 from collections import namedtuple
 
-import kornia
+import kornia.utils
 import numpy as np
 import torch
 
@@ -10,6 +10,7 @@ from .detectors import (
     PVRCNN,
     CaDDN,
     CenterPoint,
+    IDetector3D,
     PartA2Net,
     PointPillar,
     PointRCNN,
@@ -26,6 +27,7 @@ __all__ = [
     "CenterPoint",
     "CT3D",
     "CT3D3C",
+    "IDetector3D",
     "PartA2Net",
     "PointPillar",
     "PointRCNN",
@@ -44,7 +46,7 @@ def load_data_to_gpu(batch_dict):
         if not isinstance(val, np.ndarray) or key in ["frame_id", "metadata", "calib"]:
             continue
         elif key in ["images"]:
-            batch_dict[key] = kornia.image_to_tensor(val).float().cuda().contiguous()
+            batch_dict[key] = kornia.utils.image_to_tensor(val).float().cuda().contiguous()
         elif key in ["image_shape"]:
             batch_dict[key] = torch.from_numpy(val).int().cuda()
         else:

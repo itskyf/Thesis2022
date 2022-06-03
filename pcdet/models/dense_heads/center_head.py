@@ -351,7 +351,7 @@ class CenterHead(nn.Module):
                     selected, selected_scores = model_nms_utils.class_agnostic_nms(
                         box_scores=final_dict["pred_scores"],
                         box_preds=final_dict["pred_boxes"],
-                        nms_config=post_process_cfg.NMS_CONFIG,
+                        nms_cfg=post_process_cfg.NMS_CONFIG,
                         score_thresh=None,
                     )
 

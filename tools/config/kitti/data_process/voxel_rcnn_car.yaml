@@ -1,0 +1,29 @@
+# @package _global_
+---
+class_names: [Car]
+batch_size: 2
+epochs: 40
+dataset:
+  augmentor_cfg:
+    - name: gt_sampling
+      path: ${dataset.path}
+      class_names: ${class_names}
+      use_road_plane: false
+      db_info_name: kitti_dbinfos_train.pkl
+      prepare:
+        filter_by_min_points: [Car:5]
+        filter_by_difficulty: [-1]
+      sample_groups: [Car:15]
+      num_point_features: 4
+      database_with_fakelidar: false
+      remove_extra_width: [0.0, 0.0, 0.0]
+      limit_whole_scene: false
+
+    - name: random_world_flip
+      along_axis_list: [x]
+
+    - name: random_world_rotation
+      world_rot_angle: [-0.78539816, 0.78539816]
+
+    - name: random_world_scaling
+      world_scale_range: [0.95, 1.05]

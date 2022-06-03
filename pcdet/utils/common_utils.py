@@ -3,17 +3,17 @@ import os
 import pickle
 import random
 import shutil
-import subprocess
 
 import numpy as np
 import SharedArray
+import spconv.pytorch as spconv
 import torch
 import torch.backends.cudnn
 import torch.distributed as dist
-import torch.multiprocessing as mp
 
 
 def check_numpy_to_torch(x):
+    # TODO necessary?
     if isinstance(x, np.ndarray):
         return torch.from_numpy(x).float(), True
     return x, False
@@ -136,66 +136,6 @@ def keep_arrays_by_name(gt_names, used_classes):
     return inds
 
 
-def init_dist_slurm(tcp_port, local_rank, backend="nccl"):
-    """
-    modified from https://github.com/open-mmlab/mmdetection
-    Args:
-        tcp_port:
-        backend:
-
-    Returns:
-
-    """
-    proc_id = int(os.environ["SLURM_PROCID"])
-    ntasks = int(os.environ["SLURM_NTASKS"])
-    node_list = os.environ["SLURM_NODELIST"]
-    num_gpus = torch.cuda.device_count()
-    torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput(f"scontrol show hostname {node_list} | head -n1")
-    os.environ["MASTER_PORT"] = str(tcp_port)
-    os.environ["MASTER_ADDR"] = addr
-    os.environ["WORLD_SIZE"] = str(ntasks)
-    os.environ["RANK"] = str(proc_id)
-    dist.init_process_group(backend=backend)
-
-    total_gpus = dist.get_world_size()
-    rank = dist.get_rank()
-    return total_gpus, rank
-
-
-def init_dist_pytorch(tcp_port, local_rank, backend="nccl"):
-    if mp.get_start_method(allow_none=True) is None:
-        mp.set_start_method("spawn")
-    # os.environ['MASTER_PORT'] = str(tcp_port)
-    # os.environ['MASTER_ADDR'] = 'localhost'
-    num_gpus = torch.cuda.device_count()
-    torch.cuda.set_device(local_rank % num_gpus)
-
-    dist.init_process_group(
-        backend=backend,
-        # init_method='tcp://127.0.0.1:%d' % tcp_port,
-        # rank=local_rank,
-        # world_size=num_gpus
-    )
-    rank = dist.get_rank()
-    return num_gpus, rank
-
-
-def get_dist_info(return_gpu_per_machine=False):
-    if dist.is_available() and dist.is_initialized():
-        rank = dist.get_rank()
-        world_size = dist.get_world_size()
-    else:
-        rank = 0
-        world_size = 1
-
-    if return_gpu_per_machine:
-        gpu_per_machine = torch.cuda.device_count()
-        return rank, world_size, gpu_per_machine
-
-    return rank, world_size
-
-
 def merge_results_dist(result_part, size, tmpdir):
     rank, world_size = get_dist_info()
     os.makedirs(tmpdir, exist_ok=True)
@@ -229,7 +169,7 @@ def scatter_point_inds(indices, point_inds, shape):
     return ret
 
 
-def generate_voxel2pinds(sparse_tensor):
+def generate_voxel2pinds(sparse_tensor: spconv.SparseConvTensor):
     device = sparse_tensor.indices.device
     batch_size = sparse_tensor.batch_size
     spatial_shape = sparse_tensor.spatial_shape

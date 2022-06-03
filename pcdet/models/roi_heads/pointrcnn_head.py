@@ -1,13 +1,13 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.pointnet2.pointnet2_batch import pointnet2_modules
 from ...ops.roipoint_pool3d import roipoint_pool3d_utils
 from ...utils import common_utils
-from .roi_head_template import RoIHeadTemplate
+from .roi_head_interface import IRoIHead
 
 
-class PointRCNNHead(RoIHeadTemplate):
+class PointRCNNHead(IRoIHead):
     def __init__(self, input_channels, model_cfg, num_class=1, **kwargs):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
