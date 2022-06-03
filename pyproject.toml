@@ -11,6 +11,7 @@ version = '0.5.2'
 dependencies = [
   'hydra-core',
   'numba',
+  'Pillow',
   'scipy',
   'SharedArray',
   'tensorboard',

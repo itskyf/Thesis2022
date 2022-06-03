@@ -14,12 +14,12 @@ dependencies:
   - lark
   - portalocker
   - pybind11
-  # OpenPCDet requirements
+  # Requirements
   - gxx=10
-  - hydra-core
   - kornia
   - mayavi
   - numba
+  - pillow
   - scipy
   - sharedarray
   - tensorboard
@@ -44,5 +44,6 @@ dependencies:
   - pep8-naming
   - yamllint
   - pip:
+      - hydra-core
       - pyproject-flake8
       - spconv-cu113
