@@ -2,13 +2,14 @@ import torch
 from torch import nn
 
 from ...ops.pointnet2.pointnet2_stack import (
-    voxel_pool_modules as voxelpool_stack_modules,
-    pointnet2_modules as pointnet2_stack_modules,
+    pointnet2_modules,
     pointnet2_stack_utils,
+    voxel_pool_modules,
 )
 from ...utils import common_utils
-from .roi_head_template import RoIHeadTemplate
 from ..model_utils.attention_utils import TransformerEncoder, get_positional_encoder
+from .roi_head_interface import IRoIHead
+
 
 def sample_points_with_roi(rois, points, sample_radius_with_roi, num_max_points_of_part=200000):
     """
@@ -87,7 +88,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
 
     return sampled_points
 
-class MixedHead(RoIHeadTemplate):
+class MixedHead(IRoIHead):
     def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
@@ -97,7 +98,7 @@ class MixedHead(RoIHeadTemplate):
         self.point_cloud_range = point_cloud_range
         self.voxel_size = voxel_size
 
-        self.point_roi_grid_pool_layer, point_c_out = pointnet2_stack_modules.build_local_aggregation_module(input_channels=4, config=self.point_cfg)
+        self.point_roi_grid_pool_layer, point_c_out = pointnet2_modules.build_local_aggregation_module(input_channels=4, config=self.point_cfg)
 
         voxel_c_out = 0
         self.voxel_roi_grid_pool_layers = nn.ModuleList()
@@ -105,7 +106,7 @@ class MixedHead(RoIHeadTemplate):
             mlps = VOXEL_cfg[src_name].MLPS
             for k in range(len(mlps)):
                 mlps[k] = [backbone_channels[src_name]] + mlps[k]
-            pool_layer = voxelpool_stack_modules.NeighborVoxelSAModuleMSG(
+            pool_layer = voxel_pool_modules.NeighborVoxelSAModuleMSG(
                 query_ranges=VOXEL_cfg[src_name].QUERY_RANGES,
                 nsamples=VOXEL_cfg[src_name].NSAMPLE,
                 radii=VOXEL_cfg[src_name].POOL_RADIUS,
@@ -183,7 +184,7 @@ class MixedHead(RoIHeadTemplate):
                     init_func(m.weight)
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
-        
+
         nn.init.normal(self.cls_layers[-1].weight, mean=0, std=0.001)
         nn.init.constant_(self.cls_layers[-1].bias, 0)
         nn.init.normal(self.reg_layers[-1].weight, mean=0, std=0.001)
@@ -220,7 +221,7 @@ class MixedHead(RoIHeadTemplate):
         batch_size = batch_dict['batch_size']
         src_points = batch_dict['points'][:, 1:]
         batch_indices = batch_dict['points'][:, 0].long()
-        
+
         keypoints_list = []
         keypoints_batch_cnt_list = []
         for bs_idx in range(batch_size):
@@ -341,7 +342,7 @@ class MixedHead(RoIHeadTemplate):
         voxel_pooled_feature = torch.cat(pooled_features_list, dim=1)
 
         keypoints, keypoints_batch_cnt = self.get_sampled_points(batch_dict)
-        
+
         xyz = keypoints[:, :3]
         xyz_batch_cnt = keypoints_batch_cnt
         new_xyz = roi_grid_xyz.view(-1, 3)
@@ -356,7 +357,7 @@ class MixedHead(RoIHeadTemplate):
         )
 
         point_pooled_features = pooled_features.view(
-            -1, self.pool_cfg.GRID_SIZE ** 3, 
+            -1, self.pool_cfg.GRID_SIZE ** 3,
             point_pooled_features.shape[-1]
         )
 
@@ -418,9 +419,9 @@ class MixedHead(RoIHeadTemplate):
         # RoI aware pooling
         pooled_features, local_roi_grid_points = self.roi_grid_pool(batch_dict)  # (BxN, 6x6x6, C)
 
-        
+
         # TODO
-        
+
         if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):
             src_key_padding_mask = None
             if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
@@ -439,7 +440,7 @@ class MixedHead(RoIHeadTemplate):
         # Permute
 
         # Box Refinement
-        
+
         shared_features = self.shared_fc_layer(pooled_features)
         rcnn_cls = self.cls_layers(shared_features)
         rcnn_reg = self.reg_layer(shared_features)

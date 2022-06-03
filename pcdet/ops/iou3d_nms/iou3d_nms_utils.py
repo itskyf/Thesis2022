@@ -84,7 +84,7 @@ def boxes_iou3d_gpu(boxes_a, boxes_b):
     return iou3d
 
 
-def nms_gpu(boxes, scores, thresh, pre_maxsize=None, **kwargs):
+def nms_gpu(boxes, scores, thresh, pre_maxsize=None):
     """
     :param boxes: (N, 7) [x, y, z, dx, dy, dz, heading]
     :param scores: (N)
@@ -102,7 +102,7 @@ def nms_gpu(boxes, scores, thresh, pre_maxsize=None, **kwargs):
     return order[keep[:num_out].cuda()].contiguous(), None
 
 
-def nms_normal_gpu(boxes, scores, thresh, **kwargs):
+def nms_normal_gpu(boxes, scores, thresh):
     """
     :param boxes: (N, 7) [x, y, z, dx, dy, dz, heading]
     :param scores: (N)

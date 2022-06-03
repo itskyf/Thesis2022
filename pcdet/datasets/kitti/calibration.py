@@ -1,9 +1,11 @@
+from pathlib import Path
+
 import numpy as np
 
 
-def get_calib_from_file(calib_file):
-    with open(calib_file) as f:
-        lines = f.readlines()
+def get_calib_from_file(calib_path: Path):
+    with calib_path.open() as calib_file:
+        lines = calib_file.readlines()
 
     obj = lines[2].strip().split(" ")[1:]
     P2 = np.array(obj, dtype=np.float32)
@@ -23,11 +25,8 @@ def get_calib_from_file(calib_file):
 
 
 class Calibration:
-    def __init__(self, calib_file):
-        if not isinstance(calib_file, dict):
-            calib = get_calib_from_file(calib_file)
-        else:
-            calib = calib_file
+    def __init__(self, calib_path: Path):
+        calib = get_calib_from_file(calib_path)
 
         self.P2 = calib["P2"]  # 3 x 4
         self.R0 = calib["R0"]  # 3 x 3

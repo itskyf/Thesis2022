@@ -65,9 +65,6 @@ class NeighborVoxelSAModuleMSG(nn.Module):
         self.relu = nn.ReLU()
         self.pool_method = pool_method
 
-        self.init_weights()
-
-    def init_weights(self):
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight)

@@ -1,96 +1,89 @@
-import numpy as np
+import itertools
+from typing import List, Optional
+
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class BaseBEVBackbone(nn.Module):
-    def __init__(self, model_cfg, input_channels):
+    def __init__(
+        self,
+        in_channels: int,
+        layer_nums: List[int],
+        layer_strides: List[int],
+        num_filters: List[int],
+        num_upsample_filters: Optional[List[int]] = None,
+        upsample_strides: Optional[List[int]] = None,
+    ):
         super().__init__()
-        self.model_cfg = model_cfg
+        assert len(layer_nums) == len(layer_strides)
+        assert len(layer_nums) == len(num_filters)
 
-        if self.model_cfg.get("LAYER_NUMS", None) is not None:
-            assert (
-                len(self.model_cfg.LAYER_NUMS)
-                == len(self.model_cfg.LAYER_STRIDES)
-                == len(self.model_cfg.NUM_FILTERS)
-            )
-            layer_nums = self.model_cfg.LAYER_NUMS
-            layer_strides = self.model_cfg.LAYER_STRIDES
-            num_filters = self.model_cfg.NUM_FILTERS
-        else:
-            layer_nums = layer_strides = num_filters = []
-
-        if self.model_cfg.get("UPSAMPLE_STRIDES", None) is not None:
-            assert len(self.model_cfg.UPSAMPLE_STRIDES) == len(self.model_cfg.NUM_UPSAMPLE_FILTERS)
-            num_upsample_filters = self.model_cfg.NUM_UPSAMPLE_FILTERS
-            upsample_strides = self.model_cfg.UPSAMPLE_STRIDES
+        if num_upsample_filters and upsample_strides:
+            assert len(num_upsample_filters) == len(upsample_strides)
         else:
             upsample_strides = num_upsample_filters = []
 
-        num_levels = len(layer_nums)
-        c_in_list = [input_channels, *num_filters[:-1]]
+        channels = [in_channels, *num_filters[:-1]]
         self.blocks = nn.ModuleList()
-        self.deblocks = nn.ModuleList()
-        for idx in range(num_levels):
+        for channel, ln, ls, nf in zip(channels, layer_nums, layer_strides, num_filters):
             cur_layers = [
                 nn.ZeroPad2d(1),
-                nn.Conv2d(
-                    c_in_list[idx],
-                    num_filters[idx],
-                    kernel_size=3,
-                    stride=layer_strides[idx],
-                    padding=0,
-                    bias=False,
-                ),
-                nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
+                nn.Conv2d(channel, nf, 3, ls, padding=0, bias=False),
+                nn.BatchNorm2d(nf, eps=1e-3, momentum=0.01),
                 nn.ReLU(),
             ]
-            for k in range(layer_nums[idx]):
+            for _ in range(ln):
                 cur_layers.extend(
                     [
-                        nn.Conv2d(
-                            num_filters[idx], num_filters[idx], kernel_size=3, padding=1, bias=False
-                        ),
-                        nn.BatchNorm2d(num_filters[idx], eps=1e-3, momentum=0.01),
+                        nn.Conv2d(nf, nf, kernel_size=3, padding=1, bias=False),
+                        nn.BatchNorm2d(nf, eps=1e-3, momentum=0.01),
                         nn.ReLU(),
                     ]
                 )
             self.blocks.append(nn.Sequential(*cur_layers))
-            if len(upsample_strides) > 0:
-                stride = upsample_strides[idx]
-                if stride >= 1:
-                    self.deblocks.append(
-                        nn.Sequential(
-                            nn.ConvTranspose2d(
-                                num_filters[idx],
-                                num_upsample_filters[idx],
-                                upsample_strides[idx],
-                                stride=upsample_strides[idx],
-                                bias=False,
-                            ),
-                            nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                            nn.ReLU(),
-                        )
-                    )
-                else:
-                    stride = np.round(1 / stride).astype(np.int)
-                    self.deblocks.append(
-                        nn.Sequential(
-                            nn.Conv2d(
-                                num_filters[idx],
-                                num_upsample_filters[idx],
-                                stride,
-                                stride=stride,
-                                bias=False,
-                            ),
-                            nn.BatchNorm2d(num_upsample_filters[idx], eps=1e-3, momentum=0.01),
-                            nn.ReLU(),
-                        )
-                    )
+        # blocks = [
+        #    nn.Sequential(
+        #        nn.ZeroPad2d(1),
+        #        nn.Conv2d(channel, num_filter, 3, stride, 0, bias=False),
+        #        nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
+        #        nn.ReLU(),
+        #        *itertools.chain.from_iterable(
+        #            itertools.repeat(
+        #                [
+        #                    nn.Conv2d(num_filter, num_filter, 3, padding=1, bias=False),
+        #                    nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
+        #                    nn.ReLU(),
+        #                ],
+        #                layer_num,
+        #            )
+        #        )
+        #    )
+        #    for channel, num_filter, stride, layer_num in zip(
+        #        channels, num_filters, layer_strides, layer_nums
+        #    )
+        # ]
+        # self.blocks = nn.ModuleList(blocks)
+        # TODO walrus for python 3.8
+        kernel_sizes = [round(1 / stride) for stride in upsample_strides]
+        blocks = [
+            nn.Sequential(
+                nn.ConvTranspose2d(num_filter, num_upsample_filter, stride, stride, bias=False)
+                if stride >= 1
+                else nn.Conv2d(
+                    num_filter, num_upsample_filter, kernel_size, stride=kernel_size, bias=False
+                ),
+                nn.BatchNorm2d(num_upsample_filter, eps=1e-3, momentum=0.01),
+                nn.ReLU(),
+            )
+            for num_filter, num_upsample_filter, kernel_size, stride in zip(
+                num_filters, num_upsample_filters, kernel_sizes, upsample_strides
+            )
+        ]
 
-        c_in = sum(num_upsample_filters)
-        if len(upsample_strides) > num_levels:
-            self.deblocks.append(
+        if len(num_upsample_filters) > len(num_filters):
+            c_in = sum(num_upsample_filters)
+            blocks.append(
                 nn.Sequential(
                     nn.ConvTranspose2d(
                         c_in, c_in, upsample_strides[-1], stride=upsample_strides[-1], bias=False
@@ -99,38 +92,26 @@ class BaseBEVBackbone(nn.Module):
                     nn.ReLU(),
                 )
             )
+        self.deblocks = nn.ModuleList(blocks)
 
-        self.num_bev_features = c_in
-
-    def forward(self, data_dict):
+    def forward(self, spatial_features: torch.Tensor) -> torch.Tensor:
         """
         Args:
             data_dict:
                 spatial_features
         Returns:
         """
-        spatial_features = data_dict["spatial_features"]
         ups = []
-        ret_dict = {}
-        x = spatial_features
-        for i in range(len(self.blocks)):
-            x = self.blocks[i](x)
+        # TODO list comprehension?
+        for block, deblock in itertools.zip_longest(self.blocks, self.deblocks):
+            if block is None:
+                break
+            spatial_features = block(spatial_features)
+            ups.append(deblock(spatial_features) if deblock else spatial_features)
 
-            stride = int(spatial_features.shape[2] / x.shape[2])
-            ret_dict["spatial_features_%dx" % stride] = x
-            if len(self.deblocks) > 0:
-                ups.append(self.deblocks[i](x))
-            else:
-                ups.append(x)
-
-        if len(ups) > 1:
-            x = torch.cat(ups, dim=1)
-        elif len(ups) == 1:
-            x = ups[0]
-
+        if len(ups) > 0:
+            spatial_features = torch.cat(ups, dim=1) if len(ups) > 1 else ups[0]
         if len(self.deblocks) > len(self.blocks):
-            x = self.deblocks[-1](x)
+            spatial_features = self.deblocks[-1](spatial_features)
 
-        data_dict["spatial_features_2d"] = x
-
-        return data_dict
+        return spatial_features

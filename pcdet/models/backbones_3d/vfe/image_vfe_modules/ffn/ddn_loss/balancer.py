@@ -29,10 +29,7 @@ class Balancer(nn.Module):
         """
         # Compute masks
         fg_mask = loss_utils.compute_fg_mask(
-            gt_boxes2d=gt_boxes2d,
-            shape=loss.shape,
-            downsample_factor=self.downsample_factor,
-            device=loss.device,
+            gt_boxes2d, loss.shape, loss.device, self.downsample_factor
         )
         bg_mask = ~fg_mask
 

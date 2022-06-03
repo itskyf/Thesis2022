@@ -159,7 +159,7 @@ class PointHeadTemplate(nn.Module):
         return targets_dict
 
     def get_cls_layer_loss(self, tb_dict=None):
-        point_cls_labels = self.forward_ret_dict["point_cls_labels"].view(-1)
+        point_cls_labels = self.forward_ret_dict["point_cls_labels"].flatten()
         point_cls_preds = self.forward_ret_dict["point_cls_preds"].view(-1, self.num_class)
 
         positives = point_cls_labels > 0

@@ -170,7 +170,7 @@ class SECONDNetIoU(IDetector3D):
                 selected, selected_scores = class_agnostic_nms(
                     box_scores=nms_scores,
                     box_preds=box_preds,
-                    nms_config=post_process_cfg.NMS_CONFIG,
+                    nms_cfg=post_process_cfg.NMS_CONFIG,
                     score_thresh=post_process_cfg.SCORE_THRESH,
                 )
 

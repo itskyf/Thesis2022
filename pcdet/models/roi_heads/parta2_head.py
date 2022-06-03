@@ -1,14 +1,14 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils.spconv_utils import spconv
-from .roi_head_template import RoIHeadTemplate
+from .roi_head_interface import IRoIHead
 
 
-class PartA2FCHead(RoIHeadTemplate):
-    def __init__(self, input_channels, model_cfg, num_class=1, **kwargs):
+class PartA2FCHead(IRoIHead):
+    def __init__(self, input_channels, model_cfg, num_class=1):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
 

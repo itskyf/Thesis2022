@@ -1,12 +1,11 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch import nn
+from torch.nn import functional
 
 from ...utils import common_utils
 from ..model_utils.ctrans import build_transformer
-from .roi_head_template import RoIHeadTemplate
+from .roi_head_interface import IRoIHead
 
 
 class MLP(nn.Module):
@@ -22,14 +21,12 @@ class MLP(nn.Module):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = functional.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
 
 
-class CT3DHead(RoIHeadTemplate):
-    def __init__(
-        self, input_channels, model_cfg, voxel_size, point_cloud_range, num_class=1, **kwargs
-    ):
+class CT3DHead(IRoIHead):
+    def __init__(self, input_channels, model_cfg, voxel_size, point_cloud_range, num_class=1):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
 
