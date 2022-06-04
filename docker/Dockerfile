@@ -2,7 +2,7 @@ FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel as builder
 
 ARG CUDA_ARCH
 RUN conda install -y --channel conda-forge git ninja pip setuptools &&\
-	git clone --single-branch --branch hydra_config https://github.com/ncakhoa/Thesis2022.git &&\
+	git clone https://github.com/ncakhoa/Thesis2022.git &&\
 	TORCH_CUDA_ARCH_LIST=$CUDA_ARCH pip install \
 	--no-build-isolation --no-cache-dir --no-deps --upgrade --editable ./Thesis2022 &&\
 	rm -rf Thesis2022/build &&\
@@ -30,11 +30,13 @@ RUN --mount=target=/tmp/context,source=. \
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 RUN --mount=target=/tmp/builder,source=/workspace,from=builder \
 	cp -r /tmp/builder/Thesis2022 ~ &&\
+	micromamba install -y --channel conda-forge git &&\
 	git clone --depth 1 https://github.com/facebookresearch/hydra &&\
 	pip install --no-cache-dir --upgrade \
-	hydra-core ./hydra/examples/patterns/specializing_config spconv-cu113 &&\
+	hydra-core ./hydra/contrib/hydra_torchrun_launcher spconv-cu113 &&\
 	echo "$HOME/Thesis2022" > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/easy-install.pth &&\
 	printf "$HOME/Thesis2022\n." > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/pcdet.egg-link &&\
+	micromamba remove -y git &&\
 	micromamba clean -y --all
 
 WORKDIR /root/Thesis2022/tools
