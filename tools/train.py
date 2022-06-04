@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 def main(cfg: DictConfig):
     distributed.init_process_group(backend="nccl")
     local_rank = int(os.environ["LOCAL_RANK"])
-    cp_dir = Path(cfg.log_dir) / "checkpoint"
     torch.backends.cudnn.enabled = True
 
+    cp_dir = Path(cfg.log_dir)
     tb_writer = SummaryWriter(cfg.log_dir) if local_rank == 0 else None
     if tb_writer is not None:
         logger.info("Tensorboard directory: %s", tb_writer.log_dir)
