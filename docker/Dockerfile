@@ -25,6 +25,7 @@ RUN --mount=target=/tmp/context,source=. \
 	rm -rf /var/lib/apt/lists/* &&\
 	micromamba install -y --name base --channel conda-forge \
 	curl gdown tmux unzip vim &&\
+	sed -i 's#/usr/lib/openssh/sftp-server#internal-sftp#g' /etc/ssh/sshd_config &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
 	micromamba clean -y --all
 
