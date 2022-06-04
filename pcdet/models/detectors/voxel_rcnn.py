@@ -54,7 +54,7 @@ class VoxelRCNN(IDetector3D):
         if self.training:
             cls_loss, dir_loss, loc_loss = self.dense_head.get_loss()
             rcnn_cls_loss, rcnn_corner_loss, rcnn_reg_loss = self.roi_head.get_loss()
-            raw_loss_dict = {
+            return {
                 "cls_loss": cls_loss,
                 "dir_loss": dir_loss,
                 "loc_loss": loc_loss,
@@ -62,7 +62,6 @@ class VoxelRCNN(IDetector3D):
                 "rcnn_corner_loss": rcnn_corner_loss,
                 "rcnn_reg_loss": rcnn_reg_loss,
             }
-            return {key: val for key, val in raw_loss_dict.items() if val is not None}
         else:
             preds, recall_dict = self.post_processing(
                 batch_box_preds=dense_out.batch_box_preds,

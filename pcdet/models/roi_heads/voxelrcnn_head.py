@@ -77,7 +77,7 @@ class VoxelRCNNHead(IRoIHead):
 
         c_in = sum([mlp[-1] for cfg in pool_cfgs for mlp in cfg.mlps])
         self.shared_fc_layer = _make_fc_layers(
-            in_channels=pool_grid_size**3 * c_in,
+            in_channels=self.pool_grid_size**3 * c_in,
             channels=shared_channels,
             dp_ratio=dp_ratio,
             relu_inplace=True,
@@ -91,7 +91,7 @@ class VoxelRCNNHead(IRoIHead):
         )
         self.cls_pred_layer = nn.Linear(cls_channels[-1], num_class, bias=True)
         self.reg_fc_layers = _make_fc_layers(
-            in_channels=cls_channels[-1],
+            in_channels=shared_channels[-1],
             channels=reg_channels,
             dp_ratio=dp_ratio,
             relu_inplace=False,
@@ -119,11 +119,6 @@ class VoxelRCNNHead(IRoIHead):
         multiscale_3d_features: MultiScale3DFeatures,
         batch_size: int,
     ):
-        """
-        :param input_data: input dict
-        :return:
-        """
-
         rois, roi_labels, roi_scores, has_class_labels = self.run_nms(
             batch_box_preds=batch_box_preds,
             batch_cls_preds=batch_cls_preds,
@@ -162,7 +157,7 @@ class VoxelRCNNHead(IRoIHead):
             return rois, roi_labels, has_class_labels
         else:
             batch_box_preds, batch_cls_preds = self.generate_predicted_boxes(
-                batch_size, rois, rcnn_cls, rcnn_reg
+                batch_size, rois, rcnn_cls, box_preds=rcnn_reg
             )
             return batch_box_preds, batch_cls_preds, has_class_labels
 
@@ -210,17 +205,17 @@ class VoxelRCNNHead(IRoIHead):
         # roi_grid_coords = torch.cat([batch_idx, roi_grid_coords], dim=-1)
         # roi_grid_coords = roi_grid_coords.int()
         roi_grid_batch_cnt = torch.full(
-            (batch_size,), roi_grid_coords.shape[1], dtype=torch.int32, device=rois.device
+            (batch_size,), roi_grid_coords.shape[1], dtype=torch.int, device=rois.device
         )
 
         pooled_features_list = []
         for pool_layer, src_name in zip(self.roi_grid_pool_layers, self.feat_names):
             stride_idx = int(src_name[-1])  # TODO better structure
             stride: int = getattr(multiscale_3d_features, f"stride{stride_idx}")
-            sp_tensor: spconv.SparseConvTensor = getattr(multiscale_3d_features, src_name)
+            sp_tensors: spconv.SparseConvTensor = getattr(multiscale_3d_features, src_name)
 
             # compute voxel center xyz and batch_cnt
-            cur_coords = sp_tensor.indices
+            cur_coords = sp_tensors.indices
             cur_voxel_xyz = common_utils.get_voxel_centers(
                 cur_coords[:, 1:4],
                 downsample_times=stride,
@@ -228,12 +223,12 @@ class VoxelRCNNHead(IRoIHead):
                 point_cloud_range=self.pc_range,
             )
             cur_voxel_xyz_batch_cnt = torch.zeros(
-                (batch_size,), dtype=torch.int32, device=cur_voxel_xyz.device
+                (batch_size,), dtype=torch.int, device=cur_voxel_xyz.device
             )
             for bs_idx in range(batch_size):
-                cur_voxel_xyz_batch_cnt[bs_idx] = (cur_coords[:, 0] == bs_idx).sum()
+                cur_voxel_xyz_batch_cnt[bs_idx] = torch.sum(cur_coords[:, 0] == bs_idx)
             # get voxel2point tensor
-            v2p_ind_tensor = common_utils.generate_voxel2pinds(sp_tensor)
+            v2p_ind_tensor = common_utils.generate_voxel2pinds(sp_tensors)
             # compute the grid coordinates in this scale, in [batch_idx, x y z] order
             cur_roi_grid_coords = torch.div(roi_grid_coords, stride, rounding_mode="trunc")
             cur_roi_grid_coords = torch.cat([batch_idx, cur_roi_grid_coords], dim=-1)
@@ -245,7 +240,7 @@ class VoxelRCNNHead(IRoIHead):
                 new_xyz=roi_grid_xyz.contiguous().view(-1, 3),
                 new_xyz_batch_cnt=roi_grid_batch_cnt,
                 new_coords=cur_roi_grid_coords.contiguous().view(-1, 4),
-                features=sp_tensor.features.contiguous(),
+                features=sp_tensors.features.contiguous(),
                 voxel2point_indices=v2p_ind_tensor,
             )
 

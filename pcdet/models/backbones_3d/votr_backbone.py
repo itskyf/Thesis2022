@@ -413,6 +413,7 @@ class AttentionResBlock(nn.Module):
             use_no_query_coords=use_no_query_coords,
         )
         subm_cfg = model_cfg.SUBM_CFGS
+        # TODO this funciton is wrong, repeat create the same module
         self.subm_attention_modules = nn.ModuleList(
             itertools.repeat(
                 SubMAttention3d(

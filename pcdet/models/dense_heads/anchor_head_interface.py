@@ -66,6 +66,7 @@ class IAnchorHead(ABC, nn.Module):
         self.anchors = [x.cuda() for x in anchors]  # TODO specify device
         self.num_anchors_per_location = sum(num_anchors_per_loc_list)
 
+        # Use in derived class
         self.conv_dir_cls = (
             nn.Conv2d(in_channels, self.num_anchors_per_location * num_dir_bins, kernel_size=1)
             if use_direction_classifier
