@@ -1,21 +1,14 @@
 import math
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 
 class TransformerEncoder(nn.Module):
-    def __init__(self, attention_cfg, pos_encoder=None):
+    def __init__(self, pos_encoder: nn.Module, transformer_encoder: nn.TransformerEncoder):
         super().__init__()
-        self.attention_cfg = attention_cfg
         self.pos_encoder = pos_encoder
-        encoder_layers = nn.TransformerEncoderLayer(
-            attention_cfg.NUM_FEATURES,
-            attention_cfg.NUM_HEADS,
-            attention_cfg.NUM_HIDDEN_FEATURES,
-            attention_cfg.DROPOUT,
-        )
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layers, attention_cfg.NUM_LAYERS)
+        self.transformer_encoder = transformer_encoder
 
     def forward(self, point_features, positional_input, src_key_padding_mask=None):
         """
@@ -30,8 +23,9 @@ class TransformerEncoder(nn.Module):
         # Clone point features to prevent mutating input arguments
         attended_features = torch.clone(point_features)
         if src_key_padding_mask is not None:
-            # RoIs sometimes have all zero inputs. This results in a 0/0 division because of masking. Thus, we
-            # remove the empty rois to prevent this issue(https://github.com/pytorch/pytorch/issues/24816#issuecomment-524415617)
+            # RoIs sometimes have all zero inputs. This results in a 0/0 division because of masking
+            # Thus, remove the empty rois to prevent this issue
+            # https://github.com/pytorch/pytorch/issues/24816#issuecomment-524415617
             empty_rois_mask = src_key_padding_mask.all(-1)
             attended_features_filtered = attended_features[~empty_rois_mask]
 
@@ -68,10 +62,10 @@ class TransformerEncoder(nn.Module):
 
 
 class FrequencyPositionalEncoding3d(nn.Module):
-    def __init__(self, d_model, max_spatial_shape, dropout=0.1):
+    def __init__(self, d_model: int, max_spatial_shape, dropout=0.1):
         """
         Args:
-            d_model: Dimension of the input features. Must be divisible by 6 ((cos + sin) * 3 dimensions = 6)
+            d_model: dims of input features. Must be divisible by 6 ((cos + sin) * 3 dimensions = 6)
             max_spatial_shape: (3,) Size of each dimension
             dropout: Dropout probability
         """
@@ -124,10 +118,9 @@ class FrequencyPositionalEncoding3d(nn.Module):
             .transpose(0, 1)[:, None, None, :]
             .repeat(1, max_spatial_shape[0], max_spatial_shape[1], 1)
         )
-
         self.register_buffer("pe", pe)
 
-    def forward(self, point_features, positional_input, grid_size=None):
+    def forward(self, point_features, grid_size=None):
         """
         Args:
             point_features: (b, xyz, f)
@@ -139,7 +132,7 @@ class FrequencyPositionalEncoding3d(nn.Module):
         assert point_features.dim() == 3
         num_points = point_features.shape[1]
         num_features = point_features.shape[2]
-        if grid_size == None:
+        if grid_size is None:
             grid_size = self.max_spatial_shape
         assert num_points == grid_size.prod()
 
@@ -163,7 +156,7 @@ class FeedForwardPositionalEncoding(nn.Module):
             nn.Conv1d(d_output // 2, d_output, 1),
         )
 
-    def forward(self, point_features, positional_input, grid_size=None):
+    def forward(self, point_features, positional_input):
         """
         Args:
             point_features: (b, xyz, f)
@@ -173,20 +166,4 @@ class FeedForwardPositionalEncoding(nn.Module):
             point_features: (b, xyz, f)
         """
         pos_encoding = self.ffn(positional_input.permute(0, 2, 1))
-        point_features = point_features + pos_encoding.permute(0, 2, 1)
-        return point_features
-
-
-def get_positional_encoder(pool_cfg):
-    pos_encoder = None
-    attention_cfg = pool_cfg.ATTENTION
-    if attention_cfg.POSITIONAL_ENCODER == "frequency":
-        pos_encoder = FrequencyPositionalEncoding3d(
-            d_model=attention_cfg.NUM_FEATURES,
-            max_spatial_shape=torch.IntTensor([pool_cfg.GRID_SIZE] * 3),
-            dropout=attention_cfg.DROPOUT,
-        )
-    elif attention_cfg.POSITIONAL_ENCODER == "grid_points":
-        pos_encoder = FeedForwardPositionalEncoding(d_input=3, d_output=attention_cfg.NUM_FEATURES)
-
-    return pos_encoder
+        return point_features + pos_encoding.permute(0, 2, 1)

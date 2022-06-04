@@ -211,7 +211,7 @@ def train_epoch(
         point_cloud: PointCloud = point_cloud.cuda(local_rank)
 
         loss_dict: Dict[str, torch.Tensor] = model(point_cloud)
-        loss: torch.Tensor = sum(loss_dict.values())
+        loss: torch.Tensor = sum([val for val in loss_dict.values() if val is not None])
         loss.backward()
 
         nn.utils.clip_grad_norm_(model.parameters(), max_norm)
