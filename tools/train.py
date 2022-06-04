@@ -30,42 +30,43 @@ def main(cfg: DictConfig):
     local_rank = int(os.environ["LOCAL_RANK"])
     cp_dir = Path(cfg.log_dir) / "checkpoint"
     torch.backends.cudnn.enabled = True
+
     tb_writer = SummaryWriter(cfg.log_dir) if local_rank == 0 else None
     if tb_writer is not None:
         logger.info("Tensorboard directory: %s", tb_writer.log_dir)
-        logger.info("Batch size per GPU: %d", cfg.batch_size)
-        logger.info("World size: %d", distributed.get_world_size())
 
     train_loader, test_loader = initialize_data_loader(cfg.dataset, cfg.batch_size, cfg.num_workers)
-
     train_loader_len = len(train_loader)
     total_steps = train_loader_len * cfg.epochs
-    with torch.cuda.device(local_rank):
-        model, optimizer, lr_scheduler = initialize_model(
-            cfg.model, cfg.optim, cfg.scheduler, total_steps, local_rank
-        )
+    model, optimizer, lr_scheduler = initialize_model(
+        cfg.model, cfg.optim, cfg.scheduler, total_steps, local_rank
+    )
 
-        # Resume from checkpoint if one exists
-        try:
-            cp_path = Path(cfg.checkpoint)
-        except ConfigAttributeError:
-            cp_path = cp_dir / "best_loss_cp.pt"
-        state = load_checkpoint(cp_path, local_rank, model, optimizer)
+    # Resume from checkpoint if one exists
+    try:
+        cp_path = Path(cfg.checkpoint)
+    except ConfigAttributeError:
+        cp_path = None
+    state = load_checkpoint(local_rank, model, optimizer, cp_path)
 
-        log_interval = train_loader_len // 5
-        start_epoch = state.epoch + 1
-        logger.info("Start_epoch: %d", start_epoch)
-        for epoch in trange(
-            start_epoch,
-            cfg.epochs,
-            desc="Epoch",
-            disable=local_rank != 0,
-            dynamic_ncols=True,
-        ):
-            state.epoch = epoch
-            global_step = epoch * train_loader_len
-            train_loader.sampler.set_epoch(epoch)
+    log_interval = train_loader_len // 5
+    start_epoch = state.epoch + 1
+    logger.info("Batch size per GPU: %d", cfg.batch_size)
+    logger.info("World size: %d", distributed.get_world_size())
+    logger.info("Start_epoch: %d", start_epoch)
 
+    for epoch in trange(
+        start_epoch,
+        cfg.epochs,
+        desc="Epoch",
+        disable=local_rank != 0,
+        dynamic_ncols=True,
+    ):
+        state.epoch = epoch
+        global_step = epoch * train_loader_len
+        train_loader.sampler.set_epoch(epoch)
+
+        with torch.cuda.device(local_rank):
             epoch_loss = train_epoch(
                 model=model,
                 train_loader=train_loader,
@@ -78,14 +79,14 @@ def main(cfg: DictConfig):
                 log_interval=log_interval,
             )
 
-            if tb_writer is not None:  # or local_rank == 0
-                global_step += train_loader_len
-                tb_writer.add_scalar("learning_rate", lr_scheduler.get_last_lr(), global_step)
-                if (epoch % 2) == 1:
-                    torch.save(state.capture_snapshot(), cp_dir / f"cp_epoch{epoch}.pt")
-                if epoch_loss < state.min_loss:
-                    state.min_loss = epoch_loss
-                    torch.save(state.capture_snapshot(), cp_dir / "cp_best_loss.pt")
+        if tb_writer is not None:  # or local_rank == 0
+            global_step += train_loader_len
+            # tb_writer.add_scalar("learning_rate", lr_scheduler.get_last_lr(), global_step)
+            if (epoch % 2) == 1:
+                torch.save(state.capture_snapshot(), cp_dir / f"cp_epoch{epoch}.pt")
+            if epoch_loss < state.min_loss:
+                state.min_loss = epoch_loss
+                torch.save(state.capture_snapshot(), cp_dir / "cp_best_loss.pt")
 
 
 class State:
@@ -137,13 +138,13 @@ class State:
 
 
 def load_checkpoint(
-    path: Path,
     local_rank: int,
     model: nn.parallel.DistributedDataParallel,
     optimizer: optim.Optimizer,
+    path: Optional[Path],
 ):
     state = State(model, optimizer)
-    if path.exists():
+    if path is not None:
         logger.info("Loading checkpoint %s", path)
         state.load(path, local_rank)
         logger.info("Loaded checkpoint %s", path)
@@ -183,7 +184,7 @@ def initialize_model(
     local_rank: int,
 ) -> Tuple[nn.parallel.DistributedDataParallel, optim.Optimizer, optim.lr_scheduler._LRScheduler]:
     model: nn.Module = hydra.utils.instantiate(model_cfg)
-    model.cuda()
+    model.cuda(local_rank)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     optimizer: optim.Optimizer = hydra.utils.instantiate(optim_cfg, params=model.parameters())
     # TODO others lr_scheduler
