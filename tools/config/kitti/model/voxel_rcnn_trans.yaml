@@ -90,7 +90,7 @@ roi_head:
         _target_: torch.nn.TransformerEncoderLayer
         d_model: 96
         nhead: 4
-        dim_feedforward: 128
+        dim_feedforward: 96
       num_layers: 2
   pool_cfgs:
     # TODO: restore 3D backbone dims in code, not in configs

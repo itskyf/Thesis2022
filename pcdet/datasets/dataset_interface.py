@@ -21,13 +21,13 @@ class PointCloud:
     voxel_coords: torch.Tensor
     voxel_num_points: torch.Tensor
 
-    def cuda(self, device: int):
+    def cuda(self):
         return PointCloud(
             self.batch_size,
-            self.gt_boxes.cuda(device).float(),
-            self.voxels.cuda(device).float(),
-            self.voxel_coords.cuda(device).float(),
-            self.voxel_num_points.cuda(device).float(),
+            self.gt_boxes.cuda().float(),
+            self.voxels.cuda().float(),
+            self.voxel_coords.cuda().float(),
+            self.voxel_num_points.cuda().float(),
         )
 
 

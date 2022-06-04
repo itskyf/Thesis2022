@@ -23,7 +23,8 @@ RUN --mount=target=/tmp/context,source=. \
 	apt-get update &&\
 	apt-get install -y --no-install-recommends openssh-server &&\
 	rm -rf /var/lib/apt/lists/* &&\
-	micromamba install -y --name base --channel conda-forge gdown tmux unzip &&\
+	micromamba install -y --name base --channel conda-forge \
+	curl gdown tmux unzip vim &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
 	micromamba clean -y --all
 
