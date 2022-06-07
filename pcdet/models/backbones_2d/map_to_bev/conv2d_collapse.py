@@ -1,5 +1,4 @@
-import torch
-import torch.nn as nn
+from torch import nn
 
 from pcdet.models.model_utils.basic_block_2d import BasicBlock2D
 

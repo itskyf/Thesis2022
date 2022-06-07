@@ -30,7 +30,10 @@ def sample_points_with_roi(rois, points, sample_radius_with_roi, num_max_points_
         start_idx = 0
         point_mask_list = []
         while start_idx < points.shape[0]:
-            distance = (points[start_idx:start_idx + num_max_points_of_part, None, 0:3] - rois[None, :, 0:3]).norm(dim=-1)
+            distance = (
+                points[start_idx : start_idx + num_max_points_of_part, None, 0:3]
+                - rois[None, :, 0:3]
+            ).norm(dim=-1)
             min_dis, min_dis_roi_idx = distance.min(dim=-1)
             roi_max_dim = (rois[min_dis_roi_idx, 3:6] / 2).norm(dim=-1)
             cur_point_mask = min_dis < roi_max_dim + sample_radius_with_roi
@@ -59,7 +62,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
     xyz_batch_cnt = []
     num_sampled_points_list = []
     for k in range(num_sectors):
-        mask = (sector_idx == k)
+        mask = sector_idx == k
         cur_num_points = mask.sum().item()
         if cur_num_points > 0:
             points_list.append(points[mask])
@@ -73,7 +76,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
         points_list.append(points)
         xyz_batch_cnt.append(len(points))
         num_sampled_points_list.append(num_sampled_points)
-        print(f'Warning: empty sector points detected in SectorFPS: points.shape={points.shape}')
+        print(f"Warning: empty sector points detected in SectorFPS: points.shape={points.shape}")
 
     points = torch.cat(point_list, dim=0)
     xyz = point[-1, 0:3]
@@ -88,8 +91,11 @@ def sector_fps(points, num_sampled_points, num_sectors):
 
     return sampled_points
 
+
 class MixedHead(IRoIHead):
-    def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
+    def __init__(
+        self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs
+    ):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.pool_cfg = model_cfg.ROI_GRID_POOL
@@ -98,7 +104,12 @@ class MixedHead(IRoIHead):
         self.point_cloud_range = point_cloud_range
         self.voxel_size = voxel_size
 
-        self.point_roi_grid_pool_layer, point_c_out = pointnet2_modules.build_local_aggregation_module(input_channels=4, config=self.point_cfg)
+        (
+            self.point_roi_grid_pool_layer,
+            point_c_out,
+        ) = pointnet2_modules.build_local_aggregation_module(
+            input_channels=4, config=self.point_cfg
+        )
 
         voxel_c_out = 0
         self.voxel_roi_grid_pool_layers = nn.ModuleList()
@@ -122,8 +133,10 @@ class MixedHead(IRoIHead):
         c_out = voxel_c_out + point_c_out
         pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
 
-        if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):
-            assert self.pool_cfg.ATTENTION.NUM_FEATURES == c_out, f'ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}.'
+        if self.pool_cfg.get("ATTENTION", {}).get("ENABLED"):
+            assert (
+                self.pool_cfg.ATTENTION.NUM_FEATURES == c_out
+            ), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
             pos_encoder = get_positional_encoder(self.pool_cfg)
             self.attention_head = TransformerEncoder(self.pool_cfg.ATTENTION, pos_encoder)
 
@@ -133,11 +146,13 @@ class MixedHead(IRoIHead):
 
         shared_fc_layer = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-            shared_fc_layer.extend([
-                nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
-                nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-                nn.ReLU()
-            ])
+            shared_fc_layer.extend(
+                [
+                    nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
+                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
+                    nn.ReLU(),
+                ]
+            )
             pre_channel = self.model_cfg.SHARED_FC[k]
 
             if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
@@ -148,29 +163,29 @@ class MixedHead(IRoIHead):
         self.cls_layers = self.make_fc_layers(
             input_channels=pre_channel,
             output_channels=self.num_class,
-            fc_list=self.model_cfg.CLS_FC
+            fc_list=self.model_cfg.CLS_FC,
         )
 
         self.reg_layers = self.make_fc_layers(
             input_channels=pre_channel,
             output_channels=self.box_coder.code_size * self.num_class,
-            fc_list=self.model_cfg.REG_FC
+            fc_list=self.model_cfg.REG_FC,
         )
-        self.init_weights(weight_init='xavier')
+        self.init_weights(weight_init="xavier")
 
-    def init_weights(self, weight_init='xavier'):
-        if weight_init == 'kaiming':
+    def init_weights(self, weight_init="xavier"):
+        if weight_init == "kaiming":
             init_func = nn.init.kaiming_normal_
-        elif weight_init == 'xavier':
+        elif weight_init == "xavier":
             init_func = nn.init.xavier_normal_
-        elif weight_init == 'normal':
+        elif weight_init == "normal":
             init_func = nn.init.normal_
         else:
             raise NotImplementedError
 
         for m in self.modules():
             if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
-                if weight_init == 'normal':
+                if weight_init == "normal":
                     init_func(m.weight, mean=0, std=0.001)
                 else:
                     init_func(m.weight)
@@ -200,13 +215,17 @@ class MixedHead(IRoIHead):
         """
 
         sampled_points, _ = sample_points_with_roi(
-            rois=roi_boxes, points=points,
+            rois=roi_boxes,
+            points=points,
             sample_radius_with_roi=self.point_cfg.SPC_SAMPLING.SAMPLE_RADIUS_WITH_ROI,
-            num_max_points_of_part=self.point_cfg.SPC_SAMPLING.get('NUM_POINTS_OF_EACH_SAMPLE_PART', 200000)
+            num_max_points_of_part=self.point_cfg.SPC_SAMPLING.get(
+                "NUM_POINTS_OF_EACH_SAMPLE_PART", 200000
+            ),
         )
         sampled_points = sector_fps(
-            points=sampled_points, num_sampled_points=self.point_cfg.NUM_KEYPOINTS,
-            num_sectors=self.point_cfg.SPC_SAMPLING.NUM_SECTORS
+            points=sampled_points,
+            num_sampled_points=self.point_cfg.NUM_KEYPOINTS,
+            num_sectors=self.point_cfg.SPC_SAMPLING.NUM_SECTORS,
         )
         return sampled_points
 
@@ -218,14 +237,14 @@ class MixedHead(IRoIHead):
             keypoints: (N1 + N2 + ..., 4), where 4 indicates [bs_idx, x, y, z]
             keypoints_batch_cnt: [N1, N2, ...]
         """
-        batch_size = batch_dict['batch_size']
-        src_points = batch_dict['points'][:, 1:]
-        batch_indices = batch_dict['points'][:, 0].long()
+        batch_size = batch_dict["batch_size"]
+        src_points = batch_dict["points"][:, 1:]
+        batch_indices = batch_dict["points"][:, 0].long()
 
         keypoints_list = []
         keypoints_batch_cnt_list = []
         for bs_idx in range(batch_size):
-            bs_mask = (batch_indices == bs_idx)
+            bs_mask = batch_indices == bs_idx
             sampled_points = src_points[bs_mask].unsqueeze(dim=0)  # (1, N, 3)
             # if self.point_cfg.SAMPLE_METHOD == 'FPS':
             #     cur_pt_idxs = pointnet2_stack_utils.farthest_point_sample(
@@ -240,9 +259,9 @@ class MixedHead(IRoIHead):
             #     keypoints = sampled_points[0][cur_pt_idxs[0]].unsqueeze(dim=0)
 
             # elif self.point_cfg.SAMPLE_METHOD == 'SPC':
-            if self.point_cfg.SAMPLE_METHOD == 'SPC':
+            if self.point_cfg.SAMPLE_METHOD == "SPC":
                 keypoints = self.sectorized_proposal_centric_sampling(
-                    roi_boxes=batch_dict['rois'][bs_idx], points=sampled_points[0]
+                    roi_boxes=batch_dict["rois"][bs_idx], points=sampled_points[0]
                 )
                 # bs_idxs = cur_keypoints.new_ones(cur_keypoints.shape[0]) * bs_idx
                 # keypoints = torch.cat((bs_idxs[:, None], cur_keypoints), dim=1)
@@ -261,9 +280,9 @@ class MixedHead(IRoIHead):
         return keypoints, keypoints_batch_cnt
 
     def roi_gird_pool(self, batch_dict):
-        rois = batch_dict['rois']
-        batch_size = batch_dict['batch_size']
-        with_vf_transform = batch_dict.get('with_voxel_feature_transform', False)
+        rois = batch_dict["rois"]
+        batch_size = batch_dict["batch_size"]
+        with_vf_transform = batch_dict.get("with_voxel_feature_transform", False)
 
         roi_grid_xyz, local_roi_grid_points = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
@@ -274,17 +293,17 @@ class MixedHead(IRoIHead):
         roi_grid_coords_x = torch.div(
             roi_grid_xyz[:, :, 0] - self.point_cloud_range[0],
             self.voxel_size[0],
-            rounding_mode='trunc'
+            rounding_mode="trunc",
         )
         roi_grid_coords_y = torch.div(
             roi_grid_xyz[:, :, 1] - self.point_cloud_range[1],
             self.voxel_size[1],
-            rounding_mode='trunc'
+            rounding_mode="trunc",
         )
         roi_grid_coords_z = torch.div(
             roi_grid_xyz[:, :, 2] - self.point_cloud_range[2],
             self.voxel_size[2],
-            rounding_mode='trunc'
+            rounding_mode="trunc",
         )
         roi_grid_coords = torch.cat(
             [roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=1
@@ -299,20 +318,20 @@ class MixedHead(IRoIHead):
         pooled_features_list = []
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
             pool_layer = self.voxel_roi_grid_pool_layers[k]
-            cur_stride = batch_dict['multi_scale_3d_strides'][src_name]
-            cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
+            cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
+            cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
 
             if with_vf_transform:
-                cur_sp_tensors = batch_dict['multi_scale_3d_features_post'][src_name]
+                cur_sp_tensors = batch_dict["multi_scale_3d_features_post"][src_name]
             # else:
-                # cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
+            # cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
 
             cur_coords = cur_sp_tensors.indices
             cur_voxel_xyz = common_utils.get_voxel_centers(
                 cur_coords[:, 1:4],
                 downsample_times=cur_stride,
                 voxel_size=self.voxel_size,
-                point_cloud_range=self.point_cloud_range
+                point_cloud_range=self.point_cloud_range,
             )
             cur_voxel_xyz_batch_cnt = cur_voxel_xyz.new_zeros(batch_size).int()
             for bs_idx in range(batch_size):
@@ -320,14 +339,14 @@ class MixedHead(IRoIHead):
 
             v2p_ind_tensor = common_utils.generate_voxel2pinds(cur_sp_tensors)
 
-            cur_roi_grid_coords = torch.div(roi_grid_coords, cur_stride, rounding_mode='trunc')
+            cur_roi_grid_coords = torch.div(roi_grid_coords, cur_stride, rounding_mode="trunc")
             cur_roi_grid_coords = torch.cat([batch_idx, cur_roi_grid_coords], dim=-1)
             cur_roi_grid_coords = cur_roi_grid_coords.int()
 
             pooled_features = pool_layer(
                 xyz=cur_voxel_xyz.contiguous(),
                 xyz_batch_cnt=cur_voxel_xyz_batch_cnt,
-                new_xyz=roi_grid_xyz.contiguous().view(-1, 3)
+                new_xyz=roi_grid_xyz.contiguous().view(-1, 3),
                 new_xyz_batch_cnt=roi_grid_batch_cnt,
                 new_coords=cur_roi_grid_coords.contiguous().view(-1, 4),
                 features=cur_sp_tensors.features.contiguous(),
@@ -357,8 +376,7 @@ class MixedHead(IRoIHead):
         )
 
         point_pooled_features = pooled_features.view(
-            -1, self.pool_cfg.GRID_SIZE ** 3,
-            point_pooled_features.shape[-1]
+            -1, self.pool_cfg.GRID_SIZE**3, point_pooled_features.shape[-1]
         )
 
         pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=-1)
@@ -419,12 +437,11 @@ class MixedHead(IRoIHead):
         # RoI aware pooling
         pooled_features, local_roi_grid_points = self.roi_grid_pool(batch_dict)  # (BxN, 6x6x6, C)
 
-
         # TODO
 
-        if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):
+        if self.pool_cfg.get("ATTENTION", {}).get("ENABLED"):
             src_key_padding_mask = None
-            if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
+            if self.pool_cfg.ATTENTION.get("MASK_EMPTY_POINTS"):
                 src_key_padding_mask = (pooled_features == 0).all(-1)
 
             # positional_input = self.get_positional_input(batch_dict['points'], )

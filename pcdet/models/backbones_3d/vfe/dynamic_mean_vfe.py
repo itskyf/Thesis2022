@@ -40,7 +40,6 @@ class DynamicMeanVFE(IVoxelFE):
         Returns:
             vfe_features: (num_voxels, C)
         """
-        batch_size = batch_dict["batch_size"]
         points = batch_dict["points"]  # (batch_idx, x, y, z, i, e)
 
         # # debug

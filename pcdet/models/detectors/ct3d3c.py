@@ -62,7 +62,7 @@ class CT3D3C(IDetector3D):
                     ) = model_nms_utils.multi_classes_nms(
                         cls_scores=cur_cls_preds,
                         box_preds=cur_box_preds,
-                        nms_cfg=post_process_cfg.NMS_CONFIG
+                        nms_cfg=post_process_cfg.NMS_CONFIG,
                     )
                     cur_pred_labels = cur_label_mapping[cur_pred_labels]
                     pred_scores.append(cur_pred_scores)

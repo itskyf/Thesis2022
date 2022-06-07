@@ -87,7 +87,7 @@ class VoxelRCNNHeadTrans(IRoIHead):
         )
         self.cls_pred_layer = nn.Linear(cls_channels[-1], num_class, bias=True)
         self.reg_fc_layers = _make_fc_layers(
-            in_channels=self.pool_grid_size ** 3 * c_in,
+            in_channels=self.pool_grid_size**3 * c_in,
             channels=reg_channels,
             dp_ratio=dp_ratio,
             relu_inplace=False,
