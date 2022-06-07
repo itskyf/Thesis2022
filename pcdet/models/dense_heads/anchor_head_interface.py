@@ -63,7 +63,9 @@ class IAnchorHead(ABC, nn.Module):
         anchors, num_anchors_per_loc_list = _generate_anchors(
             anchor_range, anchor_cfgs, grid_size, anchor_ndim=self.box_coder.code_size
         )
-        self.anchors = [x.cuda() for x in anchors]  # TODO specify device
+        for i, anchor in enumerate(anchors):
+            self.register_buffer(f"anchor_{i}", anchor)
+        self.anchors_len = len(anchors)
         self.num_anchors_per_location = sum(num_anchors_per_loc_list)
 
         # Use in derived class
@@ -81,7 +83,7 @@ class IAnchorHead(ABC, nn.Module):
     def forward(self, spatial_features_2d: torch.Tensor, gt_boxes: torch.Tensor, batch_size: int):
         if self.training:
             cls_labels, reg_targets, reg_weights = self.target_assigner.assign_targets(
-                self.anchors, gt_boxes
+                self._get_anchors(), gt_boxes
             )
             self.fw_data.cls_labels = cls_labels
             self.fw_data.reg_targets = reg_targets
@@ -91,6 +93,9 @@ class IAnchorHead(ABC, nn.Module):
     @abstractmethod
     def forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
         ...
+
+    def _get_anchors(self):
+        return [getattr(self, f"anchor_{i}") for i in range(self.anchors_len)]
 
     def generate_predicted_boxes(
         self,
@@ -111,15 +116,16 @@ class IAnchorHead(ABC, nn.Module):
             batch_box_preds: (B, num_boxes, 7+C)
 
         """
+        anchors = self._get_anchors()
         anchors = (
             torch.cat(
                 [
                     anchor.permute(3, 4, 0, 1, 2, 5).reshape(-1, anchor.shape[-1])
-                    for anchor in self.anchors
+                    for anchor in anchors
                 ]
             )
             if self.use_multihead
-            else torch.cat(self.anchors, dim=-3)
+            else torch.cat(anchors, dim=-3)
         )
         num_anchors = anchors.view(-1, anchors.shape[-1]).shape[0]
         batch_anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
@@ -204,15 +210,16 @@ class IAnchorHead(ABC, nn.Module):
         pos_normalizer = positives.sum(1, keepdim=True).float()
         reg_weights /= torch.clamp(pos_normalizer, min=1.0)
 
+        anchors = self._get_anchors()
         anchors = (
             torch.cat(
                 [
                     anchor.permute(3, 4, 0, 1, 2, 5).reshape(-1, anchor.shape[-1])
-                    for anchor in self.anchors
+                    for anchor in anchors
                 ]
             )
             if self.use_multihead
-            else torch.cat(self.anchors, dim=-3)
+            else torch.cat(anchors, dim=-3)
         )
         anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
         box_preds = box_preds.view(
@@ -254,7 +261,7 @@ class IAnchorHead(ABC, nn.Module):
             *dir_cls_targets.shape,
             self.num_dir_bins,
             dtype=anchors.dtype,
-            device=dir_cls_targets.device
+            device=dir_cls_targets.device,
         )
         dir_targets.scatter_(-1, dir_cls_targets.unsqueeze(dim=-1).long(), 1.0)
         return dir_targets

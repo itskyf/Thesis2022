@@ -42,32 +42,32 @@ def main(cfg: DictConfig):
 
     train_loader_len = len(train_loader)
     total_steps = train_loader_len * cfg.epochs
-    with torch.cuda.device(device):
-        model, optimizer, lr_scheduler = initialize_model(
-            cfg.model, cfg.optim, cfg.scheduler, device, total_steps
-        )
+    model, optimizer, lr_scheduler = initialize_model(
+        cfg.model, cfg.optim, cfg.scheduler, device, total_steps
+    )
 
-        try:
-            cp_path = Path(cfg.checkpoint)
-        except ConfigAttributeError:
-            cp_path = None
-        state = load_checkpoint(model, optimizer, device, cp_path)
+    try:
+        cp_path = Path(cfg.checkpoint)
+    except ConfigAttributeError:
+        cp_path = None
+    state = load_checkpoint(model, optimizer, device, cp_path)
 
-        log_interval = train_loader_len // 5
-        start_epoch = state.epoch + 1
-        logger.info("Start epoch: %d", start_epoch)
+    log_interval = train_loader_len // 5
+    start_epoch = state.epoch + 1
+    logger.info("Start epoch: %d", start_epoch)
 
-        for epoch in trange(
-            start_epoch,
-            cfg.epochs,
-            desc="Epoch",
-            disable=tb_writer is None,
-            dynamic_ncols=True,
-        ):
-            state.epoch = epoch
-            global_step = epoch * train_loader_len
-            train_loader.sampler.set_epoch(epoch)
+    for epoch in trange(
+        start_epoch,
+        cfg.epochs,
+        desc="Epoch",
+        disable=tb_writer is None,
+        dynamic_ncols=True,
+    ):
+        state.epoch = epoch
+        global_step = epoch * train_loader_len
+        train_loader.sampler.set_epoch(epoch)
 
+        with torch.cuda.device(device):
             epoch_loss = train_epoch(
                 model=model,
                 train_loader=train_loader,
@@ -80,12 +80,12 @@ def main(cfg: DictConfig):
                 log_interval=log_interval,
             )
 
-            if tb_writer is not None:
-                if epoch % 3 == 1:
-                    state.save(log_dir / f"ckpt_epoch{epoch}.pt")
-                if epoch_loss < state.min_loss:
-                    state.min_loss = epoch_loss
-                    state.save(log_dir / f"ckpt_loss_{epoch_loss}.pt")
+        if tb_writer is not None:
+            if epoch % 3 == 1:
+                state.save(log_dir / f"ckpt_epoch{epoch}.pt")
+            if epoch_loss < state.min_loss:
+                state.min_loss = epoch_loss
+                state.save(log_dir / f"ckpt_loss_{epoch_loss}.pt")
 
 
 class State:
