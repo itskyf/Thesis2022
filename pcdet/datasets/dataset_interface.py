@@ -14,20 +14,20 @@ from .processor import DataProcessor, PointFeatureEncoder
 
 
 @dataclass
-class PointCloud:
+class PCBatch:
     batch_size: int
     gt_boxes: torch.Tensor
     voxels: torch.Tensor
     voxel_coords: torch.Tensor
     voxel_num_points: torch.Tensor
 
-    def cuda(self):
-        return PointCloud(
+    def to(self, device: torch.device):
+        return PCBatch(
             self.batch_size,
-            self.gt_boxes.cuda().float(),
-            self.voxels.cuda().float(),
-            self.voxel_coords.cuda().float(),
-            self.voxel_num_points.cuda().float(),
+            self.gt_boxes.to(device).float(),
+            self.voxels.to(device).float(),
+            self.voxel_coords.to(device).float(),
+            self.voxel_num_points.to(device).float(),
         )
 
 
@@ -134,7 +134,7 @@ class IDataset(abc.ABC, Dataset):
         return data_dict
 
     @staticmethod
-    def collate_batch(batch_list) -> PointCloud:
+    def collate_batch(batch_list) -> PCBatch:
         batch_size = len(batch_list)
         voxels = torch.from_numpy(np.concatenate([sample["voxels"] for sample in batch_list]))
         voxel_num_points = torch.from_numpy(
@@ -154,4 +154,4 @@ class IDataset(abc.ABC, Dataset):
             batch_gt_boxes3d[k, : len(gt), :] = gt
         gt_boxes = torch.from_numpy(batch_gt_boxes3d)
 
-        return PointCloud(batch_size, gt_boxes, voxels, voxel_coords, voxel_num_points)
+        return PCBatch(batch_size, gt_boxes, voxels, voxel_coords, voxel_num_points)

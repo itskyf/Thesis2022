@@ -3,7 +3,7 @@ from typing import List
 import torch
 from torch import nn
 
-from ...datasets import PointCloud
+from ...datasets import PCBatch
 from ..backbones_2d import BaseBEVBackbone
 from ..backbones_3d import SparseBackboneOut, VoxelBackbone8x
 from ..backbones_3d.vfe import MeanVFE
@@ -33,22 +33,22 @@ class VoxelRCNN(IDetector3D):
         self.dense_head = dense_head
         self.roi_head = roi_head
 
-    def forward(self, point_cloud: PointCloud):
-        voxel_features: torch.Tensor = self.vfe(point_cloud.voxels, point_cloud.voxel_num_points)
+    def forward(self, pc_batch: PCBatch):
+        voxel_features: torch.Tensor = self.vfe(pc_batch.voxels, pc_batch.voxel_num_points)
         bb3d_out: SparseBackboneOut = self.backbone_3d(
-            voxel_features, point_cloud.voxel_coords, point_cloud.batch_size
+            voxel_features, pc_batch.voxel_coords, pc_batch.batch_size
         )
         spatial_features: torch.Tensor = self.map_to_bev(bb3d_out.sparse_out)
         spatial_features_2d: torch.Tensor = self.backbone_2d(spatial_features)
         dense_out: AnchorHeadSingleOut = self.dense_head(
-            spatial_features_2d, point_cloud.gt_boxes, point_cloud.batch_size
+            spatial_features_2d, pc_batch.gt_boxes, pc_batch.batch_size
         )
         box_preds, cls_preds, has_class_labels = self.roi_head(
             batch_box_preds=dense_out.batch_box_preds,
             batch_cls_preds=dense_out.batch_cls_preds,
-            gt_boxes=point_cloud.gt_boxes,
+            gt_boxes=pc_batch.gt_boxes,
             multiscale_3d_features=bb3d_out.multiscale_3d_features,
-            batch_size=point_cloud.batch_size,
+            batch_size=pc_batch.batch_size,
         )
 
         if self.training:
@@ -66,10 +66,10 @@ class VoxelRCNN(IDetector3D):
             preds, recall_dict = self.post_processing(
                 batch_box_preds=dense_out.batch_box_preds,
                 batch_cls_preds=dense_out.batch_cls_preds,
-                gt_boxes=point_cloud.gt_boxes,
+                gt_boxes=pc_batch.gt_boxes,
                 rois=box_preds,
                 roi_labels=cls_preds,
-                batch_size=point_cloud.batch_size,
+                batch_size=pc_batch.batch_size,
                 has_class_labels=has_class_labels,
             )
             return preds, recall_dict
