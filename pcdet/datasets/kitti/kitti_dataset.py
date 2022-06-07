@@ -10,8 +10,8 @@ from PIL import Image
 from ...utils import box_utils, common_utils
 from ..dataset_interface import IDataset
 from ..processor import PointFeatureEncoder
-from . import kitti_utils
 from .calibration import Calibration
+from .kitti_utils import calib_to_matricies
 from .object3d import get_objects_from_label
 
 
@@ -228,7 +228,6 @@ class KittiDataset(IDataset):
     def evaluation(self, det_annos, class_names):
         if "annos" not in self.kitti_infos[0].keys():
             return None, {}
-
         from .kitti_object_eval_python import eval as kitti_eval
 
         eval_det_annos = copy.deepcopy(det_annos)
@@ -286,9 +285,8 @@ class KittiDataset(IDataset):
             input_dict["depth_maps"] = self.get_depth_map(sample_idx)
 
         if "calib_matricies" in self.item_names:
-            ret = kitti_utils.calib_to_matricies(calib)
-            input_dict["trans_lidar_to_cam"] = ret[0]
-            input_dict["trans_cam_to_img"] = ret[1]
+            ret = calib_to_matricies(calib)
+            input_dict["trans_lidar_to_cam"], input_dict["trans_cam_to_img"] = ret
 
         data_dict = self.prepare_data(data_dict=input_dict)
         data_dict["image_shape"] = img_shape

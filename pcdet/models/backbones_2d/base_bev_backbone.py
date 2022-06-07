@@ -25,45 +25,28 @@ class BaseBEVBackbone(nn.Module):
             upsample_strides = num_upsample_filters = []
 
         channels = [in_channels, *num_filters[:-1]]
-        self.blocks = nn.ModuleList()
-        for channel, ln, ls, nf in zip(channels, layer_nums, layer_strides, num_filters):
-            cur_layers = [
+        blocks = [
+            nn.Sequential(
                 nn.ZeroPad2d(1),
-                nn.Conv2d(channel, nf, 3, ls, padding=0, bias=False),
-                nn.BatchNorm2d(nf, eps=1e-3, momentum=0.01),
+                nn.Conv2d(channel, num_filter, 3, stride, 0, bias=False),
+                nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
                 nn.ReLU(),
-            ]
-            for _ in range(ln):
-                cur_layers.extend(
+                *itertools.chain.from_iterable(
                     [
-                        nn.Conv2d(nf, nf, kernel_size=3, padding=1, bias=False),
-                        nn.BatchNorm2d(nf, eps=1e-3, momentum=0.01),
-                        nn.ReLU(),
+                        [
+                            nn.Conv2d(num_filter, num_filter, 3, padding=1, bias=False),
+                            nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
+                            nn.ReLU(),
+                        ]
+                        for _ in range(layer_num)
                     ]
-                )
-            self.blocks.append(nn.Sequential(*cur_layers))
-        # blocks = [
-        #    nn.Sequential(
-        #        nn.ZeroPad2d(1),
-        #        nn.Conv2d(channel, num_filter, 3, stride, 0, bias=False),
-        #        nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
-        #        nn.ReLU(),
-        #        *itertools.chain.from_iterable(
-        #            itertools.repeat(
-        #                [
-        #                    nn.Conv2d(num_filter, num_filter, 3, padding=1, bias=False),
-        #                    nn.BatchNorm2d(num_filter, eps=1e-3, momentum=0.01),
-        #                    nn.ReLU(),
-        #                ],
-        #                layer_num,
-        #            )
-        #        )
-        #    )
-        #    for channel, num_filter, stride, layer_num in zip(
-        #        channels, num_filters, layer_strides, layer_nums
-        #    )
-        # ]
-        # self.blocks = nn.ModuleList(blocks)
+                ),
+            )
+            for channel, num_filter, stride, layer_num in zip(
+                channels, num_filters, layer_strides, layer_nums
+            )
+        ]
+        self.blocks = nn.ModuleList(blocks)
         # TODO walrus for python 3.8
         kernel_sizes = [round(1 / stride) for stride in upsample_strides]
         blocks = [

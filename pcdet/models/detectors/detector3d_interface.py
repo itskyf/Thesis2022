@@ -5,15 +5,16 @@ from typing import Dict, List, Optional, Tuple, Union
 import torch
 from torch import nn
 
+from ...datasets import Prediction
 from ...ops.iou3d_nms import iou3d_nms_utils
 from ..model_utils.model_nms_utils import NMSConf, class_agnostic_nms, multi_classes_nms
 
 
 @dataclass
-class Prediction:
-    boxes: torch.Tensor
-    labels: torch.Tensor
-    scores: torch.Tensor
+class ModelOutput:
+    gt: int
+    preds: List[Prediction]
+    recall_dict: Dict[str, float]
 
 
 class IDetector3D(nn.Module):
@@ -34,7 +35,7 @@ class IDetector3D(nn.Module):
         has_class_labels: bool,
         batch_index: Optional[torch.Tensor] = None,
         multihead_label_mapping: Optional[torch.Tensor] = None,
-    ) -> Tuple[List[Prediction], Dict[str, float]]:
+    ) -> ModelOutput:
         """
         Args:
             batch_dict:
@@ -51,6 +52,7 @@ class IDetector3D(nn.Module):
         Returns:
 
         """
+        num_gt = 0
         preds: List[Prediction] = []
         recall_dict = {str(recall_threshold): 0.0 for recall_threshold in self.recall_thresholds}
         for index in range(batch_size):
@@ -109,33 +111,34 @@ class IDetector3D(nn.Module):
                 final_labels = torch.cat(pred_labels)
                 final_boxes = torch.cat(pred_boxes)
 
-            idx_recall_dict = _generate_recall_record(
+            sample_recall_dict, gt = _generate_sample_recall(
                 box_preds=src_box_preds,  # TODO original also use final_boxes
                 idx_gt_boxes=gt_boxes[index],
                 idx_rois=rois[index],
                 thresh_list=self.recall_thresholds,
             )
-            for threshold, idx_recall in idx_recall_dict.items():
-                recall_dict[threshold] += idx_recall
-
+            num_gt += gt
+            for threshold, recall in sample_recall_dict.items():
+                recall_dict[threshold] += recall
             preds.append(Prediction(final_boxes, final_labels, final_scores))
 
-        return preds, recall_dict
+        return ModelOutput(num_gt, preds, recall_dict)
 
 
-def _generate_recall_record(
+def _generate_sample_recall(
     box_preds: torch.Tensor,
     idx_gt_boxes: torch.Tensor,
     idx_rois: torch.Tensor,
     thresh_list: List[float],
-) -> Dict[str, float]:
+) -> Tuple[Dict[str, float], int]:
     k = len(idx_gt_boxes) - 1
     while k >= 0 and idx_gt_boxes[k].sum() == 0:
         k -= 1
     idx_gt_boxes = idx_gt_boxes[: k + 1]
 
     recall_dict = defaultdict(float)
-    if idx_gt_boxes.size(0) > 0:
+    gt = idx_gt_boxes.size(0)
+    if gt > 0:
         iou3d_rcnn = (
             iou3d_nms_utils.boxes_iou3d_gpu(box_preds[:, 0:7], idx_gt_boxes[:, 0:7])
             if box_preds.size(0) > 0
@@ -145,12 +148,14 @@ def _generate_recall_record(
             iou3d_roi = iou3d_nms_utils.boxes_iou3d_gpu(idx_rois[:, 0:7], idx_gt_boxes[:, 0:7])
 
         for cur_thresh in thresh_list:
+            thresh_str = str(cur_thresh)
             if iou3d_rcnn.size(0) == 0:
-                recall_dict[str(cur_thresh)] += 0  # TODO ???
+                recall_dict[thresh_str] += 0  # TODO ???
             else:
                 rcnn_recalled = (iou3d_rcnn.max(dim=0)[0] > cur_thresh).sum().item()
-                recall_dict[str(cur_thresh)] += rcnn_recalled
+                recall_dict[thresh_str] += rcnn_recalled
             if idx_rois is not None:
                 roi_recalled = (iou3d_roi.max(dim=0)[0] > cur_thresh).sum().item()
-                recall_dict[str(cur_thresh)] += roi_recalled
-    return recall_dict
+                recall_dict[thresh_str] += roi_recalled
+
+    return recall_dict, gt

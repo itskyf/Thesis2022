@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List, Union
 
 import torch
 from torch import nn
@@ -9,7 +9,7 @@ from ..backbones_3d import SparseBackboneOut, VoxelBackbone8x
 from ..backbones_3d.vfe import MeanVFE
 from ..dense_heads.anchor_head_single import AnchorHeadSingle, AnchorHeadSingleOut
 from ..roi_heads import IRoIHead
-from .detector3d_interface import IDetector3D, NMSConf
+from .detector3d_interface import IDetector3D, ModelOutput, NMSConf
 
 
 class VoxelRCNN(IDetector3D):
@@ -33,7 +33,7 @@ class VoxelRCNN(IDetector3D):
         self.dense_head = dense_head
         self.roi_head = roi_head
 
-    def forward(self, pc_batch: PCBatch):
+    def forward(self, pc_batch: PCBatch) -> Union[Dict[str, torch.Tensor], ModelOutput]:
         voxel_features: torch.Tensor = self.vfe(pc_batch.voxels, pc_batch.voxel_num_points)
         bb3d_out: SparseBackboneOut = self.backbone_3d(
             voxel_features, pc_batch.voxel_coords, pc_batch.batch_size
@@ -54,7 +54,7 @@ class VoxelRCNN(IDetector3D):
         if self.training:
             cls_loss, dir_loss, loc_loss = self.dense_head.get_loss()
             rcnn_cls_loss, rcnn_corner_loss, rcnn_reg_loss = self.roi_head.get_loss()
-            return {
+            raw_losses = {
                 "cls_loss": cls_loss,
                 "dir_loss": dir_loss,
                 "loc_loss": loc_loss,
@@ -62,8 +62,9 @@ class VoxelRCNN(IDetector3D):
                 "rcnn_corner_loss": rcnn_corner_loss,
                 "rcnn_reg_loss": rcnn_reg_loss,
             }
+            return {key: val for key, val in raw_losses.items() if val is not None}
         else:
-            preds, recall_dict = self.post_processing(
+            return self.post_processing(
                 batch_box_preds=dense_out.batch_box_preds,
                 batch_cls_preds=dense_out.batch_cls_preds,
                 gt_boxes=pc_batch.gt_boxes,
@@ -72,4 +73,3 @@ class VoxelRCNN(IDetector3D):
                 batch_size=pc_batch.batch_size,
                 has_class_labels=has_class_labels,
             )
-            return preds, recall_dict

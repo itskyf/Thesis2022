@@ -14,6 +14,13 @@ from .processor import DataProcessor, PointFeatureEncoder
 
 
 @dataclass
+class Prediction:
+    boxes: torch.Tensor
+    labels: torch.Tensor
+    scores: torch.Tensor
+
+
+@dataclass
 class PCBatch:
     batch_size: int
     gt_boxes: torch.Tensor

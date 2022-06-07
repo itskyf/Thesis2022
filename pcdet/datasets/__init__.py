@@ -1,4 +1,4 @@
-from .dataset_interface import IDataset, PCBatch
+from .dataset_interface import IDataset, PCBatch, Prediction
 from .kitti.kitti_dataset import KittiDataset
 from .sampler import FlatDistSampler
 
@@ -7,4 +7,5 @@ __all__ = [
     "IDataset",
     "KittiDataset",
     "PCBatch",
+    "Prediction",
 ]
