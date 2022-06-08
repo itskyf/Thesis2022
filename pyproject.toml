@@ -15,7 +15,7 @@ dependencies = [
   'pyyaml',
   'scikit-image',
   'SharedArray',
-  'tensorboardX',
+  'tensorboard',
   'tqdm',
 ]
 dynamic = ['version']

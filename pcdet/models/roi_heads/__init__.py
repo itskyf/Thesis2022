@@ -15,5 +15,5 @@ __all__ = {
     "RoIHeadTemplate": RoIHeadTemplate,
     "SECONDHead": SECONDHead,
     "VoxelRCNNHead": VoxelRCNNHead,
-    "VoxelRCNNHeadTrans": VoxelRCNNHeadTrans
+    "VoxelRCNNHeadTrans": VoxelRCNNHeadTrans,
 }

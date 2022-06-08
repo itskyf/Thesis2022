@@ -10,7 +10,9 @@ from .roi_head_template import RoIHeadTemplate
 
 
 class VoxelRCNNHeadTrans(RoIHeadTemplate):
-    def __init__(self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs):
+    def __init__(
+        self, backbone_channels, model_cfg, point_cloud_range, voxel_size, num_class=1, **kwargs
+    ):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.pool_cfg = model_cfg.ROI_GRID_POOL
@@ -107,15 +109,10 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
             pre_channel, self.box_coder.code_size * self.num_class, bias=True
         )
 
-        self.init_weights()
-
-    def init_weights(self):
-        init_func = nn.init.xavier_normal_
-        # for module_list in [self.shared_fc_layer, self.cls_fc_layers, self.reg_fc_layers]:
         for module_list in [self.cls_fc_layers, self.reg_fc_layers]:
             for m in module_list.modules():
                 if isinstance(m, nn.Linear):
-                    init_func(m.weight)
+                    nn.init.xavier_normal_(m.weight)
                     if m.bias is not None:
                         nn.init.constant_(m.bias, 0)
 
@@ -123,15 +120,6 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
         nn.init.constant_(self.cls_pred_layer.bias, 0)
         nn.init.normal_(self.reg_pred_layer.weight, mean=0, std=0.001)
         nn.init.constant_(self.reg_pred_layer.bias, 0)
-
-    # def _init_weights(self):
-    #     init_func = nn.init.xavier_normal_
-    #     for m in self.modules():
-    #         if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear):
-    #             init_func(m.weight)
-    #             if m.bias is not None:
-    #                 nn.init.constant_(m.bias, 0)
-    #     nn.init.normal_(self.reg_layers[-1].weight, mean=0, std=0.001)
 
     def roi_grid_pool(self, batch_dict):
         """
@@ -284,7 +272,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         src_key_padding_mask = None
         # TODO
-        if self.pool_cfg.ATTENTION.get('MASK_EMPTY_POINTS'):
+        if self.pool_cfg.ATTENTION.get("MASK_EMPTY_POINTS"):
             src_key_padding_mask = (pooled_features == 0).all(-1)
 
         # positional_input = self.get_positional_input(batch_dict['points'], )

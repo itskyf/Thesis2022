@@ -5,9 +5,9 @@ import os
 from pathlib import Path
 
 import torch
-from tensorboardX import SummaryWriter
 from test_utils import repeat_eval_ckpt
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
 
@@ -19,16 +19,22 @@ from pcdet.utils import common_utils
 
 def parse_config():
     parser = argparse.ArgumentParser(description="arg parser")
-    parser.add_argument("--cfg_file", type=str, help="specify the config for training")
+    parser.add_argument(
+        "--cfg_file", type=str, default=None, help="specify the config for training"
+    )
 
-    parser.add_argument("--batch_size", type=int, required=False, help="batch size for training")
-    parser.add_argument("--epochs", type=int, required=False, help="number of epochs to train for")
+    parser.add_argument(
+        "--batch_size", type=int, default=None, required=False, help="batch size for training"
+    )
+    parser.add_argument(
+        "--epochs", type=int, default=None, required=False, help="number of epochs to train for"
+    )
     parser.add_argument("--workers", type=int, default=4, help="number of workers for dataloader")
     parser.add_argument(
         "--extra_tag", type=str, default="default", help="extra tag for this experiment"
     )
-    parser.add_argument("--ckpt", type=str, help="checkpoint to start from")
-    parser.add_argument("--pretrained_model", type=str, help="pretrained_model")
+    parser.add_argument("--ckpt", type=str, default=None, help="checkpoint to start from")
+    parser.add_argument("--pretrained_model", type=str, default=None, help="pretrained_model")
     parser.add_argument("--launcher", choices=["none", "pytorch", "slurm"], default="none")
     parser.add_argument(
         "--tcp_port", type=int, default=18888, help="tcp port for distrbuted training"
@@ -36,7 +42,7 @@ def parse_config():
     parser.add_argument(
         "--sync_bn", action="store_true", default=False, help="whether to use sync bn"
     )
-    parser.add_argument("--fix_random_seed", action="store_true", default=False)
+    parser.add_argument("--fix_random_seed", action="store_true", default=False, help="")
     parser.add_argument(
         "--ckpt_save_interval", type=int, default=1, help="number of training epochs"
     )
@@ -46,17 +52,23 @@ def parse_config():
     parser.add_argument(
         "--max_ckpt_save_num", type=int, default=30, help="max number of saved checkpoint"
     )
-    parser.add_argument("--merge_all_iters_to_one_epoch", action="store_true", default=False)
     parser.add_argument(
-        "--set", dest="set_cfgs", nargs=argparse.REMAINDER, help="set extra config keys if needed"
+        "--merge_all_iters_to_one_epoch", action="store_true", default=False, help=""
+    )
+    parser.add_argument(
+        "--set",
+        dest="set_cfgs",
+        default=None,
+        nargs=argparse.REMAINDER,
+        help="set extra config keys if needed",
     )
 
     parser.add_argument("--max_waiting_mins", type=int, default=0, help="max waiting minutes")
-    parser.add_argument("--start_epoch", type=int, default=0)
+    parser.add_argument("--start_epoch", type=int, default=0, help="")
     parser.add_argument(
         "--num_epochs_to_eval", type=int, default=0, help="number of checkpoints to be evaluated"
     )
-    parser.add_argument("--save_to_file", action="store_true", default=False)
+    parser.add_argument("--save_to_file", action="store_true", default=False, help="")
 
     args = parser.parse_args()
 
@@ -76,8 +88,9 @@ def main():
         dist_train = False
         total_gpus = 1
     else:
-        init_dist_fn = getattr(common_utils, f"init_dist_{args.launcher}")
-        total_gpus, cfg.LOCAL_RANK = init_dist_fn(args.tcp_port, args.local_rank, backend="nccl")
+        total_gpus, cfg.LOCAL_RANK = getattr(common_utils, "init_dist_%s" % args.launcher)(
+            args.tcp_port, args.local_rank, backend="nccl"
+        )
         dist_train = True
 
     if args.batch_size is None:
@@ -89,30 +102,30 @@ def main():
     args.epochs = cfg.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
 
     if args.fix_random_seed:
-        common_utils.set_random_seed(666)
+        common_utils.set_random_seed(666 + cfg.LOCAL_RANK)
 
     output_dir = cfg.ROOT_DIR / "output" / cfg.EXP_GROUP_PATH / cfg.TAG / args.extra_tag
     ckpt_dir = output_dir / "ckpt"
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file = output_dir / (f"log_train_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt")
+    log_file = output_dir / ("log_train_%s.txt" % datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
     logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
 
     # log to file
     logger.info("**********************Start logging**********************")
     gpu_list = (
-        os.environ["CUDA_VISIBLE_DEVICES"] if "CUDA_VISIBLE_DEVICES" in os.environ else "ALL"
+        os.environ["CUDA_VISIBLE_DEVICES"] if "CUDA_VISIBLE_DEVICES" in os.environ.keys() else "ALL"
     )
-    logger.info("CUDA_VISIBLE_DEVICES=%s", gpu_list)
+    logger.info("CUDA_VISIBLE_DEVICES=%s" % gpu_list)
 
     if dist_train:
-        logger.info("total_batch_size: %d", total_gpus * args.batch_size)
+        logger.info("total_batch_size: %d" % (total_gpus * args.batch_size))
     for key, val in vars(args).items():
-        logger.info("%-16s %s", key, val)
+        logger.info("{:16} {}".format(key, val))
     log_config_to_file(cfg, logger=logger)
     if cfg.LOCAL_RANK == 0:
-        os.system(f"cp {args.cfg_file} {output_dir}")
+        os.system("cp %s %s" % (args.cfg_file, output_dir))
 
     tb_log = SummaryWriter(log_dir=str(output_dir / "tensorboard")) if cfg.LOCAL_RANK == 0 else None
 
@@ -127,6 +140,7 @@ def main():
         training=True,
         merge_all_iters_to_one_epoch=args.merge_all_iters_to_one_epoch,
         total_epochs=args.epochs,
+        seed=666 if args.fix_random_seed else None,
     )
 
     model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=train_set)
@@ -175,10 +189,8 @@ def main():
 
     # -----------------------start training---------------------------
     logger.info(
-        "**********************Start training %s/%s(%s)**********************",
-        cfg.EXP_GROUP_PATH,
-        cfg.TAG,
-        args.extra_tag,
+        "**********************Start training %s/%s(%s)**********************"
+        % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
     train_model(
         model,
@@ -204,17 +216,13 @@ def main():
         train_set.clean_shared_memory()
 
     logger.info(
-        "**********************End training %s/%s(%s)**********************\n\n\n",
-        cfg.EXP_GROUP_PATH,
-        cfg.TAG,
-        args.extra_tag,
+        "**********************End training %s/%s(%s)**********************\n\n\n"
+        % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
 
     logger.info(
-        "**********************Start evaluation %s/%s(%s)**********************",
-        cfg.EXP_GROUP_PATH,
-        cfg.TAG,
-        args.extra_tag,
+        "**********************Start evaluation %s/%s(%s)**********************"
+        % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
@@ -241,10 +249,8 @@ def main():
         dist_test=dist_train,
     )
     logger.info(
-        "**********************End evaluation %s/%s(%s)**********************",
-        cfg.EXP_GROUP_PATH,
-        cfg.TAG,
-        args.extra_tag,
+        "**********************End evaluation %s/%s(%s)**********************"
+        % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag)
     )
 
 

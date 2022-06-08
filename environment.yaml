@@ -1,7 +1,6 @@
 ---
-name: OpenPCDet
+name: Thesis
 channels:
-  - pyg
   - pytorch
   - conda-forge
 dependencies:
@@ -22,10 +21,9 @@ dependencies:
   - gxx=10
   - kornia
   - numba
-  - pytorch-scatter
   - scikit-image
   - sharedarray
-  - tensorboardx
+  - tensorboard
   - tqdm
   # Linter
   - autoflake

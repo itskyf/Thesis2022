@@ -360,7 +360,6 @@ class KittiDataset(DatasetTemplate):
             pred_dict["rotation_y"] = pred_boxes_camera[:, 6]
             pred_dict["score"] = pred_scores
             pred_dict["boxes_lidar"] = pred_boxes
-
             return pred_dict
 
         annos = []
@@ -370,35 +369,6 @@ class KittiDataset(DatasetTemplate):
             single_pred_dict = generate_single_sample_dict(index, box_dict)
             single_pred_dict["frame_id"] = frame_id
             annos.append(single_pred_dict)
-
-            if output_path is not None:
-                cur_det_file = output_path / ("%s.txt" % frame_id)
-                with open(cur_det_file, "w") as f:
-                    bbox = single_pred_dict["bbox"]
-                    loc = single_pred_dict["location"]
-                    dims = single_pred_dict["dimensions"]  # lhw -> hwl
-
-                    for idx in range(len(bbox)):
-                        print(
-                            "%s -1 -1 %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
-                            % (
-                                single_pred_dict["name"][idx],
-                                single_pred_dict["alpha"][idx],
-                                bbox[idx][0],
-                                bbox[idx][1],
-                                bbox[idx][2],
-                                bbox[idx][3],
-                                dims[idx][1],
-                                dims[idx][2],
-                                dims[idx][0],
-                                loc[idx][0],
-                                loc[idx][1],
-                                loc[idx][2],
-                                single_pred_dict["rotation_y"][idx],
-                                single_pred_dict["score"][idx],
-                            ),
-                            file=f,
-                        )
 
         return annos
 
