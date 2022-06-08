@@ -13,7 +13,6 @@ class RoIData:
     rois: torch.Tensor
     gt_of_rois: torch.Tensor
     gt_of_rois_src: torch.Tensor = field(init=False)
-    gt_iou_of_rois: torch.Tensor
     roi_labels: torch.Tensor
     roi_scores: torch.Tensor
     rcnn_cls_labels: torch.Tensor
@@ -105,7 +104,6 @@ class ProposalTargetLayer(nn.Module):
         return RoIData(
             rois=b_rois,
             gt_of_rois=b_gt_of_rois,
-            gt_iou_of_rois=b_roi_ious,
             roi_labels=b_roi_labels,
             roi_scores=b_roi_scores,
             rcnn_cls_labels=b_cls_labels,

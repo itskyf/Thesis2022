@@ -65,7 +65,7 @@ class AnchorHeadSingle(IAnchorHead):
             nn.init.constant_(self.conv_cls.bias, -math.log((1 - eps) / eps))
         nn.init.normal_(self.conv_box.weight, mean=0, std=0.001)
 
-    def forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
+    def _forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
         # [N, H, W, C]
         cls_preds = self.conv_cls(spatial_features_2d).permute(0, 2, 3, 1).contiguous()
         box_preds = self.conv_box(spatial_features_2d).permute(0, 2, 3, 1).contiguous()

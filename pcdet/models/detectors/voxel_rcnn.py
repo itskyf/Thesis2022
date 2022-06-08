@@ -21,11 +21,12 @@ class VoxelRCNN(IDetector3D):
         backbone_2d: BaseBEVBackbone,
         dense_head: AnchorHeadSingle,
         roi_head: IRoIHead,
-        output_raw_score: bool,
+        num_class: int,
         nms_cfgs: NMSConf,
+        output_raw_score: bool,
         recall_thresholds: List[float],
     ):
-        super().__init__(output_raw_score, nms_cfgs, recall_thresholds)
+        super().__init__(num_class, nms_cfgs, output_raw_score, recall_thresholds)
         self.vfe = vfe
         self.backbone_3d = backbone_3d
         self.map_to_bev = map_to_bev

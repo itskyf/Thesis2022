@@ -304,22 +304,22 @@ def rotate_iou_gpu_eval(boxes, query_boxes, criterion=-1, device_id=0):
     """
     boxes = boxes.astype(np.float32)
     query_boxes = query_boxes.astype(np.float32)
-    N = boxes.shape[0]
-    K = query_boxes.shape[0]
-    iou = np.zeros((N, K), dtype=np.float32)
-    if N == 0 or K == 0:
+    n = boxes.shape[0]
+    k = query_boxes.shape[0]
+    iou = np.zeros((n, k), dtype=np.float32)
+    if n == 0 or k == 0:
         return iou
-    threadsPerBlock = 8 * 8
+    threads_per_block = 8 * 8
     cuda.select_device(device_id)
-    blockspergrid = (div_up(N, threadsPerBlock), div_up(K, threadsPerBlock))
+    blockspergrid = (div_up(n, threads_per_block), div_up(k, threads_per_block))
 
     stream = cuda.stream()
     with stream.auto_synchronize():
         boxes_dev = cuda.to_device(boxes.reshape([-1]), stream)
         query_boxes_dev = cuda.to_device(query_boxes.reshape([-1]), stream)
         iou_dev = cuda.to_device(iou.reshape([-1]), stream)
-        rotate_iou_kernel_eval[blockspergrid, threadsPerBlock, stream](
-            N, K, boxes_dev, query_boxes_dev, iou_dev, criterion
+        rotate_iou_kernel_eval[blockspergrid, threads_per_block, stream](
+            n, k, boxes_dev, query_boxes_dev, iou_dev, criterion
         )
         iou_dev.copy_to_host(iou.reshape([-1]), stream=stream)
     return iou.astype(boxes.dtype)

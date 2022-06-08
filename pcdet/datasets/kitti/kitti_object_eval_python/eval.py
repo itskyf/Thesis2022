@@ -113,11 +113,6 @@ def image_box_overlap(boxes, query_boxes, criterion=-1):
     return overlaps
 
 
-def bev_box_overlap(boxes, qboxes, criterion=-1):
-    riou = rotate_iou_gpu_eval(boxes, qboxes, criterion)
-    return riou
-
-
 @numba.jit(nopython=True, parallel=True)
 def d3_box_overlap_kernel(boxes, qboxes, rinc, criterion=-1):
     # ONLY support overlap in CAMERA, not lider.
@@ -384,7 +379,7 @@ def calculate_iou_partly(gt_annos, dt_annos, metric, num_parts=50):
             dims = np.concatenate([a["dimensions"][:, [0, 2]] for a in dt_annos_part], 0)
             rots = np.concatenate([a["rotation_y"] for a in dt_annos_part], 0)
             dt_boxes = np.concatenate([loc, dims, rots[..., np.newaxis]], axis=1)
-            overlap_part = bev_box_overlap(gt_boxes, dt_boxes).astype(np.float64)
+            overlap_part = rotate_iou_gpu_eval(gt_boxes, dt_boxes, -1).astype(np.float64)
         elif metric == 2:
             loc = np.concatenate([a["location"] for a in gt_annos_part], 0)
             dims = np.concatenate([a["dimensions"] for a in gt_annos_part], 0)
@@ -664,7 +659,7 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
             [0.5, 0.25, 0.25, 0.5, 0.25, 0.5],
         ]
     )
-    min_overlaps = np.stack([overlap_0_7, overlap_0_5], axis=0)  # [2, 3, 5]
+    min_overlaps = np.stack([overlap_0_7, overlap_0_5])  # [2, 3, 5]
     class_to_name = {
         0: "Car",
         1: "Pedestrian",
@@ -674,8 +669,6 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
         5: "Truck",
     }
     name_to_class = {v: n for n, v in class_to_name.items()}
-    if not isinstance(current_classes, (list, tuple)):
-        current_classes = [current_classes]
     current_classes_int = []
     for curcls in current_classes:
         if isinstance(curcls, str):

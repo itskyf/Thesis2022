@@ -25,7 +25,7 @@ dense_head:
     classification: 1.0
     direction: 0.2
     location: 2.0
-  num_class: ${len:${class_names}}
+  num_class: ${model.num_class}
   num_dir_bins: 2
   box_coder:
     _target_: pcdet.utils.box_coder_utils.ResidualCoder
@@ -70,7 +70,7 @@ roi_head:
     threshold: 0.8
     score_thresh: null  # TODO not necessary
   nms_test_cfg:
-    nms_type: nms_gpu
+    name: nms_gpu
     multi_classes_nms: false
     pre_maxsize: 2048
     post_maxsize: 100
@@ -137,6 +137,7 @@ roi_head:
     rcnn_classification: 1.0
     rcnn_regression: 1.0
     rcnn_corner: 1.0
+num_class: ${len:${class_names}}
 output_raw_score: false
 nms_cfgs:
   name: nms_gpu

@@ -82,7 +82,7 @@ def main(cfg: DictConfig):
 
         if tb_writer is not None:
             if epoch % 3 == 1:
-                state.save(log_dir / f"ckpt_epoch{epoch}.pt")
+                state.save(log_dir / f"ckpt_epoch_{epoch}.pt")
             if epoch_loss < state.min_loss:
                 state.min_loss = epoch_loss
                 state.save(log_dir / f"ckpt_loss_{epoch_loss}.pt")

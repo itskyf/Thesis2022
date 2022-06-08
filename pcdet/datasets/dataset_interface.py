@@ -1,9 +1,9 @@
 import abc
 from dataclasses import dataclass
-from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List
 
 import numpy as np
+import numpy.typing as npt
 import torch
 from omegaconf import ListConfig
 from torch.utils.data import Dataset
@@ -23,6 +23,10 @@ class Prediction:
 @dataclass
 class PCBatch:
     batch_size: int
+
+    frame_ids: List[str]
+    img_shapes: List[npt.NDArray[np.int32]]
+
     gt_boxes: torch.Tensor
     voxels: torch.Tensor
     voxel_coords: torch.Tensor
@@ -31,6 +35,8 @@ class PCBatch:
     def to(self, device: torch.device):
         return PCBatch(
             self.batch_size,
+            self.frame_ids,
+            self.img_shapes,
             self.gt_boxes.to(device).float(),
             self.voxels.to(device).float(),
             self.voxel_coords.to(device).float(),
@@ -52,7 +58,6 @@ class IDataset(abc.ABC, Dataset):
         self.augmentor = DataAugmentor(augmentor_cfg) if training else None
         self.data_processor = DataProcessor(processor_cfg, training)
         self.pfe = pfe
-
         self.class_names = class_names
         self.training = training
         try:
@@ -64,26 +69,13 @@ class IDataset(abc.ABC, Dataset):
     def __len__(self) -> int:
         ...
 
-    @staticmethod
     @abc.abstractmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names, output_path: Optional[Path]):
-        """
-        To support a custom dataset, implement this function
-        to receive the predicted results from the model
-        then transform the unified normative coordinate to your required coordinate
-        and optionally save them to disk.
+    def evaluation(self, det_annos):
+        ...
 
-        Args:
-            batch_dict: dict of original data from the dataloader
-            pred_dicts: dict of predicted results from the model
-                pred_boxes: (N, 7), Tensor
-                pred_scores: (N), Tensor
-                pred_labels: (N), Tensor
-            class_names:
-            output_path: if it is not None, save the results to this path
-        Returns:
-
-        """
+    @abc.abstractmethod
+    def gen_pred_dicts(self, pc_batch: PCBatch, preds: List[Prediction]) -> List[Dict]:
+        ...
 
     def prepare_data(self, data_dict):
         """
@@ -143,6 +135,10 @@ class IDataset(abc.ABC, Dataset):
     @staticmethod
     def collate_batch(batch_list) -> PCBatch:
         batch_size = len(batch_list)
+
+        frame_ids = [sample["frame_id"] for sample in batch_list]
+        img_shapes = [sample["image_shape"] for sample in batch_list]
+
         voxels = torch.from_numpy(np.concatenate([sample["voxels"] for sample in batch_list]))
         voxel_num_points = torch.from_numpy(
             np.concatenate([sample["voxel_num_points"] for sample in batch_list])
@@ -161,4 +157,6 @@ class IDataset(abc.ABC, Dataset):
             batch_gt_boxes3d[k, : len(gt), :] = gt
         gt_boxes = torch.from_numpy(batch_gt_boxes3d)
 
-        return PCBatch(batch_size, gt_boxes, voxels, voxel_coords, voxel_num_points)
+        return PCBatch(
+            batch_size, frame_ids, img_shapes, gt_boxes, voxels, voxel_coords, voxel_num_points
+        )

@@ -88,10 +88,10 @@ class IAnchorHead(ABC, nn.Module):
             self.fw_data.cls_labels = cls_labels
             self.fw_data.reg_targets = reg_targets
             self.fw_data.reg_weights = reg_weights
-        return self.forward_impl(spatial_features_2d, batch_size)
+        return self._forward_impl(spatial_features_2d, batch_size)
 
     @abstractmethod
-    def forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
+    def _forward_impl(self, spatial_features_2d: torch.Tensor, batch_size: int):
         ...
 
     def _get_anchors(self):

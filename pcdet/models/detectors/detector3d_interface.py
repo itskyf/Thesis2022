@@ -18,10 +18,17 @@ class ModelOutput:
 
 
 class IDetector3D(nn.Module):
-    def __init__(self, output_raw_score: bool, nms_cfgs: NMSConf, recall_thresholds: List[float]):
+    def __init__(
+        self,
+        num_class: int,
+        nms_cfgs: NMSConf,
+        output_raw_score: bool,
+        recall_thresholds: List[float],
+    ):
         super().__init__()
-        self.output_raw_score = output_raw_score
+        self.num_class = num_class
         self.nms_cfgs = nms_cfgs
+        self.output_raw_score = output_raw_score
         self.recall_thresholds = recall_thresholds
 
     def post_processing(

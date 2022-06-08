@@ -1,18 +1,38 @@
 import copy
 import pickle
+from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
 import numpy as np
+import numpy.typing as npt
+import torch
 from omegaconf import ListConfig
 from PIL import Image
 
 from ...utils import box_utils, common_utils
-from ..dataset_interface import IDataset
+from ..dataset_interface import IDataset, PCBatch, Prediction
 from ..processor import PointFeatureEncoder
 from .calibration import Calibration
 from .kitti_utils import calib_to_matricies
 from .object3d import get_objects_from_label
+
+
+@dataclass
+class KittiPCBatch(PCBatch):
+    calibs: List[Calibration]
+
+    def to(self, device: torch.device):
+        return KittiPCBatch(
+            self.batch_size,
+            self.frame_ids,
+            self.img_shapes,
+            self.gt_boxes.to(device).float(),
+            self.voxels.to(device).float(),
+            self.voxel_coords.to(device).float(),
+            self.voxel_num_points.to(device).float(),
+            self.calibs,
+        )
 
 
 class KittiDataset(IDataset):
@@ -39,6 +59,7 @@ class KittiDataset(IDataset):
         super().__init__(class_names, augmentor_cfg, processor_cfg, pfe, training=split == "train")
         self.fov_points_only = fov_points_only
         self.item_names = item_names
+        self.class_names_np = np.array(class_names)
         path = Path(path)
         self.root_split_path = path / ("training" if self.training else "testing")
 
@@ -125,115 +146,65 @@ class KittiDataset(IDataset):
         val_flag_merge = np.logical_and(val_flag_1, val_flag_2)
         return np.logical_and(val_flag_merge, pts_rect_depth >= 0)
 
-    @staticmethod
-    def generate_prediction_dicts(
-        batch_dict, pred_dicts, class_names, output_path: Optional[Path] = None
-    ):
-        """
-        Args:
-            batch_dict:
-                frame_id:
-            pred_dicts: list of pred_dicts
-                pred_boxes: (N, 7), Tensor
-                pred_scores: (N), Tensor
-                pred_labels: (N), Tensor
-            class_names:
-            output_path:
+    zeros_dict = {
+        "name": np.zeros(0),
+        "truncated": np.zeros(0),
+        "occluded": np.zeros(0),
+        "alpha": np.zeros(0),
+        "bbox": np.zeros([0, 4]),
+        "dimensions": np.zeros([0, 3]),
+        "location": np.zeros([0, 3]),
+        "rotation_y": np.zeros(0),
+        "score": np.zeros(0),
+        "boxes_lidar": np.zeros([0, 7]),
+    }
 
-        Returns:
+    def gen_pred_dicts(self, pc_batch: KittiPCBatch, preds: List[Prediction]):
+        def _process_sample(calib: Calibration, img_shape: npt.NDArray[np.int32], pred: Prediction):
+            num_samples = pred.scores.size(0)
+            if num_samples == 0:
+                return KittiDataset.zeros_dict.copy()
 
-        """
+            pred_boxes = pred.boxes.cpu().numpy()
+            pred_labels = pred.labels.cpu().numpy()
 
-        def get_template_prediction(num_samples):
-            return {
-                "name": np.zeros(num_samples),
-                "truncated": np.zeros(num_samples),
-                "occluded": np.zeros(num_samples),
-                "alpha": np.zeros(num_samples),
-                "bbox": np.zeros([num_samples, 4]),
-                "dimensions": np.zeros([num_samples, 3]),
-                "location": np.zeros([num_samples, 3]),
-                "rotation_y": np.zeros(num_samples),
-                "score": np.zeros(num_samples),
-                "boxes_lidar": np.zeros([num_samples, 7]),
-            }
-
-        def generate_single_sample_dict(batch_index, box_dict):
-            pred_scores = box_dict["pred_scores"].cpu().numpy()
-            pred_boxes = box_dict["pred_boxes"].cpu().numpy()
-            pred_labels = box_dict["pred_labels"].cpu().numpy()
-            pred_dict = get_template_prediction(pred_scores.shape[0])
-            if pred_scores.shape[0] == 0:
-                return pred_dict
-
-            calib = batch_dict["calib"][batch_index]
-            image_shape = batch_dict["image_shape"][batch_index].cpu().numpy()
             pred_boxes_camera = box_utils.boxes3d_lidar_to_kitti_camera(pred_boxes, calib)
             pred_boxes_img = box_utils.boxes3d_kitti_camera_to_imageboxes(
-                pred_boxes_camera, calib, image_shape=image_shape
+                pred_boxes_camera, calib, image_shape=img_shape
             )
 
-            pred_dict["name"] = np.array(class_names)[pred_labels - 1]
-            pred_dict["alpha"] = (
-                -np.arctan2(-pred_boxes[:, 1], pred_boxes[:, 0]) + pred_boxes_camera[:, 6]
-            )
-            pred_dict["bbox"] = pred_boxes_img
-            pred_dict["dimensions"] = pred_boxes_camera[:, 3:6]
-            pred_dict["location"] = pred_boxes_camera[:, 0:3]
-            pred_dict["rotation_y"] = pred_boxes_camera[:, 6]
-            pred_dict["score"] = pred_scores
-            pred_dict["boxes_lidar"] = pred_boxes
-            return pred_dict
+            return {
+                "name": self.class_names_np[pred_labels - 1],
+                "truncated": np.zeros(num_samples),
+                "occluded": np.zeros(num_samples),
+                "alpha": (
+                    -np.arctan2(-pred_boxes[:, 1], pred_boxes[:, 0]) + pred_boxes_camera[:, 6]
+                ),
+                "bbox": pred_boxes_img,
+                "boxes_lidar": pred_boxes,
+                "dimensions": pred_boxes_camera[:, 3:6],
+                "location": pred_boxes_camera[:, 0:3],
+                "rotation_y": pred_boxes_camera[:, 6],
+                "score": pred.scores.cpu().numpy(),
+            }
 
-        annos = []
-        out_template = "%s -1 -1 %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f %.4f"
-        for index, box_dict in enumerate(pred_dicts):
-            frame_id = batch_dict["frame_id"][index]
+        return [
+            _process_sample(calib, img_shape, pred)
+            for calib, img_shape, pred in zip(pc_batch.calibs, pc_batch.img_shapes, preds)
+        ]
 
-            single_pred_dict = generate_single_sample_dict(index, box_dict)
-            single_pred_dict["frame_id"] = frame_id
-            annos.append(single_pred_dict)
-
-            if output_path is not None:
-                cur_det_path = output_path / f"{frame_id}.txt"
-                with cur_det_path.open("w") as det_file:
-                    bbox = single_pred_dict["bbox"]
-                    loc = single_pred_dict["location"]
-                    dims = single_pred_dict["dimensions"]  # lhw -> hwl
-
-                    for idx in range(len(bbox)):
-                        print(
-                            out_template
-                            % (
-                                single_pred_dict["name"][idx],
-                                single_pred_dict["alpha"][idx],
-                                bbox[idx][0],
-                                bbox[idx][1],
-                                bbox[idx][2],
-                                bbox[idx][3],
-                                dims[idx][1],
-                                dims[idx][2],
-                                dims[idx][0],
-                                loc[idx][0],
-                                loc[idx][1],
-                                loc[idx][2],
-                                single_pred_dict["rotation_y"][idx],
-                                single_pred_dict["score"][idx],
-                            ),
-                            file=det_file,
-                        )
-
-        return annos
-
-    def evaluation(self, det_annos, class_names):
+    def evaluation(self, det_annos):
         if "annos" not in self.kitti_infos[0].keys():
             return None, {}
         from .kitti_object_eval_python import eval as kitti_eval
 
-        eval_det_annos = copy.deepcopy(det_annos)
+        eval_det_annos = copy.deepcopy(det_annos)  # list of dict(name, alpha, bbox, etc)
+        print(eval_det_annos[0])
         eval_gt_annos = [copy.deepcopy(info["annos"]) for info in self.kitti_infos]
+        print(eval_gt_annos[0])
+        raise
         ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
-            eval_gt_annos, eval_det_annos, class_names
+            eval_gt_annos, eval_det_annos, self.class_names
         )
 
         return ap_result_str, ap_dict
@@ -291,3 +262,17 @@ class KittiDataset(IDataset):
         data_dict = self.prepare_data(data_dict=input_dict)
         data_dict["image_shape"] = img_shape
         return data_dict
+
+    @staticmethod
+    def collate_batch(batch_list) -> KittiPCBatch:
+        pc_batch = IDataset.collate_batch(batch_list)
+        return KittiPCBatch(
+            pc_batch.batch_size,
+            pc_batch.frame_ids,
+            pc_batch.img_shapes,
+            pc_batch.gt_boxes,
+            pc_batch.voxels,
+            pc_batch.voxel_coords,
+            pc_batch.voxel_num_points,
+            [sample["calib"] for sample in batch_list],
+        )

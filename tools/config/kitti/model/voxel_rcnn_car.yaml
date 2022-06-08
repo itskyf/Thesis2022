@@ -71,7 +71,7 @@ roi_head:
     threshold: 0.8
     score_thresh: null  # TODO not necessary
   nms_test_cfg:
-    nms_type: nms_gpu
+    name: nms_gpu
     multi_classes_nms: false
     pre_maxsize: 2048
     post_maxsize: 100

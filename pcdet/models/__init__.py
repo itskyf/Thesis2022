@@ -15,6 +15,7 @@ from .detectors import (
     VoTrSSD,
     VoxelRCNN,
 )
+from .detectors.detector3d_interface import ModelOutput
 
 __all__ = [
     "CaDDN",
@@ -22,6 +23,7 @@ __all__ = [
     "CT3D",
     "CT3D3C",
     "IDetector3D",
+    "ModelOutput",
     "PartA2Net",
     "PointPillar",
     "PointRCNN",
