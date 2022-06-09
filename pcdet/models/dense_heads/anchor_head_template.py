@@ -28,7 +28,7 @@ class AnchorHeadTemplate(nn.Module):
         anchor_target_cfg = self.model_cfg.TARGET_ASSIGNER_CONFIG
         self.box_coder = getattr(box_coder_utils, anchor_target_cfg.BOX_CODER)(
             num_dir_bins=anchor_target_cfg.get("NUM_DIR_BINS", 6),
-            **anchor_target_cfg.get("BOX_CODER_CONFIG", {})
+            **anchor_target_cfg.get("BOX_CODER_CONFIG", {}),
         )
 
         anchor_generator_cfg = self.model_cfg.ANCHOR_GENERATOR_CONFIG
@@ -38,11 +38,16 @@ class AnchorHeadTemplate(nn.Module):
             point_cloud_range=point_cloud_range,
             anchor_ndim=self.box_coder.code_size,
         )
-        self.anchors = [x.cuda() for x in anchors]
+        for i, anchor in enumerate(anchors):
+            self.register_buffer(f"anchor_{i}", anchor, persistent=False)
+        self.num_anchors = len(anchors)
         self.target_assigner = self.get_target_assigner(anchor_target_cfg)
 
         self.forward_ret_dict = {}
         self.build_losses(self.model_cfg.LOSS_CONFIG)
+
+    def _get_anchors(self):
+        return [self.get_buffer(f"anchor_{i}") for i in range(self.num_anchors)]
 
     @staticmethod
     def generate_anchors(anchor_generator_cfg, grid_size, point_cloud_range, anchor_ndim=7):
@@ -52,9 +57,7 @@ class AnchorHeadTemplate(nn.Module):
         feature_map_size = [
             grid_size[:2] // config["feature_map_stride"] for config in anchor_generator_cfg
         ]
-        anchors_list, num_anchors_per_location_list = anchor_generator.generate_anchors(
-            feature_map_size
-        )
+        anchors_list, num_anchors_per_location_list = anchor_generator(feature_map_size)
 
         if anchor_ndim != 7:
             for idx, anchors in enumerate(anchors_list):
@@ -135,7 +138,7 @@ class AnchorHeadTemplate(nn.Module):
             *list(cls_targets.shape),
             self.num_class + 1,
             dtype=cls_preds.dtype,
-            device=cls_targets.device
+            device=cls_targets.device,
         )
         one_hot_targets.scatter_(-1, cls_targets.unsqueeze(dim=-1).long(), 1.0)
         cls_preds = cls_preds.view(batch_size, -1, self.num_class)
@@ -174,7 +177,7 @@ class AnchorHeadTemplate(nn.Module):
                 *list(dir_cls_targets.shape),
                 num_bins,
                 dtype=anchors.dtype,
-                device=dir_cls_targets.device
+                device=dir_cls_targets.device,
             )
             dir_targets.scatter_(-1, dir_cls_targets.unsqueeze(dim=-1).long(), 1.0)
             dir_cls_targets = dir_targets
@@ -192,19 +195,17 @@ class AnchorHeadTemplate(nn.Module):
         pos_normalizer = positives.sum(1, keepdim=True).float()
         reg_weights /= torch.clamp(pos_normalizer, min=1.0)
 
-        if isinstance(self.anchors, list):
-            if self.use_multihead:
-                anchors = torch.cat(
-                    [
-                        anchor.permute(3, 4, 0, 1, 2, 5).contiguous().view(-1, anchor.shape[-1])
-                        for anchor in self.anchors
-                    ],
-                    dim=0,
-                )
-            else:
-                anchors = torch.cat(self.anchors, dim=-3)
-        else:
-            anchors = self.anchors
+        anchors = self._get_anchors()
+        anchors = (
+            torch.cat(
+                [
+                    anchor.permute(3, 4, 0, 1, 2, 5).reshape(-1, anchor.shape[-1])
+                    for anchor in anchors
+                ]
+            )
+            if self.use_multihead
+            else torch.cat(anchors, dim=-3)
+        )
         anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
         box_preds = box_preds.view(
             batch_size,
@@ -248,7 +249,6 @@ class AnchorHeadTemplate(nn.Module):
         box_loss, tb_dict_box = self.get_box_reg_layer_loss()
         tb_dict.update(tb_dict_box)
         rpn_loss = cls_loss + box_loss
-
         tb_dict["rpn_loss"] = rpn_loss.item()
         return rpn_loss, tb_dict
 
@@ -265,19 +265,17 @@ class AnchorHeadTemplate(nn.Module):
             batch_box_preds: (B, num_boxes, 7+C)
 
         """
-        if isinstance(self.anchors, list):
-            if self.use_multihead:
-                anchors = torch.cat(
-                    [
-                        anchor.permute(3, 4, 0, 1, 2, 5).contiguous().view(-1, anchor.shape[-1])
-                        for anchor in self.anchors
-                    ],
-                    dim=0,
-                )
-            else:
-                anchors = torch.cat(self.anchors, dim=-3)
-        else:
-            anchors = self.anchors
+        anchors = self._get_anchors()
+        anchors = (
+            torch.cat(
+                [
+                    anchor.permute(3, 4, 0, 1, 2, 5).reshape(-1, anchor.shape[-1])
+                    for anchor in anchors
+                ]
+            )
+            if self.use_multihead
+            else torch.cat(anchors, dim=-3)
+        )
         num_anchors = anchors.view(-1, anchors.shape[-1]).shape[0]
         batch_anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
         batch_cls_preds = (

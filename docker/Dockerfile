@@ -15,9 +15,9 @@ RUN micromamba install -y --name base --channel pytorch --channel conda-forge \
 	micromamba clean -y --all
 
 RUN micromamba install -y --name base --channel conda-forge \
-	fire kornia lark pip portalocker pybind11 requests \
+	fire kornia lark pip portalocker pybind11 \
 	easydict numba scikit-image sharedarray tensorboard tqdm &&\
-	micromamba install -y --name base --channel conda-forge gdown git rclone tmux &&\
+	micromamba install -y --name base --channel conda-forge gdown git rclone tmux vim &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
 	micromamba clean -y --all
 

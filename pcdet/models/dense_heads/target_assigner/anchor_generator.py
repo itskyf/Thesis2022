@@ -3,7 +3,6 @@ import torch
 
 class AnchorGenerator:
     def __init__(self, anchor_range, anchor_generator_config):
-        super().__init__()
         self.anchor_generator_cfg = anchor_generator_config
         self.anchor_range = anchor_range
         self.anchor_sizes = [config["anchor_sizes"] for config in anchor_generator_config]
@@ -18,7 +17,7 @@ class AnchorGenerator:
         assert len(self.anchor_sizes) == len(self.anchor_rotations) == len(self.anchor_heights)
         self.num_of_anchor_sets = len(self.anchor_sizes)
 
-    def generate_anchors(self, grid_sizes):
+    def __call__(self, grid_sizes):
         assert len(grid_sizes) == self.num_of_anchor_sets
         all_anchors = []
         num_anchors_per_location = []
@@ -47,16 +46,16 @@ class AnchorGenerator:
                 self.anchor_range[3] + 1e-5,
                 step=x_stride,
                 dtype=torch.float32,
-            ).cuda()
+            )
             y_shifts = torch.arange(
                 self.anchor_range[1] + y_offset,
                 self.anchor_range[4] + 1e-5,
                 step=y_stride,
                 dtype=torch.float32,
-            ).cuda()
+            )
             z_shifts = x_shifts.new_tensor(anchor_height)
 
-            num_anchor_size, num_anchor_rotation = anchor_size.__len__(), anchor_rotation.__len__()
+            num_anchor_size, num_anchor_rotation = len(anchor_size), len(anchor_rotation)
             anchor_rotation = x_shifts.new_tensor(anchor_rotation)
             anchor_size = x_shifts.new_tensor(anchor_size)
             x_shifts, y_shifts, z_shifts = torch.meshgrid(

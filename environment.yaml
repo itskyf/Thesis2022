@@ -14,7 +14,6 @@ dependencies:
   - lark
   - portalocker
   - pybind11
-  - requests
   # OpenPCDet requirements
   - easydict
   - gxx=10

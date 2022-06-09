@@ -14,15 +14,15 @@ def make_cuda_ext(name: str, module: str, sources: List[str]):
 
 
 if __name__ == "__main__":
-    commit_short_hash = "0" * 7
+    COMMIT_SHORT_HASH = "0" * 7
     try:
-        commit_short_hash = (
+        COMMIT_SHORT_HASH = (
             subprocess.check_output(["git", "rev-parse", "--short", "HEAD"]).decode("utf-8").strip()
         )
     except FileNotFoundError:
-        print("Not found latest commit hash, fallback to", commit_short_hash)
+        print("Not found latest commit hash, fallback to", COMMIT_SHORT_HASH)
     with Path("pcdet/__init__.py").open("w", encoding="utf-8") as ver_file:
-        ver_file.write(f'__version__ = "0.5.2+{commit_short_hash}"')
+        ver_file.write(f'__version__ = "0.5.2+{COMMIT_SHORT_HASH}"')
 
     setuptools.setup(
         cmdclass={
