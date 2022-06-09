@@ -2,7 +2,7 @@ import copy
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.nn.init import kaiming_normal_
 
 from ...utils import loss_utils

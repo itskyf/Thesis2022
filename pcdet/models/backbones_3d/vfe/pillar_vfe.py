@@ -1,6 +1,6 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from .vfe_template import VFETemplate
 
@@ -36,7 +36,7 @@ class PFNLayer(nn.Module):
         torch.backends.cudnn.enabled = False
         x = self.norm(x.permute(0, 2, 1)).permute(0, 2, 1) if self.use_norm else x
         torch.backends.cudnn.enabled = True
-        x = F.relu(x)
+        x = functional.relu(x)
         x_max = torch.max(x, dim=1, keepdim=True)[0]
 
         if self.last_vfe:

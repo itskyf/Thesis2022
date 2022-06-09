@@ -1,6 +1,6 @@
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import common_utils, loss_utils
@@ -21,15 +21,15 @@ class PointHeadTemplate(nn.Module):
         )
         reg_loss_type = losses_cfg.get("LOSS_REG", None)
         if reg_loss_type == "smooth-l1":
-            self.reg_loss_func = F.smooth_l1_loss
+            self.reg_loss_func = functional.smooth_l1_loss
         elif reg_loss_type == "l1":
-            self.reg_loss_func = F.l1_loss
+            self.reg_loss_func = functional.l1_loss
         elif reg_loss_type == "WeightedSmoothL1Loss":
             self.reg_loss_func = loss_utils.WeightedSmoothL1Loss(
                 code_weights=losses_cfg.LOSS_WEIGHTS.get("code_weights", None)
             )
         else:
-            self.reg_loss_func = F.smooth_l1_loss
+            self.reg_loss_func = functional.smooth_l1_loss
 
     @staticmethod
     def make_fc_layers(fc_cfg, input_channels, output_channels):
@@ -192,7 +192,7 @@ class PointHeadTemplate(nn.Module):
         pos_normalizer = max(1, (pos_mask > 0).sum().item())
         point_part_labels = self.forward_ret_dict["point_part_labels"]
         point_part_preds = self.forward_ret_dict["point_part_preds"]
-        point_loss_part = F.binary_cross_entropy(
+        point_loss_part = functional.binary_cross_entropy(
             torch.sigmoid(point_part_preds), point_part_labels, reduction="none"
         )
         point_loss_part = (point_loss_part.sum(dim=-1) * pos_mask.float()).sum() / (

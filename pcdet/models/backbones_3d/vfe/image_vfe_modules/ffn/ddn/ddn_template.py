@@ -2,9 +2,8 @@ from collections import OrderedDict
 from pathlib import Path
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-from torch import hub
+from torch import hub, nn
+from torch.nn import functional
 
 try:
     from kornia.enhance.normalize import normalize
@@ -136,14 +135,14 @@ class DDNTemplate(nn.Module):
         # Prediction classification logits
         x = features["out"]
         x = self.model.classifier(x)
-        x = F.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
+        x = functional.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
         result["logits"] = x
 
         # Prediction auxillary classification logits
         if self.model.aux_classifier is not None:
             x = features["aux"]
             x = self.model.aux_classifier(x)
-            x = F.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
+            x = functional.interpolate(x, size=feat_shape, mode="bilinear", align_corners=False)
             result["aux"] = x
 
         return result

@@ -1,11 +1,7 @@
 from typing import Set
 
-try:
-    import spconv.pytorch as spconv
-except:
-    import spconv as spconv
-
-import torch.nn as nn
+import spconv.pytorch as spconv
+from torch import nn
 
 
 def find_all_spconv_keys(model: nn.Module, prefix="") -> Set[str]:

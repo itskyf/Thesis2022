@@ -1,6 +1,6 @@
 from functools import partial
 
-import torch.nn as nn
+from torch import nn
 
 from ...utils.spconv_utils import replace_feature, spconv
 

@@ -1,8 +1,8 @@
 from typing import List
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from . import pointnet2_utils
 
@@ -117,7 +117,7 @@ class StackSAModuleMSG(nn.Module):
             new_features = self.mlps[k](new_features)  # (1, C, M1 + M2 ..., nsample)
 
             if self.pool_method == "max_pool":
-                new_features = F.max_pool2d(
+                new_features = functional.max_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)]
                 ).squeeze(
                     dim=-1

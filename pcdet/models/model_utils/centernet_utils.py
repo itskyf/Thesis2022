@@ -3,7 +3,7 @@
 import numba
 import numpy as np
 import torch
-import torch.nn.functional as F
+from torch.nn import functional
 
 
 def gaussian_radius(height, width, min_overlap=0.5):
@@ -74,7 +74,7 @@ def draw_gaussian_to_heatmap(heatmap, center, radius, k=1, valid_mask=None):
 def _nms(heat, kernel=3):
     pad = (kernel - 1) // 2
 
-    hmax = F.max_pool2d(heat, (kernel, kernel), stride=1, padding=pad)
+    hmax = functional.max_pool2d(heat, (kernel, kernel), stride=1, padding=pad)
     keep = (hmax == heat).float()
     return heat * keep
 

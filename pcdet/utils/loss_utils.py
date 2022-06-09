@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from . import box_utils
 
@@ -206,7 +206,7 @@ class WeightedCrossEntropyLoss(nn.Module):
         """
         x = x.permute(0, 2, 1)
         target = target.argmax(dim=-1)
-        return F.cross_entropy(x, target, reduction="none") * weights
+        return functional.cross_entropy(x, target, reduction="none") * weights
 
 
 def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):

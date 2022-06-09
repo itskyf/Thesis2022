@@ -1,8 +1,7 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from torch import nn
+from torch.nn import functional
 
 from ...utils import common_utils
 from ..model_utils.ctrans import build_transformer
@@ -22,7 +21,7 @@ class MLP(nn.Module):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            x = F.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
+            x = functional.relu(layer(x)) if i < self.num_layers - 1 else layer(x)
         return x
 
 

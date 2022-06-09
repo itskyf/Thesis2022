@@ -1,7 +1,7 @@
 from typing import Tuple
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.autograd import Function
 
 from . import pointnet2_batch_cuda as pointnet2

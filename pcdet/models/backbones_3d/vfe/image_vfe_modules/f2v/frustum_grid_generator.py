@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 try:
     from kornia.geometry.linalg import transform_points

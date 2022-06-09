@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...utils import box_coder_utils, common_utils, loss_utils
 from .target_assigner.anchor_generator import AnchorGenerator

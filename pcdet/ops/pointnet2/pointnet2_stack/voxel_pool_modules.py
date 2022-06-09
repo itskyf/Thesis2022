@@ -1,8 +1,8 @@
 from typing import List
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from . import voxel_query_utils
 
@@ -135,11 +135,10 @@ class NeighborVoxelSAModuleMSG(nn.Module):
             new_features = self.relu(new_features)
 
             if self.pool_method == "max_pool":
-                new_features = F.max_pool2d(
+                new_features = functional.max_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)]
-                ).squeeze(
-                    dim=-1
-                )  # (1, C, M1 + M2 ...)
+                ).squeeze(dim=-1)
+                # (1, C, M1 + M2 ...)
             elif self.pool_method == "avg_pool":
                 new_features = F.avg_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)]

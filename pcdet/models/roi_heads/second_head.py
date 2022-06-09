@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...utils import common_utils, loss_utils
 from .roi_head_template import RoIHeadTemplate

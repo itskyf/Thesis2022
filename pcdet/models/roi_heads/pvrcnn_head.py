@@ -1,8 +1,6 @@
-import torch.nn as nn
+from torch import nn
 
-from ...ops.pointnet2.pointnet2_stack import (
-    pointnet2_modules as pointnet2_stack_modules,
-)
+from ...ops.pointnet2.pointnet2_stack import pointnet2_modules
 from ...utils import common_utils
 from .roi_head_template import RoIHeadTemplate
 
@@ -12,10 +10,7 @@ class PVRCNNHead(RoIHeadTemplate):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
 
-        (
-            self.roi_grid_pool_layer,
-            num_c_out,
-        ) = pointnet2_stack_modules.build_local_aggregation_module(
+        (self.roi_grid_pool_layer, num_c_out,) = pointnet2_modules.build_local_aggregation_module(
             input_channels=input_channels, config=self.model_cfg.ROI_GRID_POOL
         )
 

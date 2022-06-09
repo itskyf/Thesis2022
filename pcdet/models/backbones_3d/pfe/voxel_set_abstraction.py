@@ -2,7 +2,7 @@ import math
 
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ....ops.pointnet2.pointnet2_stack import (
     pointnet2_modules as pointnet2_stack_modules,

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from ...utils import box_coder_utils, common_utils, loss_utils
 from ..model_utils.model_nms_utils import class_agnostic_nms
@@ -214,7 +214,7 @@ class RoIHeadTemplate(nn.Module):
         rcnn_cls_labels = forward_ret_dict["rcnn_cls_labels"].view(-1)
         if loss_cfgs.CLS_LOSS == "BinaryCrossEntropy":
             rcnn_cls_flat = rcnn_cls.view(-1)
-            batch_loss_cls = F.binary_cross_entropy(
+            batch_loss_cls = functional.binary_cross_entropy(
                 torch.sigmoid(rcnn_cls_flat), rcnn_cls_labels.float(), reduction="none"
             )
             cls_valid_mask = (rcnn_cls_labels >= 0).float()
@@ -222,7 +222,7 @@ class RoIHeadTemplate(nn.Module):
                 cls_valid_mask.sum(), min=1.0
             )
         elif loss_cfgs.CLS_LOSS == "CrossEntropy":
-            batch_loss_cls = F.cross_entropy(
+            batch_loss_cls = functional.cross_entropy(
                 rcnn_cls, rcnn_cls_labels, reduction="none", ignore_index=-1
             )
             cls_valid_mask = (rcnn_cls_labels >= 0).float()

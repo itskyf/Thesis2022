@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils.spconv_utils import spconv

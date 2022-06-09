@@ -1,8 +1,8 @@
 from typing import List
 
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from torch import nn
+from torch.nn import functional
 
 from . import pointnet2_utils
 
@@ -45,11 +45,11 @@ class _PointnetSAModuleBase(nn.Module):
 
             new_features = self.mlps[i](new_features)  # (B, mlp[-1], npoint, nsample)
             if self.pool_method == "max_pool":
-                new_features = F.max_pool2d(
+                new_features = functional.max_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)]
                 )  # (B, mlp[-1], npoint, 1)
             elif self.pool_method == "avg_pool":
-                new_features = F.avg_pool2d(
+                new_features = functional.avg_pool2d(
                     new_features, kernel_size=[1, new_features.size(3)]
                 )  # (B, mlp[-1], npoint, 1)
             else:

@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 try:
     import torch_scatter

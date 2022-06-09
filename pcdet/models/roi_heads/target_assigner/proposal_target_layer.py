@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ....ops.iou3d_nms import iou3d_nms_utils
 

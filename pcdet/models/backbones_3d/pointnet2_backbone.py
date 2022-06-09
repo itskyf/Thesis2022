@@ -1,5 +1,5 @@
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ...ops.pointnet2.pointnet2_batch import pointnet2_modules
 from ...ops.pointnet2.pointnet2_stack import (
