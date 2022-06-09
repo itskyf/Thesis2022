@@ -1,8 +1,7 @@
 from functools import partial
 
-import torch.optim as optim
 import torch.optim.lr_scheduler as lr_sched
-from torch import nn
+from torch import nn, optim
 
 from .fastai_optim import OptimWrapper
 from .learning_schedules_fastai import CosineWarmupLR, OneCycle

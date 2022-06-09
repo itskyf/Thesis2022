@@ -1,8 +1,10 @@
+import abc
 from collections import defaultdict
 from pathlib import Path
+from typing import List
 
 import numpy as np
-import torch.utils.data as torch_data
+from torch.utils.data import Dataset
 
 from ..utils import common_utils
 from .augmentor.data_augmentor import DataAugmentor
@@ -10,16 +12,14 @@ from .processor.data_processor import DataProcessor
 from .processor.point_feature_encoder import PointFeatureEncoder
 
 
-class DatasetTemplate(torch_data.Dataset):
-    def __init__(
-        self, dataset_cfg=None, class_names=None, training=True, root_path=None, logger=None
-    ):
+class DatasetTemplate(abc.ABC, Dataset):
+    def __init__(self, dataset_cfg, class_names: List[str], training: bool, logger=None):
         super().__init__()
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.class_names = class_names
         self.logger = logger
-        self.root_path = root_path if root_path is not None else Path(self.dataset_cfg.DATA_PATH)
+        self.root_path = Path(dataset_cfg.DATA_PATH)
         self.logger = logger
         if self.dataset_cfg is None or class_names is None:
             return
@@ -92,22 +92,9 @@ class DatasetTemplate(torch_data.Dataset):
         else:
             self._merge_all_iters_to_one_epoch = False
 
-    def __len__(self):
-        raise NotImplementedError
-
-    def __getitem__(self, index):
-        """
-        To support a custom dataset, implement this function to load the raw data (and labels), then transform them to
-        the unified normative coordinate and call the function self.prepare_data() to process the data and send them
-        to the model.
-
-        Args:
-            index:
-
-        Returns:
-
-        """
-        raise NotImplementedError
+    @abc.abstractmethod
+    def __len__(self) -> int:
+        ...
 
     def prepare_data(self, data_dict):
         """
@@ -169,7 +156,7 @@ class DatasetTemplate(torch_data.Dataset):
         return data_dict
 
     @staticmethod
-    def collate_batch(batch_list, _unused=False):
+    def collate_batch(batch_list):
         data_dict = defaultdict(list)
         for cur_sample in batch_list:
             for key, val in cur_sample.items():
@@ -178,72 +165,62 @@ class DatasetTemplate(torch_data.Dataset):
         ret = {}
 
         for key, val in data_dict.items():
-            try:
-                if key in ["voxels", "voxel_num_points"]:
-                    ret[key] = np.concatenate(val, axis=0)
-                elif key in ["points", "voxel_coords"]:
-                    coors = []
-                    for i, coor in enumerate(val):
-                        coor_pad = np.pad(
-                            coor, ((0, 0), (1, 0)), mode="constant", constant_values=i
-                        )
-                        coors.append(coor_pad)
-                    ret[key] = np.concatenate(coors, axis=0)
-                elif key in ["gt_boxes"]:
-                    max_gt = max([len(x) for x in val])
-                    batch_gt_boxes3d = np.zeros(
-                        (batch_size, max_gt, val[0].shape[-1]), dtype=np.float32
-                    )
-                    for k in range(batch_size):
-                        batch_gt_boxes3d[k, : val[k].__len__(), :] = val[k]
-                    ret[key] = batch_gt_boxes3d
-                elif key in ["gt_boxes2d"]:
-                    max_boxes = 0
-                    max_boxes = max([len(x) for x in val])
-                    batch_boxes2d = np.zeros(
-                        (batch_size, max_boxes, val[0].shape[-1]), dtype=np.float32
-                    )
-                    for k in range(batch_size):
-                        if val[k].size > 0:
-                            batch_boxes2d[k, : val[k].__len__(), :] = val[k]
-                    ret[key] = batch_boxes2d
-                elif key in ["images", "depth_maps"]:
-                    # Get largest image size (H, W)
-                    max_h = 0
-                    max_w = 0
-                    for image in val:
-                        max_h = max(max_h, image.shape[0])
-                        max_w = max(max_w, image.shape[1])
+            if key in ["voxels", "voxel_num_points"]:
+                ret[key] = np.concatenate(val)
+            elif key in ["points", "voxel_coords"]:
+                coors = []
+                for i, coor in enumerate(val):
+                    coor_pad = np.pad(coor, ((0, 0), (1, 0)), mode="constant", constant_values=i)
+                    coors.append(coor_pad)
+                ret[key] = np.concatenate(coors)
+            elif key in ["gt_boxes"]:
+                max_gt = max([len(x) for x in val])
+                batch_gt_boxes3d = np.zeros(
+                    (batch_size, max_gt, val[0].shape[-1]), dtype=np.float32
+                )
+                for k in range(batch_size):
+                    batch_gt_boxes3d[k, : val[k].__len__(), :] = val[k]
+                ret[key] = batch_gt_boxes3d
+            elif key in ["gt_boxes2d"]:
+                max_boxes = 0
+                max_boxes = max([len(x) for x in val])
+                batch_boxes2d = np.zeros(
+                    (batch_size, max_boxes, val[0].shape[-1]), dtype=np.float32
+                )
+                for k in range(batch_size):
+                    if val[k].size > 0:
+                        batch_boxes2d[k, : val[k].__len__(), :] = val[k]
+                ret[key] = batch_boxes2d
+            elif key in ["images", "depth_maps"]:
+                # Get largest image size (H, W)
+                max_h = 0
+                max_w = 0
+                for image in val:
+                    max_h = max(max_h, image.shape[0])
+                    max_w = max(max_w, image.shape[1])
 
-                    # Change size of images
-                    images = []
-                    for image in val:
-                        pad_h = common_utils.get_pad_params(
-                            desired_size=max_h, cur_size=image.shape[0]
-                        )
-                        pad_w = common_utils.get_pad_params(
-                            desired_size=max_w, cur_size=image.shape[1]
-                        )
+                # Change size of images
+                images = []
+                for image in val:
+                    pad_h = common_utils.get_pad_params(desired_size=max_h, cur_size=image.shape[0])
+                    pad_w = common_utils.get_pad_params(desired_size=max_w, cur_size=image.shape[1])
+                    pad_width = (pad_h, pad_w)
+                    # Pad with nan, to be replaced later in the pipeline.
+                    pad_value = np.nan
+
+                    if key == "images":
+                        pad_width = (pad_h, pad_w, (0, 0))
+                    elif key == "depth_maps":
                         pad_width = (pad_h, pad_w)
-                        # Pad with nan, to be replaced later in the pipeline.
-                        pad_value = np.nan
 
-                        if key == "images":
-                            pad_width = (pad_h, pad_w, (0, 0))
-                        elif key == "depth_maps":
-                            pad_width = (pad_h, pad_w)
+                    image_pad = np.pad(
+                        image, pad_width=pad_width, mode="constant", constant_values=pad_value
+                    )
 
-                        image_pad = np.pad(
-                            image, pad_width=pad_width, mode="constant", constant_values=pad_value
-                        )
-
-                        images.append(image_pad)
-                    ret[key] = np.stack(images, axis=0)
-                else:
-                    ret[key] = np.stack(val, axis=0)
-            except:
-                print("Error in collate_batch: key=%s" % key)
-                raise TypeError
+                    images.append(image_pad)
+                ret[key] = np.stack(images)
+            else:
+                ret[key] = np.stack(val)
 
         ret["batch_size"] = batch_size
         return ret

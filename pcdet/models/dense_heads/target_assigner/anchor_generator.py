@@ -59,7 +59,7 @@ class AnchorGenerator:
             anchor_rotation = x_shifts.new_tensor(anchor_rotation)
             anchor_size = x_shifts.new_tensor(anchor_size)
             x_shifts, y_shifts, z_shifts = torch.meshgrid(
-                [x_shifts, y_shifts, z_shifts]
+                [x_shifts, y_shifts, z_shifts], indexing="ij"
             )  # [x_grid, y_grid, z_grid]
             anchors = torch.stack((x_shifts, y_shifts, z_shifts), dim=-1)  # [x, y, z, 3]
             anchors = anchors[:, :, :, None, :].repeat(1, 1, 1, anchor_size.shape[0], 1)

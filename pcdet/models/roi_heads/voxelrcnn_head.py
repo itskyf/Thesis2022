@@ -1,3 +1,6 @@
+import itertools
+from typing import List
+
 import torch
 from torch import nn
 
@@ -34,72 +37,44 @@ class VoxelRCNNHead(RoIHeadTemplate):
             )
 
             self.roi_grid_pool_layers.append(pool_layer)
+            c_out += sum(x[-1] for x in mlps)
 
-            c_out += sum([x[-1] for x in mlps])
-
-        GRID_SIZE = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
+        pool_grid_size = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         # c_out = sum([x[-1] for x in mlps])
-        pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
+        pre_channel = pool_grid_size**3 * c_out
+        dp_ratio = self.model_cfg.DP_RATIO
 
-        shared_fc_list = []
-        for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-            shared_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-                    nn.ReLU(inplace=True),
-                ]
-            )
-            pre_channel = self.model_cfg.SHARED_FC[k]
-
-            if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                shared_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.shared_fc_layer = nn.Sequential(*shared_fc_list)
-
-        cls_fc_list = []
-        for k in range(0, self.model_cfg.CLS_FC.__len__()):
-            cls_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.CLS_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.CLS_FC[k]),
-                    nn.ReLU(),
-                ]
-            )
-            pre_channel = self.model_cfg.CLS_FC[k]
-
-            if k != self.model_cfg.CLS_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                cls_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.cls_fc_layers = nn.Sequential(*cls_fc_list)
-        self.cls_pred_layer = nn.Linear(pre_channel, self.num_class, bias=True)
-
-        reg_fc_list = []
-        for k in range(0, self.model_cfg.REG_FC.__len__()):
-            reg_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.REG_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.REG_FC[k]),
-                    nn.ReLU(),
-                ]
-            )
-            pre_channel = self.model_cfg.REG_FC[k]
-
-            if k != self.model_cfg.REG_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                reg_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.reg_fc_layers = nn.Sequential(*reg_fc_list)
-        self.reg_pred_layer = nn.Linear(
-            pre_channel, self.box_coder.code_size * self.num_class, bias=True
+        self.shared_fc_layer = _make_fc_layers(
+            in_channels=pre_channel,
+            channels=self.model_cfg.SHARED_FC,
+            dp_ratio=dp_ratio,
+            relu_inplace=True,
         )
 
-        self.init_weights()
+        self.cls_fc_layers = _make_fc_layers(
+            in_channels=self.model_cfg.SHARED_FC[-1],
+            channels=self.model_cfg.CLS_FC,
+            dp_ratio=dp_ratio,
+            relu_inplace=False,
+        )
+        self.cls_pred_layer = nn.Linear(self.model_cfg.CLS_FC[-1], num_class, bias=True)
 
-    def init_weights(self):
-        init_func = nn.init.xavier_normal_
+        self.reg_fc_layers = _make_fc_layers(
+            in_channels=self.model_cfg.SHARED_FC[-1],
+            channels=self.model_cfg.REG_FC,
+            dp_ratio=dp_ratio,
+            relu_inplace=False,
+        )
+        self.reg_pred_layer = nn.Linear(
+            self.model_cfg.REG_FC[-1], self.box_coder.code_size * num_class, bias=True
+        )
+
         for module_list in [self.shared_fc_layer, self.cls_fc_layers, self.reg_fc_layers]:
-            for m in module_list.modules():
-                if isinstance(m, nn.Linear):
-                    init_func(m.weight)
-                    if m.bias is not None:
-                        nn.init.constant_(m.bias, 0)
+            for module in module_list.modules():
+                if isinstance(module, nn.Linear):
+                    nn.init.xavier_normal_(module.weight)
+                    if module.bias is not None:
+                        nn.init.constant_(module.bias, 0)
 
         nn.init.normal_(self.cls_pred_layer.weight, 0, 0.01)
         nn.init.constant_(self.cls_pred_layer.bias, 0)
@@ -290,3 +265,21 @@ class VoxelRCNNHead(RoIHeadTemplate):
             self.forward_ret_dict = targets_dict
 
         return batch_dict
+
+
+def _make_fc_layers(in_channels: int, channels: List[int], dp_ratio: float, relu_inplace: bool):
+    # TODO py3.10 itertools.pairwise
+    in_cs, out_cs = itertools.tee([in_channels, *channels])
+    next(out_cs)
+    layers = list(
+        itertools.chain.from_iterable(
+            [
+                nn.Linear(in_c, out_c, bias=False),
+                nn.BatchNorm1d(out_c),
+                nn.ReLU(inplace=relu_inplace),
+                nn.Dropout(dp_ratio) if dp_ratio > 0 else None,
+            ]
+            for in_c, out_c in zip(in_cs, out_cs)
+        )
+    )
+    return nn.Sequential(*[layer for layer in layers[:-1] if layer is not None])

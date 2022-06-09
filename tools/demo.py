@@ -115,7 +115,7 @@ def main():
     logger.info("Total number of samples: \t%d", len(demo_dataset))
 
     model = build_network(model_cfg=cfg.MODEL, num_class=len(cfg.CLASS_NAMES), dataset=demo_dataset)
-    model.load_params_from_file(filename=args.ckpt, logger=logger, to_cpu=True)
+    model.load_params_from_file(path=args.ckpt, logger=logger, to_cpu=True)
     model.cuda()
     model.eval()
     with torch.no_grad():

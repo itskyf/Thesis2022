@@ -6,12 +6,12 @@ from skimage import io
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
 from ...utils import box_utils, calibration_kitti, common_utils, object3d_kitti
-from ..dataset import DatasetTemplate
+from ..dataset_interface import DatasetTemplate
 from . import kitti_utils
 
 
 class KittiDataset(DatasetTemplate):
-    def __init__(self, dataset_cfg, class_names, training=True, root_path=None, logger=None):
+    def __init__(self, dataset_cfg, class_names, training=True, logger=None):
         """
         Args:
             root_path:
@@ -24,7 +24,6 @@ class KittiDataset(DatasetTemplate):
             dataset_cfg=dataset_cfg,
             class_names=class_names,
             training=training,
-            root_path=root_path,
             logger=logger,
         )
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]

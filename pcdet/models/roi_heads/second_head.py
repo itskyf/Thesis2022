@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn import functional
 
 from ...utils import common_utils, loss_utils
 from .roi_head_template import RoIHeadTemplate
@@ -114,23 +115,24 @@ class SECONDHead(RoIHeadTemplate):
             )
 
             grid_size = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
-            grid = nn.functional.affine_grid(
-                theta, torch.Size((rois.size(1), spatial_features_2d.size(1), grid_size, grid_size))
+            grid = functional.affine_grid(
+                theta,
+                torch.Size((rois.size(1), spatial_features_2d.size(1), grid_size, grid_size)),
+                align_corners=True,
             )
 
-            pooled_features = nn.functional.grid_sample(
+            pooled_features = functional.grid_sample(
                 spatial_features_2d[b_id]
                 .unsqueeze(0)
                 .expand(rois.size(1), spatial_features_2d.size(1), height, width),
                 grid,
+                align_corners=True,
             )
 
             pooled_features_list.append(pooled_features)
 
         torch.backends.cudnn.enabled = True
-        pooled_features = torch.cat(pooled_features_list, dim=0)
-
-        return pooled_features
+        return torch.cat(pooled_features_list)
 
     def forward(self, batch_dict):
         """

@@ -110,8 +110,7 @@ class AnchorHeadTemplate(nn.Module):
         Returns:
 
         """
-        targets_dict = self.target_assigner.assign_targets(self.anchors, gt_boxes)
-        return targets_dict
+        return self.target_assigner.assign_targets(self._get_anchors(), gt_boxes)
 
     def get_cls_layer_loss(self):
         cls_preds = self.forward_ret_dict["cls_preds"]
@@ -216,9 +215,8 @@ class AnchorHeadTemplate(nn.Module):
         )
         # sin(a - b) = sinacosb-cosasinb
         box_preds_sin, reg_targets_sin = self.add_sin_difference(box_preds, box_reg_targets)
-        loc_loss_src = self.reg_loss_func(
-            box_preds_sin, reg_targets_sin, weights=reg_weights
-        )  # [N, M]
+        # [N, M]
+        loc_loss_src = self.reg_loss_func(box_preds_sin, reg_targets_sin, weights=reg_weights)
         loc_loss = loc_loss_src.sum() / batch_size
 
         loc_loss = loc_loss * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["loc_weight"]

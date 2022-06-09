@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import torch
 from torch import nn
@@ -383,62 +384,27 @@ class Detector3DTemplate(nn.Module):
             self.load_state_dict(state_dict)
         return state_dict, update_model_state
 
-    def load_params_from_file(self, filename, logger, to_cpu=False):
-        if not os.path.isfile(filename):
-            raise FileNotFoundError
-
-        logger.info(
-            "==> Loading parameters from checkpoint %s to %s"
-            % (filename, "CPU" if to_cpu else "GPU")
-        )
-        loc_type = torch.device("cpu") if to_cpu else None
-        checkpoint = torch.load(filename, map_location=loc_type)
+    def load_params_from_file(self, path: Path, logger):
+        logger.info("Loading parameters from checkpoint %s to CPU", path)
+        checkpoint = torch.load(path, map_location="cpu")
         model_state_disk = checkpoint["model_state"]
 
         version = checkpoint.get("version", None)
         if version is not None:
-            logger.info("==> Checkpoint trained from version: %s" % version)
+            logger.info("Checkpoint trained from version: %s", version)
 
-        state_dict, update_model_state = self._load_state_dict(model_state_disk, strict=False)
+        self._load_state_dict(model_state_disk)
+        logger.info("Done loading")
 
-        for key in state_dict:
-            if key not in update_model_state:
-                logger.info("Not updated weight %s: %s" % (key, str(state_dict[key].shape)))
+    def load_params_with_optimizer(self, filename, optimizer, logger):
+        logger.info("Loading parameters from checkpoint %s to CPU", filename)
+        checkpoint = torch.load(filename, map_location="cpu")
 
-        logger.info("==> Done (loaded %d/%d)" % (len(update_model_state), len(state_dict)))
-
-    def load_params_with_optimizer(self, filename, to_cpu=False, optimizer=None, logger=None):
-        if not os.path.isfile(filename):
-            raise FileNotFoundError
-
-        logger.info(
-            "==> Loading parameters from checkpoint %s to %s"
-            % (filename, "CPU" if to_cpu else "GPU")
-        )
-        loc_type = torch.device("cpu") if to_cpu else None
-        checkpoint = torch.load(filename, map_location=loc_type)
         epoch = checkpoint.get("epoch", -1)
-        it = checkpoint.get("it", 0.0)
-
-        self._load_state_dict(checkpoint["model_state"], strict=True)
-
-        if optimizer is not None:
-            if "optimizer_state" in checkpoint and checkpoint["optimizer_state"] is not None:
-                logger.info(
-                    "==> Loading optimizer parameters from checkpoint %s to %s"
-                    % (filename, "CPU" if to_cpu else "GPU")
-                )
-                optimizer.load_state_dict(checkpoint["optimizer_state"])
-            else:
-                assert filename[-4] == ".", filename
-                src_file, ext = filename[:-4], filename[-3:]
-                optimizer_filename = "%s_optim.%s" % (src_file, ext)
-                if os.path.exists(optimizer_filename):
-                    optimizer_ckpt = torch.load(optimizer_filename, map_location=loc_type)
-                    optimizer.load_state_dict(optimizer_ckpt["optimizer_state"])
+        cur_it = checkpoint.get("it", 0.0)
+        self._load_state_dict(checkpoint["model_state"])
+        optimizer.load_state_dict(checkpoint["optimizer_state"])
 
         if "version" in checkpoint:
-            print("==> Checkpoint trained from version: %s" % checkpoint["version"])
-        logger.info("==> Done")
-
-        return it, epoch
+            logger.info("Checkpoint trained from version: %s", checkpoint["version"])
+        return cur_it, epoch

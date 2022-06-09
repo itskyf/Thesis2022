@@ -493,7 +493,7 @@ class VectorPoolAggregationModule(nn.Module):
             device=device,
         )
         x_offset, y_offset, z_offset = torch.meshgrid(
-            x_grids, y_grids, z_grids
+            x_grids, y_grids, z_grids, indexing="ij"
         )  # shape: [num_x, num_y, num_z]
         xyz_offset = torch.cat(
             (

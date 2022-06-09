@@ -120,26 +120,19 @@ def train_model(
     rank,
     tb_log,
     ckpt_save_dir,
-    train_sampler=None,
-    lr_warmup_scheduler=None,
-    ckpt_save_interval=1,
-    max_ckpt_save_num=50,
-    merge_all_iters_to_one_epoch=False,
+    lr_warmup_scheduler,
+    ckpt_save_interval: int,
+    max_ckpt_save_num: int,
 ):
     accumulated_iter = start_iter
     with tqdm.trange(
         start_epoch, total_epochs, desc="epochs", dynamic_ncols=True, leave=(rank == 0)
     ) as tbar:
         total_it_each_epoch = len(train_loader)
-        if merge_all_iters_to_one_epoch:
-            assert hasattr(train_loader.dataset, "merge_all_iters_to_one_epoch")
-            train_loader.dataset.merge_all_iters_to_one_epoch(merge=True, epochs=total_epochs)
-            total_it_each_epoch = len(train_loader) // max(total_epochs, 1)
 
         dataloader_iter = iter(train_loader)
         for cur_epoch in tbar:
-            if train_sampler is not None:
-                train_sampler.set_epoch(cur_epoch)
+            train_loader.sampler.set_epoch(cur_epoch)
 
             # train one epoch
             if lr_warmup_scheduler is not None and cur_epoch < optim_cfg.WARMUP_EPOCH:
