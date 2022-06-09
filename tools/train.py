@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 
 import torch
-from test_utils import repeat_eval_ckpt
+from evaluate import repeat_eval_ckpt
 from torch import nn
 from torch.utils.tensorboard import SummaryWriter
 from train_utils.optimization import build_optimizer, build_scheduler

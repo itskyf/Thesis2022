@@ -91,7 +91,6 @@ class DataAugmentor:
         images = data_dict["images"]
         depth_maps = data_dict["depth_maps"]
         gt_boxes = data_dict["gt_boxes"]
-        gt_boxes2d = data_dict["gt_boxes2d"]
         calib = data_dict["calib"]
         for cur_axis in config["ALONG_AXIS_LIST"]:
             assert cur_axis in ["horizontal"]
