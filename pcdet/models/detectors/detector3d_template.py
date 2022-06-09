@@ -346,8 +346,6 @@ class Detector3DTemplate(nn.Module):
                     recall_dict["roi_%s" % str(cur_thresh)] += roi_recalled
 
             recall_dict["gt"] += cur_gt.shape[0]
-        else:
-            gt_iou = box_preds.new_zeros(box_preds.shape[0])
         return recall_dict
 
     def _load_state_dict(self, model_state_disk, *, strict=True):

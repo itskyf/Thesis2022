@@ -102,9 +102,7 @@ class SECONDNetIoU(Detector3DTemplate):
             iou_preds = batch_dict["batch_cls_preds"][batch_mask]
             cls_preds = batch_dict["roi_scores"][batch_mask]
 
-            src_iou_preds = iou_preds
             src_box_preds = box_preds
-            src_cls_preds = cls_preds
             assert iou_preds.shape[1] in [1, self.num_class]
 
             if not batch_dict["cls_preds_normalized"]:

@@ -4,7 +4,7 @@ from .vfe_template import VFETemplate
 
 try:
     import torch_scatter
-except Exception as e:
+except Exception:
     # Incase someone doesn't want to use dynamic pillar vfe and hasn't installed torch_scatter
     pass
 
@@ -48,7 +48,6 @@ class DynamicMeanVFE(VFETemplate):
         Returns:
             vfe_features: (num_voxels, C)
         """
-        batch_size = batch_dict["batch_size"]
         points = batch_dict["points"]  # (batch_idx, x, y, z, i, e)
 
         # # debug
