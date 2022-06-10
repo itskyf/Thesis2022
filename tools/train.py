@@ -17,6 +17,7 @@ from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
 
 import pcdet.datasets
+import pcdet.models.detectors
 from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
 from pcdet.models import build_detector, model_fn_decorator
 
@@ -52,7 +53,8 @@ def main():
         conf.DATA_CONFIG, batch_size, args.num_workers, conf.CLASS_NAMES
     )
 
-    model = build_detector(model_cfg=conf.MODEL, num_class=len(conf.CLASS_NAMES), dataset=train_set)
+    model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
+    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), train_set)
     optimizer = build_optimizer(model, conf.OPTIMIZATION)
 
     # load checkpoint if it is possible
@@ -100,9 +102,9 @@ def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("cfg_path", type=Path)
     parser.add_argument("output_dir", type=Path)
-    parser.add_argument("--batch-size", type=int, help="Batch size per GPU")
+    parser.add_argument("--batch_size", type=int, help="Batch size per GPU")
     parser.add_argument("--epochs", type=int, help="number of epochs to train for")
-    parser.add_argument("--num-workers", type=int, default=2)
+    parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--ckpt", type=Path)
     parser.add_argument("--pretrained", type=Path)
     parser.add_argument("--save_interval", type=int, default=5, help="number of training epochs")

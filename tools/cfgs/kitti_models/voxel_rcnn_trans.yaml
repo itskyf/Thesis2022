@@ -87,7 +87,6 @@ MODEL:
     NAME: VoxelRCNNHeadTrans
     CLASS_AGNOSTIC: true
 
-    SHARED_FC: [256, 256]
     CLS_FC: [256, 256]
     REG_FC: [256, 256]
     DP_RATIO: 0.3
@@ -109,7 +108,7 @@ MODEL:
         NMS_THRESH: 0.7
 
     ROI_GRID_POOL:
-      FEATURES_SOURCE: ['x_conv2', 'x_conv3', 'x_conv4']
+      FEATURES_SOURCE: [x_conv2, x_conv3, x_conv4]
       PRE_MLP: true
       GRID_SIZE: 6
       POOL_LAYERS:
@@ -139,7 +138,7 @@ MODEL:
         POSITIONAL_ENCODER: grid_points
         MAX_NUM_BOXES: 20
         DROPOUT: 0.1
-        MASK_EMPTY_POINTS: True
+        MASK_EMPTY_POINTS: true
 
     TARGET_CONFIG:
       BOX_CODER: ResidualCoder

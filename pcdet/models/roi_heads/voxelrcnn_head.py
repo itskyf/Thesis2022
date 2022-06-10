@@ -146,12 +146,11 @@ class VoxelRCNNHead(RoIHeadTemplate):
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
             pool_layer = self.roi_grid_pool_layers[k]
             cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
-            cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
-
-            if with_vf_transform:
-                cur_sp_tensors = batch_dict["multi_scale_3d_features_post"][src_name]
-            else:
-                cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
+            cur_sp_tensors = (
+                batch_dict["multi_scale_3d_features_post"][src_name]
+                if with_vf_transform
+                else batch_dict["multi_scale_3d_features"][src_name]
+            )
 
             # compute voxel center xyz and batch_cnt
             cur_coords = cur_sp_tensors.indices

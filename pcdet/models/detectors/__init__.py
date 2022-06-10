@@ -30,7 +30,6 @@ __all__ = [
     "VoTrRCNN",
     "VoTrSSD",
     "VoxelRCNN",
-    "VoxelRCNN",
 ]
 
 

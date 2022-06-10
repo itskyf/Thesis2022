@@ -1,3 +1,6 @@
+import itertools
+from typing import List
+
 import torch
 from torch import nn
 
@@ -16,105 +19,65 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.pool_cfg = model_cfg.ROI_GRID_POOL
-        LAYER_cfg = self.pool_cfg.POOL_LAYERS
+        layer_cfg = self.pool_cfg.POOL_LAYERS
         self.point_cloud_range = point_cloud_range
         self.voxel_size = voxel_size
 
         c_out = 0
         self.roi_grid_pool_layers = nn.ModuleList()
         for src_name in self.pool_cfg.FEATURES_SOURCE:
-            mlps = LAYER_cfg[src_name].MLPS
+            mlps = layer_cfg[src_name].MLPS
             for k in range(len(mlps)):
                 mlps[k] = [backbone_channels[src_name]] + mlps[k]
             pool_layer = voxelpool_stack_modules.NeighborVoxelSAModuleMSG(
-                query_ranges=LAYER_cfg[src_name].QUERY_RANGES,
-                nsamples=LAYER_cfg[src_name].NSAMPLE,
-                radii=LAYER_cfg[src_name].POOL_RADIUS,
+                query_ranges=layer_cfg[src_name].QUERY_RANGES,
+                nsamples=layer_cfg[src_name].NSAMPLE,
+                radii=layer_cfg[src_name].POOL_RADIUS,
                 mlps=mlps,
-                pool_method=LAYER_cfg[src_name].POOL_METHOD,
+                pool_method=layer_cfg[src_name].POOL_METHOD,
             )
 
             self.roi_grid_pool_layers.append(pool_layer)
 
-            c_out += sum([x[-1] for x in mlps])
+            c_out += sum(x[-1] for x in mlps)
 
-        GRID_SIZE = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
+        pool_grid_size = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         # c_out = sum([x[-1] for x in mlps])
+        dp_ratio = self.model_cfg.DP_RATIO
 
         assert (
             self.pool_cfg.ATTENTION.NUM_FEATURES == c_out
         ), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
         pos_encoder = get_positional_encoder(self.pool_cfg)
         self.attention_head = TransformerEncoder(self.pool_cfg.ATTENTION, pos_encoder)
-        for p in self.attention_head.parameters():
-            if p.dim() > 1:
-                nn.init.xavier_uniform_(p)
 
-        pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
-
-        # shared_fc_list = []
-        # for k in range(0, self.model_cfg.SHARED_FC.__len__()):
-        #     shared_fc_list.extend(
-        #         [
-        #             nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
-        #             nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
-        #             nn.ReLU(inplace=True),
-        #         ]
-        #     )
-        #     pre_channel = self.model_cfg.SHARED_FC[k]
-
-        #     if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-        #         shared_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        # if len(shared_fc_list):
-        #     self.shared_fc_layer = nn.Sequential(*shared_fc_list)
-        # else:
-        #     self.shared_fc_layer = None
-
-        cls_fc_list = []
-        for k in range(0, self.model_cfg.CLS_FC.__len__()):
-            cls_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.CLS_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.CLS_FC[k]),
-                    nn.ReLU(),
-                ]
-            )
-            pre_channel = self.model_cfg.CLS_FC[k]
-
-            if k != self.model_cfg.CLS_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                cls_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.cls_fc_layers = nn.Sequential(*cls_fc_list)
-        self.cls_pred_layer = nn.Linear(pre_channel, self.num_class, bias=True)
-
-        if self.model_cfg.SHARED_FC.__len__() > 0:
-            pre_channel = self.model_cfg.SHARED_FC[-1]
-        else:
-            pre_channel = c_out * GRID_SIZE * GRID_SIZE * GRID_SIZE
-
-        reg_fc_list = []
-        for k in range(0, self.model_cfg.REG_FC.__len__()):
-            reg_fc_list.extend(
-                [
-                    nn.Linear(pre_channel, self.model_cfg.REG_FC[k], bias=False),
-                    nn.BatchNorm1d(self.model_cfg.REG_FC[k]),
-                    nn.ReLU(),
-                ]
-            )
-            pre_channel = self.model_cfg.REG_FC[k]
-
-            if k != self.model_cfg.REG_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
-                reg_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
-        self.reg_fc_layers = nn.Sequential(*reg_fc_list)
-        self.reg_pred_layer = nn.Linear(
-            pre_channel, self.box_coder.code_size * self.num_class, bias=True
+        pre_channel = pool_grid_size**3 * c_out
+        self.cls_fc_layers = _make_fc_layers(
+            in_channels=pre_channel,
+            channels=self.model_cfg.CLS_FC,
+            dp_ratio=dp_ratio,
+            relu_inplace=False,
         )
+        self.cls_pred_layer = nn.Linear(self.model_cfg.CLS_FC[-1], num_class, bias=True)
 
+        self.reg_fc_layers = _make_fc_layers(
+            in_channels=pre_channel,
+            channels=self.model_cfg.REG_FC,
+            dp_ratio=dp_ratio,
+            relu_inplace=False,
+        )
+        self.reg_pred_layer = nn.Linear(
+            self.model_cfg.REG_FC[-1], self.box_coder.code_size * num_class, bias=True
+        )
+        for param in self.attention_head.parameters():
+            if param.dim() > 1:
+                nn.init.xavier_uniform_(param)
         for module_list in [self.cls_fc_layers, self.reg_fc_layers]:
-            for m in module_list.modules():
-                if isinstance(m, nn.Linear):
-                    nn.init.xavier_normal_(m.weight)
-                    if m.bias is not None:
-                        nn.init.constant_(m.bias, 0)
+            for module in module_list.modules():
+                if isinstance(module, nn.Linear):
+                    nn.init.xavier_normal_(module.weight)
+                    if module.bias is not None:
+                        nn.init.constant_(module.bias, 0)
 
         nn.init.normal_(self.cls_pred_layer.weight, 0, 0.01)
         nn.init.constant_(self.cls_pred_layer.bias, 0)
@@ -145,15 +108,21 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
         roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)
 
         # compute the voxel coordinates of grid points
-        roi_grid_coords_x = (
-            roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0]
-        ) // self.voxel_size[0]
-        roi_grid_coords_y = (
-            roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1]
-        ) // self.voxel_size[1]
-        roi_grid_coords_z = (
-            roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2]
-        ) // self.voxel_size[2]
+        roi_grid_coords_x = torch.div(
+            roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0],
+            self.voxel_size[0],
+            rounding_mode="trunc",
+        )
+        roi_grid_coords_y = torch.div(
+            roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1],
+            self.voxel_size[1],
+            rounding_mode="trunc",
+        )
+        roi_grid_coords_z = torch.div(
+            roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2],
+            self.voxel_size[2],
+            rounding_mode="trunc",
+        )
         # roi_grid_coords: (B, Nx6x6x6, 3)
         roi_grid_coords = torch.cat(
             [roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=-1
@@ -171,12 +140,12 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
             pool_layer = self.roi_grid_pool_layers[k]
             cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
-            cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
 
-            if with_vf_transform:
-                cur_sp_tensors = batch_dict["multi_scale_3d_features_post"][src_name]
-            else:
-                cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
+            cur_sp_tensors = (
+                batch_dict["multi_scale_3d_features_post"][src_name]
+                if with_vf_transform
+                else batch_dict["multi_scale_3d_features"][src_name]
+            )
 
             # compute voxel center xyz and batch_cnt
             cur_coords = cur_sp_tensors.indices
@@ -192,7 +161,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
             # get voxel2point tensor
             v2p_ind_tensor = common_utils.generate_voxel2pinds(cur_sp_tensors)
             # compute the grid coordinates in this scale, in [batch_idx, x y z] order
-            cur_roi_grid_coords = roi_grid_coords // cur_stride
+            cur_roi_grid_coords = torch.div(roi_grid_coords, cur_stride, rounding_mode="trunc")
             cur_roi_grid_coords = torch.cat([batch_idx, cur_roi_grid_coords], dim=-1)
             cur_roi_grid_coords = cur_roi_grid_coords.int()
             # voxel neighbor aggregation
@@ -319,3 +288,21 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
             self.forward_ret_dict = targets_dict
 
         return batch_dict
+
+
+def _make_fc_layers(in_channels: int, channels: List[int], dp_ratio: float, relu_inplace: bool):
+    # TODO py3.10 itertools.pairwise
+    in_cs, out_cs = itertools.tee([in_channels, *channels])
+    next(out_cs)
+    layers = list(
+        itertools.chain.from_iterable(
+            [
+                nn.Linear(in_c, out_c, bias=False),
+                nn.BatchNorm1d(out_c),
+                nn.ReLU(inplace=relu_inplace),
+                nn.Dropout(dp_ratio) if dp_ratio > 0 else None,
+            ]
+            for in_c, out_c in zip(in_cs, out_cs)
+        )
+    )
+    return nn.Sequential(*[layer for layer in layers[:-1] if layer is not None])
