@@ -80,8 +80,9 @@ def eval_one_epoch(
         progress_bar.close()
 
     tmpdir = eval_dir / "tmpdir"
+    world_size = distributed.get_world_size()
     det_annos = common_utils.merge_results_dist(det_annos, len(dataset), tmpdir)
-    metric = common_utils.merge_results_dist([metric], distributed.get_world_size(), tmpdir)
+    metric = common_utils.merge_results_dist([metric], world_size, tmpdir)
 
     sec_per_example = (time.time() - start_time) / len(dataset)
     logger.info("Generate label finished(sec_per_example: %.4f second).", sec_per_example)

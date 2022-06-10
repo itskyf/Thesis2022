@@ -385,7 +385,7 @@ class Detector3DTemplate(nn.Module):
         return state_dict, update_model_state
 
     def load_params_from_file(self, path: Path, logger: logging.Logger):
-        logger.info("Loading parameters from checkpoint %s to CPU", path)
+        logger.info("Loading checkpoint %s to CPU", path)
         checkpoint = torch.load(path, map_location="cpu")
         model_state_disk = checkpoint["model_state"]
 
@@ -397,7 +397,7 @@ class Detector3DTemplate(nn.Module):
         logger.info("Done loading")
 
     def load_params_with_optimizer(self, path: Path, optimizer, logger: logging.Logger):
-        logger.info("Loading parameters from checkpoint %s to CPU", path)
+        logger.info("Loading checkpoint %s to CPU", path)
         checkpoint = torch.load(path, map_location="cpu")
 
         cur_it = checkpoint.get("it", 0.0)

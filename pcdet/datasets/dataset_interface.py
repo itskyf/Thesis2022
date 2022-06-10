@@ -48,11 +48,10 @@ class DatasetTemplate(abc.ABC, Dataset):
         self.grid_size = self.data_processor.grid_size
         self.voxel_size = self.data_processor.voxel_size
         self.total_epochs = 0
-        self._merge_all_iters_to_one_epoch = False
 
-        if hasattr(self.data_processor, "depth_downsample_factor"):
+        try:
             self.depth_downsample_factor = self.data_processor.depth_downsample_factor
-        else:
+        except AttributeError:
             self.depth_downsample_factor = None
 
     @property
@@ -68,7 +67,7 @@ class DatasetTemplate(abc.ABC, Dataset):
         self.__dict__.update(d)
 
     @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names, output_path=None):
+    def generate_prediction_dicts(batch_dict, pred_dicts, class_names):
         """
         To support a custom dataset, implement this function to receive the predicted results from the model, and then
         transform the unified normative coordinate to your required coordinate, and optionally save them to disk.
@@ -84,13 +83,6 @@ class DatasetTemplate(abc.ABC, Dataset):
         Returns:
 
         """
-
-    def merge_all_iters_to_one_epoch(self, merge=True, epochs=None):
-        if merge:
-            self._merge_all_iters_to_one_epoch = True
-            self.total_epochs = epochs
-        else:
-            self._merge_all_iters_to_one_epoch = False
 
     @abc.abstractmethod
     def __len__(self) -> int:
