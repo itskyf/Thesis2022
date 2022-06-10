@@ -9,7 +9,6 @@ description = 'OpenPCDet is a general codebase for 3D object detection from poin
 license = { file = 'LICENSE' }
 dependencies = [
   'easydict',
-  'llvmlite',
   'numba',
   'numpy',
   'pyyaml',

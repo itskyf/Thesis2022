@@ -7,13 +7,13 @@ from .second_head import SECONDHead
 from .voxelrcnn_head import VoxelRCNNHead
 from .voxelrcnn_trans_head import VoxelRCNNHeadTrans
 
-__all__ = {
-    "CT3DHead": CT3DHead,
-    "PartA2FCHead": PartA2FCHead,
-    "PointRCNNHead": PointRCNNHead,
-    "PVRCNNHead": PVRCNNHead,
-    "RoIHeadTemplate": RoIHeadTemplate,
-    "SECONDHead": SECONDHead,
-    "VoxelRCNNHead": VoxelRCNNHead,
-    "VoxelRCNNHeadTrans": VoxelRCNNHeadTrans,
-}
+__all__ = [
+    "CT3DHead",
+    "PartA2FCHead",
+    "PointRCNNHead",
+    "PVRCNNHead",
+    "RoIHeadTemplate",
+    "SECONDHead",
+    "VoxelRCNNHead",
+    "VoxelRCNNHeadTrans",
+]

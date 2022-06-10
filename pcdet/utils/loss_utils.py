@@ -37,10 +37,9 @@ class SigmoidFocalClassificationLoss(nn.Module):
             loss: (B, #anchors, #classes) float tensor.
                 Sigmoid cross entropy loss without reduction
         """
-        loss = (
+        return (
             torch.clamp(input, min=0) - input * target + torch.log1p(torch.exp(-torch.abs(input)))
         )
-        return loss
 
     def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
@@ -64,12 +63,10 @@ class SigmoidFocalClassificationLoss(nn.Module):
 
         loss = focal_weight * bce_loss
 
-        if weights.shape.__len__() == 2 or (
-            weights.shape.__len__() == 1 and target.shape.__len__() == 2
-        ):
+        if weights.dim() == 2 or (weights.dim() == 1 and target.dim() == 2):
             weights = weights.unsqueeze(-1)
 
-        assert weights.shape.__len__() == loss.shape.__len__()
+        assert weights.dim() == loss.dim()
 
         return loss * weights
 
@@ -207,6 +204,34 @@ class WeightedCrossEntropyLoss(nn.Module):
         x = x.permute(0, 2, 1)
         target = target.argmax(dim=-1)
         return functional.cross_entropy(x, target, reduction="none") * weights
+
+
+class WeightedBinaryCrossEntropyLoss(nn.Module):
+    """
+    Transform input to fit the fomation of PyTorch offical cross entropy loss
+    with anchor-wise weighting.
+    """
+
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+        """
+        Args:
+            input: (B, #anchors, #classes) float tensor.
+                Predited logits for each class.
+            target: (B, #anchors, #classes) float tensor.
+                One-hot classification targets.
+            weights: (B, #anchors) float tensor.
+                Anchor-wise weights.
+        Returns:
+            loss: (B, #anchors) float tensor.
+                Weighted cross entropy loss without reduction
+        """
+        return (
+            functional.binary_cross_entropy_with_logits(input, target, reduction="none").mean(dim=-1)
+            * weights
+        )
 
 
 def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):

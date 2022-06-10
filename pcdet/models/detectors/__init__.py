@@ -3,6 +3,7 @@ from .centerpoint import CenterPoint
 from .ct3d import CT3D
 from .ct3d_3cat import CT3D_3CAT
 from .detector3d_template import Detector3DTemplate
+from .ia_ssd import IASSD
 from .parta2_net import PartA2Net
 from .point_rcnn import PointRCNN
 from .pointpillar import PointPillar
@@ -21,6 +22,7 @@ __all__ = [
     "CT3D",
     "CT3D_3CAT",
     "Detector3DTemplate",
+    "IASSD",
     "PartA2Net",
     "PointPillar",
     "PointRCNN",

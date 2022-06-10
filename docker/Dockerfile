@@ -16,7 +16,7 @@ RUN micromamba install -y --name base --channel pytorch --channel conda-forge \
 
 RUN micromamba install -y --name base --channel conda-forge \
 	fire kornia lark pip portalocker pybind11 \
-	easydict numba scikit-image sharedarray tensorboard tqdm &&\
+	easydict scikit-image sharedarray tqdm &&\
 	micromamba install -y --name base --channel conda-forge gdown git rclone tmux vim &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
 	micromamba clean -y --all
@@ -34,7 +34,7 @@ RUN --mount=target=/tmp/builder,source=/workspace,from=builder \
 	cp -r /tmp/builder/Thesis2022 ~ &&\
 	echo "$HOME/Thesis2022" > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/easy-install.pth &&\
 	printf "$HOME/Thesis2022\n." > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/pcdet.egg-link &&\
-	pip install --no-cache-dir --upgrade spconv-cu113
+	pip install --no-cache-dir --upgrade numba spconv-cu113 tensorboard
 
 WORKDIR /root/Thesis2022/tools
 CMD ["~/start.sh"]

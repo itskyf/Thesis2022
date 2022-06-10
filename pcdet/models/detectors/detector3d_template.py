@@ -60,7 +60,8 @@ class Detector3DTemplate(nn.Module):
         if self.model_cfg.get("VFE", None) is None:
             return None, model_info_dict
 
-        vfe_module = vfe.__all__[self.model_cfg.VFE.NAME](
+        vfe_fn = getattr(vfe, self.model_cfg.VFE.NAME)
+        vfe_module = vfe_fn(
             model_cfg=self.model_cfg.VFE,
             num_point_features=model_info_dict["num_rawpoint_features"],
             point_cloud_range=model_info_dict["point_cloud_range"],
@@ -75,9 +76,10 @@ class Detector3DTemplate(nn.Module):
     def build_backbone_3d(self, model_info_dict):
         if self.model_cfg.get("BACKBONE_3D", None) is None:
             return None, model_info_dict
-
-        backbone_3d_module = backbones_3d.__all__[self.model_cfg.BACKBONE_3D.NAME](
+        backbone_3d_fn = getattr(backbones_3d, self.model_cfg.BACKBONE_3D.NAME)
+        backbone_3d_module = backbone_3d_fn(
             model_cfg=self.model_cfg.BACKBONE_3D,
+            num_class=self.num_class,
             input_channels=model_info_dict["num_point_features"],
             grid_size=model_info_dict["grid_size"],
             voxel_size=model_info_dict["voxel_size"],
@@ -96,7 +98,8 @@ class Detector3DTemplate(nn.Module):
         if self.model_cfg.get("MAP_TO_BEV", None) is None:
             return None, model_info_dict
 
-        map_to_bev_module = map_to_bev.__all__[self.model_cfg.MAP_TO_BEV.NAME](
+        map_to_bev_fn = getattr(map_to_bev, self.model_cfg.MAP_TO_BEV.NAME)
+        map_to_bev_module = map_to_bev_fn(
             model_cfg=self.model_cfg.MAP_TO_BEV, grid_size=model_info_dict["grid_size"]
         )
         model_info_dict["module_list"].append(map_to_bev_module)
@@ -107,7 +110,8 @@ class Detector3DTemplate(nn.Module):
         if self.model_cfg.get("BACKBONE_2D", None) is None:
             return None, model_info_dict
 
-        backbone_2d_module = backbones_2d.__all__[self.model_cfg.BACKBONE_2D.NAME](
+        backbone_2d_fn = getattr(backbones_2d, self.model_cfg.BACKBONE_2D.NAME)
+        backbone_2d_module = backbone_2d_fn(
             model_cfg=self.model_cfg.BACKBONE_2D, input_channels=model_info_dict["num_bev_features"]
         )
         model_info_dict["module_list"].append(backbone_2d_module)
@@ -118,7 +122,8 @@ class Detector3DTemplate(nn.Module):
         if self.model_cfg.get("PFE", None) is None:
             return None, model_info_dict
 
-        pfe_module = pfe.__all__[self.model_cfg.PFE.NAME](
+        pfe_fn = getattr(pfe, self.model_cfg.PFE.NAME)
+        pfe_module = pfe_fn(
             model_cfg=self.model_cfg.PFE,
             voxel_size=model_info_dict["voxel_size"],
             point_cloud_range=model_info_dict["point_cloud_range"],
@@ -135,7 +140,8 @@ class Detector3DTemplate(nn.Module):
     def build_dense_head(self, model_info_dict):
         if self.model_cfg.get("DENSE_HEAD", None) is None:
             return None, model_info_dict
-        dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
+        dense_head_fn = getattr(dense_heads, self.model_cfg.DENSE_HEAD.NAME)
+        dense_head_module = dense_head_fn(
             model_cfg=self.model_cfg.DENSE_HEAD,
             input_channels=model_info_dict["num_bev_features"],
             num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
@@ -157,7 +163,8 @@ class Detector3DTemplate(nn.Module):
         else:
             num_point_features = model_info_dict["num_point_features"]
 
-        point_head_module = dense_heads.__all__[self.model_cfg.POINT_HEAD.NAME](
+        dense_head_fn = getattr(dense_heads, self.model_cfg.POINT_HEAD.NAME)
+        point_head_module = dense_head_fn(
             model_cfg=self.model_cfg.POINT_HEAD,
             input_channels=num_point_features,
             num_class=self.num_class if not self.model_cfg.POINT_HEAD.CLASS_AGNOSTIC else 1,
@@ -170,7 +177,8 @@ class Detector3DTemplate(nn.Module):
     def build_roi_head(self, model_info_dict):
         if self.model_cfg.get("ROI_HEAD", None) is None:
             return None, model_info_dict
-        point_head_module = roi_heads.__all__[self.model_cfg.ROI_HEAD.NAME](
+        point_head_fn = getattr(roi_heads, self.model_cfg.ROI_HEAD.NAME)
+        point_head_module = point_head_fn(
             model_cfg=self.model_cfg.ROI_HEAD,
             input_channels=model_info_dict["num_point_features"],
             backbone_channels=model_info_dict["backbone_channels"],
@@ -208,10 +216,10 @@ class Detector3DTemplate(nn.Module):
         pred_dicts = []
         for index in range(batch_size):
             if batch_dict.get("batch_index", None) is not None:
-                assert batch_dict["batch_box_preds"].shape.__len__() == 2
+                assert batch_dict["batch_box_preds"].dim() == 2
                 batch_mask = batch_dict["batch_index"] == index
             else:
-                assert batch_dict["batch_box_preds"].shape.__len__() == 3
+                assert batch_dict["batch_box_preds"].dim() == 3
                 batch_mask = index
 
             box_preds = batch_dict["batch_box_preds"][batch_mask]
@@ -315,14 +323,14 @@ class Detector3DTemplate(nn.Module):
         rois = data_dict["rois"][batch_index] if "rois" in data_dict else None
         gt_boxes = data_dict["gt_boxes"][batch_index]
 
-        if recall_dict.__len__() == 0:
+        if len(recall_dict) == 0:
             recall_dict = {"gt": 0}
             for cur_thresh in thresh_list:
                 recall_dict[f"roi_{cur_thresh}"] = 0
                 recall_dict[f"rcnn_{cur_thresh}"] = 0
 
         cur_gt = gt_boxes
-        k = cur_gt.__len__() - 1
+        k = len(cur_gt) - 1
         while k >= 0 and cur_gt[k].sum() == 0:
             k -= 1
         cur_gt = cur_gt[: k + 1]
@@ -338,13 +346,13 @@ class Detector3DTemplate(nn.Module):
 
             for cur_thresh in thresh_list:
                 if iou3d_rcnn.shape[0] == 0:
-                    recall_dict["rcnn_%s" % str(cur_thresh)] += 0
+                    recall_dict[f"rcnn_{cur_thresh}"] += 0
                 else:
                     rcnn_recalled = (iou3d_rcnn.max(dim=0)[0] > cur_thresh).sum().item()
-                    recall_dict["rcnn_%s" % str(cur_thresh)] += rcnn_recalled
+                    recall_dict[f"rcnn_{cur_thresh}"] += rcnn_recalled
                 if rois is not None:
                     roi_recalled = (iou3d_roi.max(dim=0)[0] > cur_thresh).sum().item()
-                    recall_dict["roi_%s" % str(cur_thresh)] += roi_recalled
+                    recall_dict[f"roi_{cur_thresh}"] += roi_recalled
 
             recall_dict["gt"] += cur_gt.shape[0]
         return recall_dict
@@ -366,10 +374,11 @@ class Detector3DTemplate(nn.Module):
                 if val_native.shape == state_dict[key].shape:
                     val = val_native.contiguous()
                 else:
-                    assert val.shape.__len__() == 5, "currently only spconv 3D is supported"
+                    # (k1, k2, k3, c_in, c_out) to (c_out, k1, k2, k3, c_in)
+                    assert val.dim() == 5, "currently only spconv 3D is supported"
                     val_implicit = val.permute(
                         4, 0, 1, 2, 3
-                    )  # (k1, k2, k3, c_in, c_out) to (c_out, k1, k2, k3, c_in)
+                    )
                     if val_implicit.shape == state_dict[key].shape:
                         val = val_implicit.contiguous()
 
