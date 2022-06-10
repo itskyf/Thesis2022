@@ -26,6 +26,7 @@ RUN --mount=target=/tmp/context,source=. \
 	install -m755 /tmp/context/start.sh ~ &&\
 	apt-get update &&\
 	apt-get install -y --no-install-recommends openssh-server &&\
+	echo 'set -g mouse on' >> ~/.tmux.conf &&\
 	rm -rf /var/lib/apt/lists/*
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
