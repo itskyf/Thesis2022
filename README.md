@@ -17,5 +17,10 @@
 
 ### Training
 ```bash
-torchrun --nproc_per_node <number gpus> train.py <configuration path> <output path> --batch_size <batch size per gpu> --num_workers ?
+torchrun --nproc_per_node <number_gpus> train.py <configuration_path> <output_path> --batch_size <batch_size_per_gpu> --num_workers ?
+```
+
+### Testing
+```bash
+ torchrun --nproc_per_node <number_gpus> evaluate.py <configuration_path> <checkpoint> <output_path> --batch_size <batch_size_per_gpu> --num_workers ?
 ```
