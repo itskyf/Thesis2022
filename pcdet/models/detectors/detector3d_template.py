@@ -121,13 +121,19 @@ class Detector3DTemplate(nn.Module):
     def build_pfe(self, model_info_dict):
         if self.model_cfg.get("PFE", None) is None:
             return None, model_info_dict
+        # TODO
+        num_bev_features = (
+            model_info_dict["num_bev_features"]
+            if self.model_cfg.NAME != "PointTRCNN3D"
+            else self.model_cfg.MAP_TO_BEV.NUM_BEV_FEATURES
+        )
 
         pfe_fn = getattr(pfe, self.model_cfg.PFE.NAME)
         pfe_module = pfe_fn(
             model_cfg=self.model_cfg.PFE,
             voxel_size=model_info_dict["voxel_size"],
             point_cloud_range=model_info_dict["point_cloud_range"],
-            num_bev_features=model_info_dict["num_bev_features"],
+            num_bev_features=num_bev_features,
             num_rawpoint_features=model_info_dict["num_rawpoint_features"],
         )
         model_info_dict["module_list"].append(pfe_module)
@@ -376,9 +382,7 @@ class Detector3DTemplate(nn.Module):
                 else:
                     # (k1, k2, k3, c_in, c_out) to (c_out, k1, k2, k3, c_in)
                     assert val.dim() == 5, "currently only spconv 3D is supported"
-                    val_implicit = val.permute(
-                        4, 0, 1, 2, 3
-                    )
+                    val_implicit = val.permute(4, 0, 1, 2, 3)
                     if val_implicit.shape == state_dict[key].shape:
                         val = val_implicit.contiguous()
 

@@ -6,6 +6,8 @@ from .detector3d_template import Detector3DTemplate
 from .ia_ssd import IASSD
 from .parta2_net import PartA2Net
 from .point_rcnn import PointRCNN
+from .point_trcnn import PointTRCNN
+from .point_trcnn_3d import PointTRCNN3D
 from .pointpillar import PointPillar
 from .pv_rcnn import PVRCNN
 from .pv_rcnn_plusplus import PVRCNNPlusPlus
@@ -26,6 +28,8 @@ __all__ = [
     "PartA2Net",
     "PointPillar",
     "PointRCNN",
+    "PointTRCNN",
+    "PointTRCNN3D",
     "PVRCNN",
     "PVRCNNPlusPlus",
     "SECONDNet",
