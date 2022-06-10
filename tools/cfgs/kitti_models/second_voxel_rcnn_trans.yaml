@@ -6,7 +6,7 @@ DATA_CONFIG:
         DISABLE_AUG_LIST: ['placeholder']
         AUG_CONFIG_LIST:
             - NAME: gt_sampling
-              USE_ROAD_PLANE: True
+              USE_ROAD_PLANE: false
               DB_INFO_PATH:
                   - kitti_dbinfos_train.pkl
               PREPARE: {
@@ -154,14 +154,14 @@ MODEL:
             POOL_RADIUS: [1.6]
             NSAMPLE: [16]
             POOL_METHOD: max_pool
-      ATTENTION:
-        NUM_FEATURES: 192
-        NUM_HEADS: 1
-        NUM_HIDDEN_FEATURES: 192
-        NUM_LAYERS: 2
-        POSITIONAL_ENCODER: grid_points
-        DROPOUT: 0.1
-        MASK_EMPTY_POINTS: True
+        ATTENTION:
+          NUM_FEATURES: 192
+          NUM_HEADS: 1
+          NUM_HIDDEN_FEATURES: 192
+          NUM_LAYERS: 2
+          POSITIONAL_ENCODER: grid_points
+          DROPOUT: 0.1
+          MASK_EMPTY_POINTS: True
 
       TARGET_CONFIG:
           BOX_CODER: ResidualCoder

@@ -24,7 +24,7 @@ def train_one_epoch(
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
     pbar = (
-        tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc="train", dynamic_ncols=True)
+        tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc="Train", dynamic_ncols=True)
         if tb_writer is not None
         else None
     )

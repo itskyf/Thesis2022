@@ -4,10 +4,6 @@ import kornia
 import numpy as np
 import torch
 
-from .detectors import build_detector
-
-__all__ = ["build_detector"]
-
 
 def load_data_to_gpu(batch_dict):
     for key, val in batch_dict.items():

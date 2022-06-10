@@ -13,25 +13,23 @@ from .second_net_iou import SECONDNetIoU
 from .votr_ssd_net import VoTrSSD
 from .votr_tsd_net import VoTrRCNN
 from .voxel_rcnn import VoxelRCNN
+from .voxel_rcnn_trans import VoxelRCNNTrans
 
 __all__ = [
     "CaDDN",
     "CenterPoint",
-    "CT3D_3CAT",
     "CT3D",
+    "CT3D_3CAT",
     "Detector3DTemplate",
     "PartA2Net",
     "PointPillar",
     "PointRCNN",
-    "PVRCNNPlusPlus",
     "PVRCNN",
-    "SECONDNetIoU",
+    "PVRCNNPlusPlus",
     "SECONDNet",
+    "SECONDNetIoU",
     "VoTrRCNN",
     "VoTrSSD",
     "VoxelRCNN",
+    "VoxelRCNNTrans",
 ]
-
-
-def build_detector(model_cfg, num_class, dataset) -> Detector3DTemplate:
-    return locals()[model_cfg.NAME](model_cfg=model_cfg, num_class=num_class, dataset=dataset)

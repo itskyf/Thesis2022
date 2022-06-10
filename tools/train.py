@@ -19,7 +19,7 @@ from train_utils.train_utils import train_model
 import pcdet.datasets
 import pcdet.models.detectors
 from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
-from pcdet.models import build_detector, model_fn_decorator
+from pcdet.models import model_fn_decorator
 
 
 @record
@@ -66,7 +66,7 @@ def main():
         cur_it, start_epoch = model.load_params_with_optimizer(args.ckpt, optimizer, logger)
     last_epoch = start_epoch + 1
 
-    model.cuda()
+    model.cuda(local_rank)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     logger.info(model)
 

@@ -5,6 +5,7 @@ import logging
 import os
 import re
 from pathlib import Path
+from typing import List
 
 import torch
 import torch.backends.cudnn
@@ -14,8 +15,8 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
 import pcdet.datasets
+import pcdet.models.detectors
 from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
-from pcdet.models import build_detector
 
 
 def parse_config():
@@ -38,7 +39,7 @@ def parse_config():
     parser.add_argument("--save_to_file", action="store_true", default=False)
     args = parser.parse_args()
 
-    cfg_from_yaml_file(args.cfg_file, cfg)
+    cfg_from_yaml_file(args.cfg_path, cfg)
     if args.set_cfgs is not None:
         cfg_from_list(args.set_cfgs, cfg)
     return args, cfg
@@ -68,9 +69,10 @@ def main():
 
     val_loader = build_dataloader(conf.DATA_CONFIG, batch_size, args.num_workers, conf.CLASS_NAMES)
 
-    model = build_detector(model_cfg=conf.MODEL, num_class=len(conf.CLASS_NAMES), dataset=test_set)
+    model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
+    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), train_set)
     model.load_params_from_file(args.ckpt, logger)
-    model.cuda()
+    model.cuda(local_rank)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     logger.info(model)
 
