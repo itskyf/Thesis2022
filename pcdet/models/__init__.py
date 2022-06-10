@@ -1,26 +1,19 @@
 from collections import namedtuple
 
+import kornia
 import numpy as np
 import torch
 
 from .detectors import build_detector
 
-try:
-    import kornia
-except:
-    pass
-    # print('Warning: kornia is not installed. This package is only required by CaDDN')
-
-
-def build_network(model_cfg, num_class, dataset):
-    return build_detector(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
+__all__ = ["build_detector"]
 
 
 def load_data_to_gpu(batch_dict):
     for key, val in batch_dict.items():
         if not isinstance(val, np.ndarray) or key in ["frame_id", "metadata", "calib"]:
             continue
-        elif key in ["images"]:
+        if key in ["images"]:
             batch_dict[key] = kornia.image_to_tensor(val).float().cuda().contiguous()
         elif key in ["image_shape"]:
             batch_dict[key] = torch.from_numpy(val).int().cuda()

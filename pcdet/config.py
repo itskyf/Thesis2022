@@ -1,14 +1,15 @@
+import logging
 from pathlib import Path
 
 import yaml
 from easydict import EasyDict
 
 
-def log_config_to_file(cfg, pre="cfg", logger=None):
-    for key, val in cfg.items():
-        if isinstance(cfg[key], EasyDict):
+def log_config_to_file(conf, logger: logging.Logger, pre: str = "cfg"):
+    for key, val in conf.items():
+        if isinstance(conf[key], EasyDict):
             logger.info("\n%s.%s = edict()", pre, key)
-            log_config_to_file(cfg[key], pre=pre + "." + key, logger=logger)
+            log_config_to_file(conf[key], pre=pre + "." + key, logger=logger)
             continue
         logger.info("%s.%s: %s", pre, key, val)
 

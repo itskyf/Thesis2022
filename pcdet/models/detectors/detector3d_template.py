@@ -1,4 +1,4 @@
-import os
+import logging
 from pathlib import Path
 
 import torch
@@ -384,7 +384,7 @@ class Detector3DTemplate(nn.Module):
             self.load_state_dict(state_dict)
         return state_dict, update_model_state
 
-    def load_params_from_file(self, path: Path, logger):
+    def load_params_from_file(self, path: Path, logger: logging.Logger):
         logger.info("Loading parameters from checkpoint %s to CPU", path)
         checkpoint = torch.load(path, map_location="cpu")
         model_state_disk = checkpoint["model_state"]
@@ -396,12 +396,12 @@ class Detector3DTemplate(nn.Module):
         self._load_state_dict(model_state_disk)
         logger.info("Done loading")
 
-    def load_params_with_optimizer(self, filename, optimizer, logger):
-        logger.info("Loading parameters from checkpoint %s to CPU", filename)
-        checkpoint = torch.load(filename, map_location="cpu")
+    def load_params_with_optimizer(self, path: Path, optimizer, logger: logging.Logger):
+        logger.info("Loading parameters from checkpoint %s to CPU", path)
+        checkpoint = torch.load(path, map_location="cpu")
 
-        epoch = checkpoint.get("epoch", -1)
         cur_it = checkpoint.get("it", 0.0)
+        epoch = checkpoint.get("epoch", -1)
         self._load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
 

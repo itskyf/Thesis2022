@@ -1,5 +1,3 @@
-import glob
-import os
 import time
 
 import torch
@@ -13,36 +11,35 @@ def train_one_epoch(
     model,
     optimizer,
     train_loader,
-    model_func,
+    model_fw_fn,
     lr_scheduler,
     accumulated_iter,
     optim_cfg,
-    rank,
     tbar,
     total_it_each_epoch,
     dataloader_iter,
-    tb_log=None,
+    tb_writer=None,
     leave_pbar=False,
 ):
     if total_it_each_epoch == len(train_loader):
         dataloader_iter = iter(train_loader)
+    pbar = (
+        tqdm.tqdm(total=total_it_each_epoch, leave=leave_pbar, desc="train", dynamic_ncols=True)
+        if tb_writer is not None
+        else None
+    )
+    data_time = common_utils.AverageMeter()
+    batch_time = common_utils.AverageMeter()
+    forward_time = common_utils.AverageMeter()
 
-    if rank == 0:
-        pbar = tqdm.tqdm(
-            total=total_it_each_epoch, leave=leave_pbar, desc="train", dynamic_ncols=True
-        )
-        data_time = common_utils.AverageMeter()
-        batch_time = common_utils.AverageMeter()
-        forward_time = common_utils.AverageMeter()
-
-    for cur_it in range(total_it_each_epoch):
+    model.train()
+    for _ in range(total_it_each_epoch):
         end = time.time()
         try:
             batch = next(dataloader_iter)
         except StopIteration:
             dataloader_iter = iter(train_loader)
             batch = next(dataloader_iter)
-            print("new iters")
 
         data_timer = time.time()
         cur_data_time = data_timer - end
@@ -54,13 +51,12 @@ def train_one_epoch(
         except:
             cur_lr = optimizer.param_groups[0]["lr"]
 
-        if tb_log is not None:
-            tb_log.add_scalar("meta_data/learning_rate", cur_lr, accumulated_iter)
+        if tb_writer is not None:
+            tb_writer.add_scalar("meta_data/learning_rate", cur_lr, accumulated_iter)
 
-        model.train()
         optimizer.zero_grad()
 
-        loss, tb_dict, disp_dict = model_func(model, batch)
+        loss, tb_dict, disp_dict = model_fw_fn(model, batch)
 
         forward_timer = time.time()
         cur_forward_time = forward_timer - data_timer
@@ -78,7 +74,7 @@ def train_one_epoch(
         avg_batch_time = commu_utils.average_reduce_value(cur_batch_time)
 
         # log to console and tensorboard
-        if rank == 0:
+        if pbar is not None and tb_writer is not None:
             data_time.update(avg_data_time)
             forward_time.update(avg_forward_time)
             batch_time.update(avg_batch_time)
@@ -97,12 +93,11 @@ def train_one_epoch(
             tbar.set_postfix(disp_dict)
             tbar.refresh()
 
-            if tb_log is not None:
-                tb_log.add_scalar("train/loss", loss, accumulated_iter)
-                tb_log.add_scalar("meta_data/learning_rate", cur_lr, accumulated_iter)
-                for key, val in tb_dict.items():
-                    tb_log.add_scalar("train/" + key, val, accumulated_iter)
-    if rank == 0:
+            tb_writer.add_scalar("train/loss", loss, accumulated_iter)
+            tb_writer.add_scalar("meta_data/learning_rate", cur_lr, accumulated_iter)
+            for key, val in tb_dict.items():
+                tb_writer.add_scalar("train/" + key, val, accumulated_iter)
+    if pbar is not None:
         pbar.close()
     return accumulated_iter
 
@@ -117,19 +112,16 @@ def train_model(
     start_epoch,
     total_epochs,
     start_iter,
-    rank,
     tb_log,
-    ckpt_save_dir,
+    ckpt_dir,
     lr_warmup_scheduler,
-    ckpt_save_interval: int,
-    max_ckpt_save_num: int,
+    save_interval: int,
 ):
     accumulated_iter = start_iter
     with tqdm.trange(
-        start_epoch, total_epochs, desc="epochs", dynamic_ncols=True, leave=(rank == 0)
+        start_epoch, total_epochs, desc="Epochs", dynamic_ncols=True, leave=tb_log is not None
     ) as tbar:
         total_it_each_epoch = len(train_loader)
-
         dataloader_iter = iter(train_loader)
         for cur_epoch in tbar:
             train_loader.sampler.set_epoch(cur_epoch)
@@ -147,9 +139,8 @@ def train_model(
                 lr_scheduler=cur_scheduler,
                 accumulated_iter=accumulated_iter,
                 optim_cfg=optim_cfg,
-                rank=rank,
                 tbar=tbar,
-                tb_log=tb_log,
+                tb_writer=tb_log,
                 leave_pbar=(cur_epoch + 1 == total_epochs),
                 total_it_each_epoch=total_it_each_epoch,
                 dataloader_iter=dataloader_iter,
@@ -157,18 +148,11 @@ def train_model(
 
             # save trained model
             trained_epoch = cur_epoch + 1
-            if trained_epoch % ckpt_save_interval == 0 and rank == 0:
-                ckpt_list = glob.glob(str(ckpt_save_dir / "checkpoint_epoch_*.pth"))
-                ckpt_list.sort(key=os.path.getmtime)
-
-                if ckpt_list.__len__() >= max_ckpt_save_num:
-                    for cur_file_idx in range(0, len(ckpt_list) - max_ckpt_save_num + 1):
-                        os.remove(ckpt_list[cur_file_idx])
-
-                ckpt_name = ckpt_save_dir / f"checkpoint_epoch_{trained_epoch}"
+            if tb_log is not None and trained_epoch % save_interval == 0:
+                ckpt_path = ckpt_dir / f"checkpoint_epoch_{trained_epoch}"
                 torch.save(
                     checkpoint_state(model, optimizer, trained_epoch, accumulated_iter),
-                    f"{ckpt_name}.pth",
+                    f"{ckpt_path}.pth",
                 )
 
 
@@ -189,17 +173,9 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
     else:
         model_state = None
 
-    try:
-        import pcdet
-
-        version = "pcdet+" + pcdet.__version__
-    except ModuleNotFoundError:
-        version = "none"
-
     return {
         "epoch": epoch,
         "it": it,
         "model_state": model_state,
         "optimizer_state": optim_state,
-        "version": version,
     }

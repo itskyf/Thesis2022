@@ -10,23 +10,25 @@ from .learning_schedules_fastai import CosineWarmupLR, OneCycle
 def build_optimizer(model, optim_cfg):
     if optim_cfg.OPTIMIZER == "adam":
         return optim.Adam(model.parameters(), lr=optim_cfg.LR, weight_decay=optim_cfg.WEIGHT_DECAY)
-    elif optim_cfg.OPTIMIZER == "sgd":
+    if optim_cfg.OPTIMIZER == "sgd":
         return optim.SGD(
             model.parameters(),
             lr=optim_cfg.LR,
             weight_decay=optim_cfg.WEIGHT_DECAY,
             momentum=optim_cfg.MOMENTUM,
         )
-    elif optim_cfg.OPTIMIZER == "adam_onecycle":
+    if optim_cfg.OPTIMIZER == "adam_onecycle":
 
-        def children(m: nn.Module):
-            return list(m.children())
+        def children(module: nn.Module):
+            return list(module.children())
 
-        def num_children(m: nn.Module) -> int:
-            return len(children(m))
+        def num_children(module: nn.Module) -> int:
+            return len(children(module))
 
         flatten_model = (
-            lambda m: sum(map(flatten_model, m.children()), []) if num_children(m) else [m]
+            lambda module: sum(map(flatten_model, module.children()), [])
+            if num_children(module)
+            else [module]
         )
 
         optimizer_func = partial(optim.Adam, betas=(0.9, 0.99))
@@ -38,8 +40,7 @@ def build_optimizer(model, optim_cfg):
             true_wd=True,
             bn_wd=True,
         )
-    else:
-        raise NotImplementedError
+    raise NotImplementedError
 
 
 def build_scheduler(optimizer, total_iters_each_epoch, total_epochs, last_epoch, optim_cfg):
