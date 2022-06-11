@@ -423,7 +423,7 @@ class MixedHead(RoIHeadTemplate):
         point_pooled_features = point_pooled_features.view(
             -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE**3, point_pooled_features.shape[-1]
         )
-        pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=-1)
+        pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=1)
         return pooled_features, local_roi_grid_points
 
     def get_global_grid_points_of_roi(self, rois, grid_size):
