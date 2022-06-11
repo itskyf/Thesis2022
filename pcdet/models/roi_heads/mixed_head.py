@@ -106,10 +106,11 @@ class MixedHead(RoIHeadTemplate):
         self.point_cloud_range = point_cloud_range
         self.voxel_size = voxel_size
 
-        (
-            self.point_roi_grid_pool_layer,
-            point_c_out,
-        ) = pointnet2_stack_modules.build_local_aggregation_module(
+        # (
+        #     self.point_roi_grid_pool_layer,
+        #     point_c_out,
+        # )
+        self.point_roi_grid_pool_layer, point_c_out = pointnet2_stack_modules.build_local_aggregation_module(
             input_channels=4, config=self.point_cfg
         )
 
