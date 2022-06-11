@@ -363,10 +363,10 @@ class MixedHead(RoIHeadTemplate):
             )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
 
-        voxel_pooled_feature = torch.cat(pooled_features_list, dim=1)
-        voxel_pooled_feature = voxel_pooled_feature.view(
-            -1, self.pool_cfg.GRID_SIZE**3, voxel_pooled_feature.shape[-1]
-        )
+        voxel_pooled_feature = torch.cat(pooled_features_list, dim=-1)
+        # voxel_pooled_feature = voxel_pooled_feature.view(
+        #     -1, self.pool_cfg.GRID_SIZE**3, voxel_pooled_feature.shape[-1]
+        # )
 
         num_rois = batch_dict['rois'].shape[-2]
 
@@ -423,7 +423,7 @@ class MixedHead(RoIHeadTemplate):
         point_pooled_features = point_pooled_features.view(
             -1, self.pool_cfg.GRID_SIZE**3, point_pooled_features.shape[-1]
         )
-        pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=1)
+        pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=-1)
         return pooled_features, local_roi_grid_points
 
     def get_global_grid_points_of_roi(self, rois, grid_size):
