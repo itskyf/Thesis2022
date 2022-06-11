@@ -113,16 +113,16 @@ MODEL:
     ROI_GRID_POOL:
       GRID_SIZE: 6
       NAME: StackSAModuleMSG
-      MLPS: [[128, 128], [128, 128]]
+      MLPS: [[64, 64], [64, 64]]
       POOL_RADIUS: [0.8, 1.6]
-      NSAMPLE: [64, 64]
+      NSAMPLE: [32, 32]
       POOL_METHOD: max_pool
 
     ATTENTION:
       ENABLED: True
-      NUM_FEATURES: 256
+      NUM_FEATURES: 128
       NUM_HEADS: 1
-      NUM_HIDDEN_FEATURES: 256
+      NUM_HIDDEN_FEATURES: 128
       NUM_LAYERS: 1
       POSITIONAL_ENCODER: density_grid_points
       # MAX_NUM_BOXES: 20
