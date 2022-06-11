@@ -113,9 +113,9 @@ MODEL:
     ROI_GRID_POOL:
       GRID_SIZE: 6
       NAME: StackSAModuleMSG
-      MLPS: [[64, 64], [64, 64]]
+      MLPS: [[128, 128], [128, 128]]
       POOL_RADIUS: [0.8, 1.6]
-      NSAMPLE: [32, 32]
+      NSAMPLE: [64, 64]
       POOL_METHOD: max_pool
 
     ATTENTION:
