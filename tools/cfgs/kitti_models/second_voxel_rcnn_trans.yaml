@@ -157,7 +157,7 @@ MODEL:
             POOL_METHOD: max_pool
         ATTENTION:
           NUM_FEATURES: 192
-          NUM_HEADS: 1
+          NUM_HEADS: 4
           NUM_HIDDEN_FEATURES: 192
           NUM_LAYERS: 2
           POSITIONAL_ENCODER: grid_points
@@ -184,7 +184,7 @@ MODEL:
           REG_LOSS: smooth-l1
           CORNER_LOSS_REGULARIZATION: True
           LOSS_WEIGHTS: {
-              'rcnn_cls_weight': 1.0,
+              'rcnn_cls_weight': 4.0,
               'rcnn_reg_weight': 1.0,
               'rcnn_corner_weight': 1.0,
               'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
