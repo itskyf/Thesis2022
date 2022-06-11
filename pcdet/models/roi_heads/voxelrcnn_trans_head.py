@@ -53,7 +53,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         pre_channel = pool_grid_size**3 * c_out
         self.cls_fc_layers = _make_fc_layers(
-            in_channels=pre_channel,
+            in_channels=self.model_cfg.SHARED_FC[-1],
             channels=self.model_cfg.CLS_FC,
             dp_ratio=dp_ratio,
             relu_inplace=False,
@@ -71,7 +71,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
         self.cls_pred_layer = nn.Linear(self.model_cfg.CLS_FC[-1], num_class, bias=True)
 
         self.reg_fc_layers = _make_fc_layers(
-            in_channels=pre_channel,
+            in_channels=self.model_cfg.SHARED_FC[-1],
             channels=self.model_cfg.REG_FC,
             dp_ratio=dp_ratio,
             relu_inplace=False,
