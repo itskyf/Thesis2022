@@ -137,22 +137,22 @@ MODEL:
         GRID_SIZE: 6
         VOXEL_POOL_LAYERS:
           x_conv2:
-            MLPS: [[64, 64]]
+            MLPS: [[32, 32]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [0.4]
-            NSAMPLE: [32]
+            NSAMPLE: [16]
             POOL_METHOD: max_pool
           x_conv3:
-            MLPS: [[64, 64]]
+            MLPS: [[32, 32]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [0.8]
-            NSAMPLE: [32]
+            NSAMPLE: [16]
             POOL_METHOD: max_pool
           x_conv4:
-            MLPS: [[64, 64]]
+            MLPS: [[32, 32]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [1.6]
-            NSAMPLE: [32]
+            NSAMPLE: [16]
             POOL_METHOD: max_pool
         POINT_POOL_LAYER:
           NUM_POINTS: 256
@@ -161,14 +161,17 @@ MODEL:
           MLPS: [[32, 32], [32, 32]]
           POOL_RADIUS: [0.4, 0.8]
           NSAMPLE: [32, 32]
-    # ATTENTION:
-    #   NUM_FEATURES: 256
-    #   NUM_HEADS: 4
-    #   NUM_HIDDEN_FEATURES: 256
-    #   NUM_LAYERS: 1
-    #   POSITIONAL_ENCODER: grid_points
-    #   DROPOUT: 0.1
-    #   MASK_EMPTY_POINTS: True
+        ATTENTION:
+        ENABLED: False
+        NUM_FEATURES: 256
+        NUM_HEADS: 1
+        NUM_HIDDEN_FEATURES: 256
+        NUM_LAYERS: 1
+        POSITIONAL_ENCODER: density_grid_points
+        # MAX_NUM_BOXES: 20
+        DROPOUT: 0.1
+        COMBINE: True
+        MASK_EMPTY_POINTS: True
 
       TARGET_CONFIG:
           BOX_CODER: ResidualCoder
