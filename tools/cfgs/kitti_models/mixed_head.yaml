@@ -116,23 +116,23 @@ MODEL:
         GRID_SIZE: 6
         VOXEL_POOL_LAYERS:
             x_conv2:
-            MLPS: [[32, 32]]
-            QUERY_RANGES: [[4, 4, 4]]
-            POOL_RADIUS: [0.4]
-            NSAMPLE: [16]
-            POOL_METHOD: max_pool
+                MLPS: [[32, 32]]
+                QUERY_RANGES: [[4, 4, 4]]
+                POOL_RADIUS: [0.4]
+                NSAMPLE: [16]
+                POOL_METHOD: max_pool
             x_conv3:
-            MLPS: [[32, 32]]
-            QUERY_RANGES: [[4, 4, 4]]
-            POOL_RADIUS: [0.8]
-            NSAMPLE: [16]
-            POOL_METHOD: max_pool
+                MLPS: [[32, 32]]
+                QUERY_RANGES: [[4, 4, 4]]
+                POOL_RADIUS: [0.8]
+                NSAMPLE: [16]
+                POOL_METHOD: max_pool
             x_conv4:
-            MLPS: [[32, 32]]
-            QUERY_RANGES: [[4, 4, 4]]
-            POOL_RADIUS: [1.6]
-            NSAMPLE: [16]
-            POOL_METHOD: max_pool
+                MLPS: [[32, 32]]
+                QUERY_RANGES: [[4, 4, 4]]
+                POOL_RADIUS: [1.6]
+                NSAMPLE: [16]
+                POOL_METHOD: max_pool
         POINT_POOL_LAYER:
             NUM_POINTS: 256
             NAME: StackSAModuleMSG
