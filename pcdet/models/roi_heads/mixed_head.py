@@ -364,8 +364,8 @@ class MixedHead(RoIHeadTemplate):
             pooled_features_list.append(pooled_features)
 
         voxel_pooled_feature = torch.cat(pooled_features_list, dim=1)
-        voxel_pooled_features = pooled_features.view(
-            -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE**3, voxel_pooled_features.shape[-1]
+        voxel_pooled_feature = voxel_pooled_feature.view(
+            -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE**3, voxel_pooled_feature.shape[-1]
         )
 
         num_rois = batch_dict['rois'].shape[-2]
@@ -420,7 +420,7 @@ class MixedHead(RoIHeadTemplate):
             new_xyz_batch_cnt=new_xyz_batch_cnt,
             features=point_features.contiguous(),
         )
-        point_pooled_features = pooled_features.view(
+        point_pooled_features = point_pooled_features.view(
             -1, self.model_cfg.ROI_GRID_POOL.GRID_SIZE**3, point_pooled_features.shape[-1]
         )
         pooled_features = torch.cat([voxel_pooled_feature, point_pooled_features], dim=-1)
