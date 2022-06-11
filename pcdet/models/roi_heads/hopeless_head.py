@@ -98,7 +98,7 @@ class HopelessHead(RoIHeadTemplate):
         for bs_idx in range(batch_size):
             cur_points = batch_dict['points'][(batch_dict['points'][:, 0] == bs_idx)][:, :1:5]
             cur_batch_boxes = batch_dict['rois'][bs_idx]
-            cur_radiis = torch.sqrt((cur_batch_boxes[:,3]/2) ** 2 + (cur_batch_boxes[:,4]/2) ** 2) * 1.2 + self.add_dis
+            cur_radiis = torch.sqrt((cur_batch_boxes[:,3]/2) ** 2 + (cur_batch_boxes[:,4]/2) ** 2) * 1.2
             dis = torch.norm((cur_points[:,:2].unsqueeze(0) - cur_batch_boxes[:,:2].unsqueeze(1).repeat(1,cur_points.shape[0],1)), dim = 2)
             point_mask = (dis <= cur_radiis.unsqueeze(-1))
             for roi_box_idx in range(0, num_rois):
