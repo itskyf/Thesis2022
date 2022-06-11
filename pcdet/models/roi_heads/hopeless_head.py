@@ -126,7 +126,7 @@ class HopelessHead(RoIHeadTemplate):
         )
 
         xyz = src[:, :, :3].view(-1, 3)
-        xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(src.shape[1])
+        xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(src.shape[1] * num_rois)
 
         new_xyz = global_roi_grid_points.view(-1, 3)
         new_xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(global_roi_grid_points.shape[1])
