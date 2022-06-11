@@ -6,12 +6,12 @@ from ..model_utils.attention_utils import TransformerEncoder, get_positional_enc
 from .roi_head_template import RoIHeadTemplate
 
 class HopelessHead(RoIHeadTemplate):
-    def __init__(self, input_channels = 1, model_cfg, num_class=1, **kwargs):
+    def __init__(self, model_cfg, num_class=1, **kwargs):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.num_points = model_cfg.NUM_POINTS
         self.roi_grid_pool_layer, num_c_out = pointnet2_modules.build_local_aggregation_module(
-            input_channels=input_channels, config=self.model_cfg.ROI_GRID_POOL
+            input_channels=1, config=self.model_cfg.ROI_GRID_POOL
         )
 
         if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):

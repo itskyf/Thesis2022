@@ -87,6 +87,7 @@ MODEL:
     NAME: HopelessHead
     CLASS_AGNOSTIC: true
 
+    NUM_POINTS: 256
     SHARED_FC: [256, 256]
     CLS_FC: [256, 256]
     REG_FC: [256, 256]
