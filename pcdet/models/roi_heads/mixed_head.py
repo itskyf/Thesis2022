@@ -130,18 +130,18 @@ class MixedHead(RoIHeadTemplate):
 
             voxel_c_out += sum([x[-1] for x in mlps])
 
+        GRID_SIZE = self.pool_cfg.GRID_SIZE
+        c_out = voxel_c_out + point_c_out
+        pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
+
         if self.model_cfg.get('ATTENTION', {}).get('ENABLED'):
-            assert (self.model_cfg.ATTENTION.NUM_FEATURES == num_c_out), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {num_c_out}."
+            assert (self.model_cfg.ATTENTION.NUM_FEATURES == c_out), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
             pos_encoder = get_positional_encoder(self.model_cfg)
             self.attention_head = TransformerEncoder(self.model_cfg.ATTENTION, pos_encoder)
 
             for p in self.attention_head.parameters():
                 if p.dim() > 1:
                     nn.init.xavier_uniform_(p)
-        
-        GRID_SIZE = self.pool_cfg.GRID_SIZE
-        c_out = voxel_c_out + point_c_out
-        pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
 
         shared_fc_layer = []
         for k in range(0, self.model_cfg.SHARED_FC.__len__()):

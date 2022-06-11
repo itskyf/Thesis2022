@@ -142,7 +142,7 @@ MODEL:
             POOL_METHOD: max_pool
 
     ATTENTION:
-        ENABLED: True
+        ENABLED: False
         NUM_FEATURES: 256
         NUM_HEADS: 1
         NUM_HIDDEN_FEATURES: 256
