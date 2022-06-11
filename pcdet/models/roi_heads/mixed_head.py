@@ -405,7 +405,7 @@ class MixedHead(RoIHeadTemplate):
         xyz = src[:, :, :3].view(-1, 3)
         xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(src.shape[1] * num_rois)
 
-        new_xyz = global_roi_grid_points.view(-1, 3)
+        new_xyz = roi_grid_points.view(-1, 3)
         new_xyz_batch_cnt = new_xyz.new_zeros(batch_size).int().fill_(roi_grid_points.shape[1])
 
         point_features = src[:, :, 3].view(-1, 1)
