@@ -84,7 +84,7 @@ MODEL:
         code_weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
   ROI_HEAD:
-    NAME: HopelessHead
+    NAME: MixedHead
     CLASS_AGNOSTIC: true
 
     NUM_POINTS: 256
@@ -135,7 +135,6 @@ MODEL:
             POOL_METHOD: max_pool
         POINT_POOL_LAYER:
             NUM_POINTS: 256
-            # ADD_DIS: 0.4
             NAME: StackSAModuleMSG
             MLPS: [[32, 32], [32, 32]]
             POOL_RADIUS: [0.8, 1.6]
