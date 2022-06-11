@@ -285,33 +285,37 @@ class MixedHead(RoIHeadTemplate):
 
         roi_grid_xyz, local_roi_grid_points = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
-        )
-
+        )  # (BxN, 6x6x6, 3)
+        # roi_grid_xyz: (B, Nx6x6x6, 3)
         roi_grid_xyz = roi_grid_xyz.view(batch_size, -1, 3)
 
+        # compute the voxel coordinates of grid points
         roi_grid_coords_x = torch.div(
-            roi_grid_xyz[:, :, 0] - self.point_cloud_range[0],
+            roi_grid_xyz[:, :, 0:1] - self.point_cloud_range[0],
             self.voxel_size[0],
             rounding_mode="trunc",
         )
         roi_grid_coords_y = torch.div(
-            roi_grid_xyz[:, :, 1] - self.point_cloud_range[1],
+            roi_grid_xyz[:, :, 1:2] - self.point_cloud_range[1],
             self.voxel_size[1],
             rounding_mode="trunc",
         )
         roi_grid_coords_z = torch.div(
-            roi_grid_xyz[:, :, 2] - self.point_cloud_range[2],
+            roi_grid_xyz[:, :, 2:3] - self.point_cloud_range[2],
             self.voxel_size[2],
             rounding_mode="trunc",
         )
+        # roi_grid_coords: (B, Nx6x6x6, 3)
         roi_grid_coords = torch.cat(
-            [roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=1
+            [roi_grid_coords_x, roi_grid_coords_y, roi_grid_coords_z], dim=-1
         )
 
         batch_idx = rois.new_zeros(batch_size, roi_grid_coords.shape[1], 1)
         for bs_idx in range(batch_size):
             batch_idx[bs_idx, :, 0] = bs_idx
-
+        # roi_grid_coords: (B, Nx6x6x6, 4)
+        # roi_grid_coords = torch.cat([batch_idx, roi_grid_coords], dim=-1)
+        # roi_grid_coords = roi_grid_coords.int()
         roi_grid_batch_cnt = rois.new_zeros(batch_size).int().fill_(roi_grid_coords.shape[1])
 
         pooled_features_list = []
