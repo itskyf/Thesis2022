@@ -12,6 +12,7 @@ class HopelessHead(RoIHeadTemplate):
         super().__init__(num_class=num_class, model_cfg=model_cfg)
         self.model_cfg = model_cfg
         self.num_points = model_cfg.NUM_POINTS
+        self.add_dis = model_cfg.ADD_DIS
         self.roi_grid_pool_layer, num_c_out = pointnet2_modules.build_local_aggregation_module(
             input_channels=1, config=self.model_cfg.ROI_GRID_POOL
         )
@@ -98,7 +99,7 @@ class HopelessHead(RoIHeadTemplate):
             cur_points = batch_dict['points'][(batch_dict['points'][:, 0] == bs_idx)][:, :1:5]
             cur_batch_boxes = batch_dict['rois'][bs_idx]
             cur_radiis = torch.sqrt((cur_batch_boxes[:,3]/2) ** 2 + (cur_batch_boxes[:,4]/2) ** 2) * 1.2
-            dis = torch.norm((cur_points[:,:2].unsqueeze(0) - cur_batch_boxes[:,:2].unsqueeze(1).repeat(1,cur_points.shape[0],1)), dim = 2)
+            dis = torch.norm((cur_points[:,:2].unsqueeze(0) - cur_batch_boxes[:,:2].unsqueeze(1).repeat(1,cur_points.shape[0],1)) + self.add_dis, dim = 2)
             point_mask = (dis <= cur_radiis.unsqueeze(-1))
             for roi_box_idx in range(0, num_rois):
                 cur_roi_points = cur_points[point_mask[roi_box_idx]]
