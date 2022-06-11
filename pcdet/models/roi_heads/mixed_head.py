@@ -316,15 +316,16 @@ class MixedHead(RoIHeadTemplate):
 
         pooled_features_list = []
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
-            pool_layer = self.voxel_roi_grid_pool_layers[k]
+            pool_layer = self.roi_grid_pool_layers[k]
             cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
-            cur_sp_tensors = batch_dict["multi_scale_3d_features"][src_name]
 
-            if with_vf_transform:
-                cur_sp_tensors = batch_dict["multi_scale_3d_features_post"][src_name]
-            # else:
-            # cur_sp_tensors = batch_dict['multi_scale_3d_features'][src_name]
+            cur_sp_tensors = (
+                batch_dict["multi_scale_3d_features_post"][src_name]
+                if with_vf_transform
+                else batch_dict["multi_scale_3d_features"][src_name]
+            )
 
+            # compute voxel center xyz and batch_cnt
             cur_coords = cur_sp_tensors.indices
             cur_voxel_xyz = common_utils.get_voxel_centers(
                 cur_coords[:, 1:4],
@@ -335,13 +336,13 @@ class MixedHead(RoIHeadTemplate):
             cur_voxel_xyz_batch_cnt = cur_voxel_xyz.new_zeros(batch_size).int()
             for bs_idx in range(batch_size):
                 cur_voxel_xyz_batch_cnt[bs_idx] = (cur_coords[:, 0] == bs_idx).sum()
-
+            # get voxel2point tensor
             v2p_ind_tensor = common_utils.generate_voxel2pinds(cur_sp_tensors)
-
+            # compute the grid coordinates in this scale, in [batch_idx, x y z] order
             cur_roi_grid_coords = torch.div(roi_grid_coords, cur_stride, rounding_mode="trunc")
             cur_roi_grid_coords = torch.cat([batch_idx, cur_roi_grid_coords], dim=-1)
             cur_roi_grid_coords = cur_roi_grid_coords.int()
-
+            # voxel neighbor aggregation
             pooled_features = pool_layer(
                 xyz=cur_voxel_xyz.contiguous(),
                 xyz_batch_cnt=cur_voxel_xyz_batch_cnt,
@@ -354,7 +355,7 @@ class MixedHead(RoIHeadTemplate):
 
             pooled_features = pooled_features.view(
                 -1, self.pool_cfg.GRID_SIZE**3, pooled_features.shape[-1]
-            )
+            )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
 
         voxel_pooled_feature = torch.cat(pooled_features_list, dim=1)
