@@ -6,7 +6,7 @@ from .roi_head_template import RoIHeadTemplate
 from .second_head import SECONDHead
 from .voxelrcnn_head import VoxelRCNNHead
 from .voxelrcnn_trans_head import VoxelRCNNHeadTrans
-from .mixed_head import MixedHead
+# from .mixed_head import MixedHead
 
 __all__ = [
     "CT3DHead",
@@ -17,5 +17,5 @@ __all__ = [
     "SECONDHead",
     "VoxelRCNNHead",
     "VoxelRCNNHeadTrans",
-    "MixedHead",
+    # "MixedHead",
 ]
