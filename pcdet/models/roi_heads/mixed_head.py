@@ -316,7 +316,7 @@ class MixedHead(RoIHeadTemplate):
 
         pooled_features_list = []
         for k, src_name in enumerate(self.pool_cfg.FEATURES_SOURCE):
-            pool_layer = self.roi_grid_pool_layers[k]
+            pool_layer = self.voxel_roi_grid_pool_layers[k]
             cur_stride = batch_dict["multi_scale_3d_strides"][src_name]
 
             cur_sp_tensors = (
