@@ -1,3 +1,4 @@
+import torch
 from torch import nn
 
 from ...ops.pointnet2.pointnet2_stack import pointnet2_modules
