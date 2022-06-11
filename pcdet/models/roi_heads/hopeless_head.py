@@ -14,7 +14,7 @@ class HopelessHead(RoIHeadTemplate):
             input_channels=1, config=self.model_cfg.ROI_GRID_POOL
         )
 
-        if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):
+        if self.model_cfg.get('ATTENTION', {}).get('ENABLED'):
             assert (self.model_cfg.ATTENTION.NUM_FEATURES == c_out), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
             pos_encoder = get_positional_encoder(self.model_cfg)
             self.attention_head = TransformerEncoder(self.model_cfg.ATTENTION, pos_encoder)
@@ -177,7 +177,7 @@ class HopelessHead(RoIHeadTemplate):
 
     def get_positional_input(self, local_roi_grid_points):
         # TODO: Add more positional input here.
-        if self.pool_cfg.ATTENTION.POSITIONAL_ENCODER == "grid_points":
+        if self.model_cfg.ATTENTION.POSITIONAL_ENCODER == "grid_points":
             positional_input = local_roi_grid_points
         # elif self.pool_cfg.ATTENTION.POSITIONAL_ENCODER == 'density':
         #     positional_input = points_per_part
@@ -201,10 +201,10 @@ class HopelessHead(RoIHeadTemplate):
         # RoI aware pooling
         pooled_features, local_roi_grid_points = self.roi_grid_pool(batch_dict)  # (BxN, 6x6x6, C)
 
-        if self.pool_cfg.get('ATTENTION', {}).get('ENABLED'):
+        if self.model_cfg.get('ATTENTION', {}).get('ENABLED'):
             src_key_padding_mask = None
             # TODO
-            if self.pool_cfg.ATTENTION.get("MASK_EMPTY_POINTS"):
+            if self.model_cfg.ATTENTION.get("MASK_EMPTY_POINTS"):
                 src_key_padding_mask = (pooled_features == 0).all(-1)
 
             # positional_input = self.get_positional_input(batch_dict['points'], )
@@ -214,7 +214,7 @@ class HopelessHead(RoIHeadTemplate):
                 pooled_features, positional_input, src_key_padding_mask
             )
 
-            if self.pool_cfg.ATTENTION.get("COMBINE"):
+            if self.model_cfg.ATTENTION.get("COMBINE"):
                 attention_ouput = pooled_features + attention_ouput
             
             pooled_features = attention_ouput
