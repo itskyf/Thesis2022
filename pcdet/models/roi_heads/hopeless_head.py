@@ -15,7 +15,7 @@ class HopelessHead(RoIHeadTemplate):
         )
 
         if self.model_cfg.get('ATTENTION', {}).get('ENABLED'):
-            assert (self.model_cfg.ATTENTION.NUM_FEATURES == c_out), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {c_out}."
+            assert (self.model_cfg.ATTENTION.NUM_FEATURES == num_c_out), f"ATTENTION.NUM_FEATURES must equal voxel aggregation output dimension of {num_c_out}."
             pos_encoder = get_positional_encoder(self.model_cfg)
             self.attention_head = TransformerEncoder(self.model_cfg.ATTENTION, pos_encoder)
 
