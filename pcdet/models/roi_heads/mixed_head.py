@@ -102,7 +102,7 @@ class MixedHead(RoIHeadTemplate):
         VOXEL_cfg = self.pool_cfg.VOXEL_POOL_LAYERS
         self.point_cfg = self.pool_cfg.POINT_POOL_LAYER
         self.num_points = self.point_cfg.NUM_POINTS
-        self.add_dis = self.point_cfg.ADD_DIS
+        # self.add_dis = self.point_cfg.ADD_DIS
         self.point_cloud_range = point_cloud_range
         self.voxel_size = voxel_size
 
@@ -368,7 +368,7 @@ class MixedHead(RoIHeadTemplate):
             cur_points = batch_dict['points'][(batch_dict['points'][:, 0] == bs_idx)][:, :1:5]
             cur_batch_boxes = batch_dict['rois'][bs_idx]
             cur_radiis = torch.sqrt((cur_batch_boxes[:,3]/2) ** 2 + (cur_batch_boxes[:,4]/2) ** 2) * 1.2
-            dis = torch.norm((cur_points[:,:2].unsqueeze(0) - cur_batch_boxes[:,:2].unsqueeze(1).repeat(1,cur_points.shape[0],1)) + self.add_dis, dim = 2)
+            dis = torch.norm((cur_points[:,:2].unsqueeze(0) - cur_batch_boxes[:,:2].unsqueeze(1).repeat(1,cur_points.shape[0],1)), dim = 2)
             point_mask = (dis <= cur_radiis.unsqueeze(-1))
             for roi_box_idx in range(0, num_rois):
                 cur_roi_points = cur_points[point_mask[roi_box_idx]]
