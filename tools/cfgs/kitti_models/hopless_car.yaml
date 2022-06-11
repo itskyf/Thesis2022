@@ -120,9 +120,9 @@ MODEL:
 
     ATTENTION:
       ENABLED: True
-      NUM_FEATURES: 128
+      NUM_FEATURES: 256
       NUM_HEADS: 1
-      NUM_HIDDEN_FEATURES: 128
+      NUM_HIDDEN_FEATURES: 256
       NUM_LAYERS: 1
       POSITIONAL_ENCODER: density_grid_points
       # MAX_NUM_BOXES: 20
