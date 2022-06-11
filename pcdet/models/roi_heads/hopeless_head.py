@@ -125,17 +125,13 @@ class HopelessHead(RoIHeadTemplate):
             rois, grid_size=self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         )
 
-        xyz = src[:, :4]
-        xyz_batch_cnt = xyz.new_zeros(batch_size).int()
-        batch_idx = src[:, 0]
-
-        for k in range(batch_size):
-            xyz_batch_cnt[k] = (batch_idx == k).sum()
+        xyz = src[:, :, :3].view(-1, 3)
+        xyz_batch_cnt = torch.new_zeros(batch_size).int().fill_(src.shape[1])
 
         new_xyz = global_roi_grid_points.view(-1, 3)
         new_xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(global_roi_grid_points.shape[1])
 
-        point_features = src[:, 4]
+        point_features = src[:, :, 3].view(-1, 1)
         
         pooled_points, pooled_features = self.roi_grid_pool_layer(
             xyz=xyz.contiguous(),
