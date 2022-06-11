@@ -278,7 +278,7 @@ class MixedHead(RoIHeadTemplate):
     #     keypoints = keypoints.view(-1, 3)
     #     return keypoints, keypoints_batch_cnt
 
-    def roi_gird_pool(self, batch_dict):
+    def roi_grid_pool(self, batch_dict):
         rois = batch_dict["rois"]
         batch_size = batch_dict["batch_size"]
         with_vf_transform = batch_dict.get("with_voxel_feature_transform", False)
