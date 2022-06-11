@@ -124,12 +124,13 @@ class HopelessHead(RoIHeadTemplate):
         global_roi_grid_points, local_roi_grid_points = self.get_global_grid_points_of_roi(
             rois, grid_size=self.model_cfg.ROI_GRID_POOL.GRID_SIZE
         )
+        global_roi_grid_points = global_roi_grid_points.view(batch_size, -1, 3)
 
         xyz = src[:, :, :3].view(-1, 3)
         xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(src.shape[1] * num_rois)
 
         new_xyz = global_roi_grid_points.view(-1, 3)
-        new_xyz_batch_cnt = xyz.new_zeros(batch_size).int().fill_(global_roi_grid_points.shape[1])
+        new_xyz_batch_cnt = new_xyz.new_zeros(batch_size).int().fill_(global_roi_grid_points.shape[1])
 
         point_features = src[:, :, 3].view(-1, 1)
         
