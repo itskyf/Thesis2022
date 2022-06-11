@@ -58,6 +58,23 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
             dp_ratio=dp_ratio,
             relu_inplace=False,
         )
+
+        shared_fc_list = []
+        for k in range(0, self.model_cfg.SHARED_FC.__len__()):
+            shared_fc_list.extend(
+                [
+                    nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
+                    nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
+                    nn.ReLU(),
+                ]
+            )
+            pre_channel = self.model_cfg.SHARED_FC[k]
+
+            if k != self.model_cfg.SHARED_FC.__len__() - 1 and self.model_cfg.DP_RATIO > 0:
+                shared_fc_list.append(nn.Dropout(self.model_cfg.DP_RATIO))
+
+        self.shared_fc_layer = nn.Sequential(*shared_fc_list)
+
         self.cls_pred_layer = nn.Linear(self.model_cfg.CLS_FC[-1], num_class, bias=True)
 
         self.reg_fc_layers = _make_fc_layers(
@@ -258,7 +275,7 @@ class VoxelRCNNHeadTrans(RoIHeadTemplate):
 
         # Box Refinement
         pooled_features = attention_ouput.view(pooled_features.size(0), -1)
-        # pooled_features = self.shared_fc_layer(pooled_features)
+        pooled_features = self.shared_fc_layer(pooled_features)
         rcnn_cls = self.cls_pred_layer(self.cls_fc_layers(pooled_features))
         rcnn_reg = self.reg_pred_layer(self.reg_fc_layers(pooled_features))
 
