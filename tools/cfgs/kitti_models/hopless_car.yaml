@@ -1,5 +1,5 @@
 ---
-CLASS_NAMES: [Car]
+CLASS_NAMES: ['Pedestrian']
 
 DATA_CONFIG:
   _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
@@ -59,14 +59,14 @@ MODEL:
     DIR_LIMIT_OFFSET: 0.0
     NUM_DIR_BINS: 2
     ANCHOR_GENERATOR_CONFIG:
-      - class_name: Car
-        anchor_sizes: [[3.9, 1.6, 1.56]]
+      - class_name: Pedestrian
+        anchor_sizes: [[0.8, 0.6, 1.73]]
         anchor_rotations: [0, 1.57]
-        anchor_bottom_heights: [-1.78]
+        anchor_bottom_heights: [-0.6]
         align_center: false
         feature_map_stride: 8
-        matched_threshold: 0.6
-        unmatched_threshold: 0.45
+        matched_threshold: 0.5
+        unmatched_threshold: 0.35
 
     TARGET_ASSIGNER_CONFIG:
       NAME: AxisAlignedTargetAssigner
@@ -77,6 +77,7 @@ MODEL:
       BOX_CODER: ResidualCoder
 
     LOSS_CONFIG:
+      CLS_LOSS_TYPE: PolySigmoidFCLoss
       LOSS_WEIGHTS:
         cls_weight: 1
         loc_weight: 2
@@ -113,16 +114,16 @@ MODEL:
     ROI_GRID_POOL:
       GRID_SIZE: 6
       NAME: StackSAModuleMSG
-      MLPS: [[128, 128], [128, 128]]
-      POOL_RADIUS: [0.8, 1.6]
-      NSAMPLE: [64, 64]
+      MLPS: [[64, 64], [64, 64]]
+      POOL_RADIUS: [0.4, 0.8]
+      NSAMPLE: [32, 32]
       POOL_METHOD: max_pool
 
     ATTENTION:
       ENABLED: True
-      NUM_FEATURES: 256
+      NUM_FEATURES: 128
       NUM_HEADS: 1
-      NUM_HIDDEN_FEATURES: 256
+      NUM_HIDDEN_FEATURES: 128
       NUM_LAYERS: 1
       POSITIONAL_ENCODER: density_grid_points
       # MAX_NUM_BOXES: 20
