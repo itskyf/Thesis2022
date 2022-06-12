@@ -79,6 +79,7 @@ MODEL:
       BOX_CODER: ResidualCoder
 
     LOSS_CONFIG:
+      CLS_LOSS_TYPE: PolySigmoidFCLoss
       LOSS_WEIGHTS:
         cls_weight: 1.0
         loc_weight: 2.0
@@ -131,7 +132,7 @@ MODEL:
       REG_FG_THRESH: 0.55
 
     LOSS_CONFIG:
-      CLS_LOSS: BinaryCrossEntropy
+      CLS_LOSS: PolyBinaryCrossEntropy
       REG_LOSS: smooth-l1
       CORNER_LOSS_REGULARIZATION: true
       LOSS_WEIGHTS:
