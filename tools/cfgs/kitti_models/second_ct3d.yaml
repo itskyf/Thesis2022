@@ -132,7 +132,7 @@ MODEL:
       REG_FG_THRESH: 0.55
 
     LOSS_CONFIG:
-      CLS_LOSS: PolyBinaryCrossEntropy
+      CLS_LOSS: BinaryCrossEntropy
       REG_LOSS: smooth-l1
       CORNER_LOSS_REGULARIZATION: true
       LOSS_WEIGHTS:
