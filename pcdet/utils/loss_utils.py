@@ -139,7 +139,7 @@ class PolyBinaryCrossEntropy(nn.Module):
     
     def forward(self, input: torch.Tensor, target: torch.Tensor):
         input = input.view(-1)
-        input = functional.sigmoid(input)
+        input = torch.sigmoid(input)
         pt = target * input + (1 - target) * (1 - input)
         BCE = functional.binary_cross_entropy(input, target.float(), reduction="none")
 
