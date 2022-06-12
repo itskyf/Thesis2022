@@ -145,7 +145,7 @@ class PolyBinaryCrossEntropy(nn.Module):
         loss = BCE + self.epsilon * (1 - pt)
         return loss
 
-class PolyCrossEntropy(nn.Module)
+class PolyCrossEntropy(nn.Module):
     def __init__(self, epsilon: float):
         supper(PolyCrossEntropy, self).__init__()
         self.epsilon = epsilon
@@ -155,7 +155,7 @@ class PolyCrossEntropy(nn.Module)
         CE = functional.cross_entropy(input, target, reduction="none", ignore_index=-1)
         loss = CE + self.epsilon * (1 - pt)
         return loss
-        
+
 class WeightedSmoothL1Loss(nn.Module):
     """
     Code-wise Weighted Smooth L1 Loss modified based on fvcore.nn.smooth_l1_loss
