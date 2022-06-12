@@ -77,7 +77,7 @@ class PolySigmoidFocalClassificationLoss(nn.Module):
             gamma: Weighting parameter to balance loss for hard and easy examples.
             alpha: Weighting parameter to balance loss for positive and negative examples.
         """
-        supper(PolySigmoidFocalClassificationLoss, self).__init__()
+        super(PolySigmoidFocalClassificationLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
@@ -134,20 +134,21 @@ class PolySigmoidFocalClassificationLoss(nn.Module):
 
 class PolyBinaryCrossEntropy(nn.Module):
     def __init__(self, epsilon: float):
-        supper(PolyBinaryCrossEntropy, self).__init__()
+        super(PolyBinaryCrossEntropy, self).__init__()
         self.epsilon = epsilon
     
     def forward(self, input: torch.Tensor, target: torch.Tensor):
         input = input.view(-1)
-        pt = torch.sum(target * torch.sigmoid(input), dim = -1)
-        BCE = functional.binary_cross_entropy(torch.sigmoid(input), target.float(), reduction="none")
+        input = functional.sigmoid(input)
+        pt = target * input + (1 - target) * (1 - input)
+        BCE = functional.binary_cross_entropy(input, target.float(), reduction="none")
 
         loss = BCE + self.epsilon * (1 - pt)
         return loss
 
 class PolyCrossEntropy(nn.Module):
     def __init__(self, epsilon: float):
-        supper(PolyCrossEntropy, self).__init__()
+        super(PolyCrossEntropy, self).__init__()
         self.epsilon = epsilon
 
     def forward(self, input: torch.Tensor, target: torch.Tensor):
