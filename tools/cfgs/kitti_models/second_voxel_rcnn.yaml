@@ -102,6 +102,7 @@ MODEL:
             BOX_CODER: ResidualCoder
 
         LOSS_CONFIG:
+            CLS_LOSS_TYPE: PolySigmoidFCLoss
             LOSS_WEIGHTS: {
                 'cls_weight': 1.0,
                 'loc_weight': 2.0,
@@ -141,19 +142,19 @@ MODEL:
             MLPS: [[64, 64]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [0.4]
-            NSAMPLE: [16]
+            NSAMPLE: [32]
             POOL_METHOD: max_pool
           x_conv3:
             MLPS: [[64, 64]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [0.8]
-            NSAMPLE: [16]
+            NSAMPLE: [32]
             POOL_METHOD: max_pool
           x_conv4:
             MLPS: [[64, 64]]
             QUERY_RANGES: [[4, 4, 4]]
             POOL_RADIUS: [1.6]
-            NSAMPLE: [16]
+            NSAMPLE: [32]
             POOL_METHOD: max_pool
 
       TARGET_CONFIG:
@@ -172,7 +173,7 @@ MODEL:
           REG_FG_THRESH: 0.55
 
       LOSS_CONFIG:
-          CLS_LOSS: BinaryCrossEntropy
+          CLS_LOSS: PolyBinaryCrossEntropy
           REG_LOSS: smooth-l1
           CORNER_LOSS_REGULARIZATION: True
           LOSS_WEIGHTS: {
