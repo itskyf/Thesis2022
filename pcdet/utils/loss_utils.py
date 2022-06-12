@@ -71,7 +71,7 @@ class SigmoidFocalClassificationLoss(nn.Module):
         return loss * weights
 
 class PolySigmoidFocalClassificationLoss(nn.Module):
-    def __init__(self, gamma: float = 2.0, alpha: float = 0.25, epsilon: float):
+    def __init__(self, gamma: float = 2.0, alpha: float = 0.25, epsilon: float = 1):
         """
         Args:
             gamma: Weighting parameter to balance loss for hard and easy examples.
