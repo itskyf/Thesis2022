@@ -77,7 +77,7 @@ class PolySigmoidFocalClassificationLoss(nn.Module):
             gamma: Weighting parameter to balance loss for hard and easy examples.
             alpha: Weighting parameter to balance loss for positive and negative examples.
         """
-        super(PolySigmoidFocalClassificationLoss, self).__init__()
+        supper(PolySigmoidFocalClassificationLoss, self).__init__()
         self.alpha = alpha
         self.gamma = gamma
         self.epsilon = epsilon
