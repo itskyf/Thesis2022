@@ -23,12 +23,12 @@ class RoIHeadTemplate(nn.Module):
         self.forward_ret_dict = None
 
     def build_losses(self, losses_cfg):
-        if losses_cfg.get(CLS_LOSS) == 'PolyBinaryCrossEntropy':
+        if losses_cfg.CLS_LOSS == 'PolyBinaryCrossEntropy':
             epsilon = losses_cfg.get(EPSILON, 1)
             self.add_module(
                 'cls_loss_func', loss_utils.PolyBinaryCrossEntropy(epsilon=epsilon)
             )
-        elif losses_cfg.get(CLS_LOSS) == 'PolyCrossEntropy':
+        elif losses_cfg.CLS_LOSS == 'PolyCrossEntropy':
             epsilon = losses_cfg.get(EPSILON, 1)
             self.add_module(
                 'cls_loss_func', loss_utils.PolyCrossEntropy(epsilon=epsilon)
