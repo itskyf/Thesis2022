@@ -87,9 +87,16 @@ class AnchorHeadTemplate(nn.Module):
         return target_assigner
 
     def build_losses(self, losses_cfg):
-        self.add_module(
-            "cls_loss_func", loss_utils.SigmoidFocalClassificationLoss(alpha=0.25, gamma=2.0)
-        )
+        if losses_cfg.get('CLS_LOSS_TYPE', None) is not 'PolySigmoidFCLoss':
+            self.add_module(
+                "cls_loss_func", loss_utils.SigmoidFocalClassificationLoss(alpha=0.25, gamma=2.0)
+            )
+        else:
+            epsilon = losses_cfg.get('EPSILON', 1)
+            self.add_module(
+                'cls_loss_func', loss_utils.PolySigmoidFocalClassificationLoss(alpha=0.25, gamma=2.0, epsilon=epsilon)
+            )
+
         reg_loss_name = (
             "WeightedSmoothL1Loss"
             if losses_cfg.get("REG_LOSS_TYPE", None) is None

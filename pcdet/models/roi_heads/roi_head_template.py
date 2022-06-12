@@ -23,6 +23,16 @@ class RoIHeadTemplate(nn.Module):
         self.forward_ret_dict = None
 
     def build_losses(self, losses_cfg):
+        if losses_cfg.get(CLS_LOSS) == 'PolyBinaryCrossEntropy':
+            epsilon = losses_cfg.get(EPSILON, 1)
+            self.add_module(
+                'cls_loss_func', loss_utils.PolyBinaryCrossEntropy(epsilon=epsilon)
+            )
+        elif losses_cfg.get(CLS_LOSS) == 'PolyCrossEntropy':
+            epsilon = losses_cfg.get(EPSILON, 1)
+            self.add_module(
+                'cls_loss_func', loss_utils.PolyCrossEntropy(epsilon=epsilon)
+            )
         self.add_module(
             "reg_loss_func",
             loss_utils.WeightedSmoothL1Loss(code_weights=losses_cfg.LOSS_WEIGHTS["code_weights"]),
@@ -212,6 +222,7 @@ class RoIHeadTemplate(nn.Module):
         loss_cfgs = self.model_cfg.LOSS_CONFIG
         rcnn_cls = forward_ret_dict["rcnn_cls"]
         rcnn_cls_labels = forward_ret_dict["rcnn_cls_labels"].view(-1)
+        
         if loss_cfgs.CLS_LOSS == "BinaryCrossEntropy":
             rcnn_cls_flat = rcnn_cls.view(-1)
             batch_loss_cls = functional.binary_cross_entropy(
@@ -225,6 +236,12 @@ class RoIHeadTemplate(nn.Module):
             batch_loss_cls = functional.cross_entropy(
                 rcnn_cls, rcnn_cls_labels, reduction="none", ignore_index=-1
             )
+            cls_valid_mask = (rcnn_cls_labels >= 0).float()
+            rcnn_loss_cls = (batch_loss_cls * cls_valid_mask).sum() / torch.clamp(
+                cls_valid_mask.sum(), min=1.0
+            )
+        elif loss_cfgs.CLS_LOSS == "PolyBinaryCrossEntropy" or loss_cfgs.CLS_LOSS == "PolyCrossEntropy":
+            batch_loss_cls = self.cls_loss_func(rcnn_cls, rcnn_cls_labels)
             cls_valid_mask = (rcnn_cls_labels >= 0).float()
             rcnn_loss_cls = (batch_loss_cls * cls_valid_mask).sum() / torch.clamp(
                 cls_valid_mask.sum(), min=1.0
