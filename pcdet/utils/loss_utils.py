@@ -297,7 +297,7 @@ class PolyWeightedCrossEntropyLoss(nn.Module):
         super().__init__()
         self.epsilon = epsilon
     def forward(self, x: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
-        imput = x.clone()
+        input = x.clone()
         pt = (target * functional.softmax(input, dim=-1)).sum(dim=-1)
         x = x.permute(0, 2, 1)
         target=target.argmax(dim=-1)
