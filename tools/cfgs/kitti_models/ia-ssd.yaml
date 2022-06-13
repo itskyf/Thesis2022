@@ -113,7 +113,7 @@ MODEL:
 
     EVAL_METRIC: kitti
 
-    IOU_SUPRESS: True
+    # IOU_SUPRESS: True
     NMS_CONFIG:
       ALPHA: 0.25
       MULTI_CLASSES_NMS: false
