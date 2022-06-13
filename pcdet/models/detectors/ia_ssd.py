@@ -77,6 +77,7 @@ class IASSD(Detector3DTemplate):
                 if not batch_dict["cls_preds_normalized"]:
                     cls_preds = [torch.sigmoid(x) for x in cls_preds]
 
+            alpha = post_process_cfg.NMS_CONFIG.ALPHA
             if post_process_cfg.NMS_CONFIG.MULTI_CLASSES_NMS:
                 if not isinstance(cls_preds, list):
                     cls_preds = [cls_preds]

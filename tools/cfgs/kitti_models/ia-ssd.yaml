@@ -115,6 +115,7 @@ MODEL:
 
     IOU_SUPRESS: True
     NMS_CONFIG:
+      ALPHA: 0.25
       MULTI_CLASSES_NMS: false
       NMS_TYPE: nms_gpu
       NMS_THRESH: 0.01
