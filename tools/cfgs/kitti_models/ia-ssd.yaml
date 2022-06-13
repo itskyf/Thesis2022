@@ -60,6 +60,7 @@ MODEL:
 
   POINT_HEAD:
     NAME: IASSD_Head
+    IOU_FC: [256, 256]
     CLS_FC: [256, 256]
     REG_FC: [256, 256]
     CLASS_AGNOSTIC: false
@@ -85,9 +86,9 @@ MODEL:
 
     LOSS_CONFIG:
       # Ref: 'WeightedBinaryCrossEntropy', 'WeightedCrossEntropy', 'FocalLoss'
-      LOSS_CLS: PolyWeightedCrossEntropy
+      LOSS_CLS: WeightedCrossEntropy
       LOSS_REG: WeightedSmoothL1Loss
-      LOSS_INS: PolyWeightedCrossEntropy
+      LOSS_INS: WeightedCrossEntropy
       SAMPLE_METHOD_LIST: *sample_method_list
       LOSS_VOTE_TYPE: "none"  # 'none', 'ver1', 'ver2',
 
@@ -112,6 +113,7 @@ MODEL:
 
     EVAL_METRIC: kitti
 
+    IOU_SUPRESS: True
     NMS_CONFIG:
       MULTI_CLASSES_NMS: false
       NMS_TYPE: nms_gpu
