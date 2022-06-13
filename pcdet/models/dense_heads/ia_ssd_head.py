@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional
 
 from ...ops.roiaware_pool3d import roiaware_pool3d_utils
+from ...ops.iou3d_nms.iou3d_nms_utils import boxes_iou3d_gpu
 from ...utils import box_coder_utils, box_utils, common_utils, loss_utils
 from .point_head_template import PointHeadTemplate
 
@@ -917,7 +918,7 @@ class IASSD_Head(PointHeadTemplate):
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
         pred_boxes = self.forward_ret_dict["point_box_preds"].clone().detach()
         pred_boxes = pred_boxes[pos_mask]
-        iou3d_targets, _ = loss_utils.generate_iou3d(pred_boxes[:, 0:7], gt_boxes[:, 0:7])
+        iou3d_targets, _ = boxes_iou3d_gpu(pred_boxes[:, 0:7], gt_boxes[:, 0:7]).max(dim=-1)
 
         iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
         iou3d_preds = iou3d_preds[pos_mask]
