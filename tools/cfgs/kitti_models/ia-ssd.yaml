@@ -85,9 +85,9 @@ MODEL:
 
     LOSS_CONFIG:
       # Ref: 'WeightedBinaryCrossEntropy', 'WeightedCrossEntropy', 'FocalLoss'
-      LOSS_CLS: PolyWeightedCrossEntropy
+      LOSS_CLS: WeightedCrossEntropy
       LOSS_REG: WeightedSmoothL1Loss
-      LOSS_INS: PolyWeightedCrossEntropy
+      LOSS_INS: WeightedCrossEntropy
       SAMPLE_METHOD_LIST: *sample_method_list
       LOSS_VOTE_TYPE: "none"  # 'none', 'ver1', 'ver2',
 
