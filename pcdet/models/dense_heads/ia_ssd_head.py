@@ -73,7 +73,7 @@ class IASSD_Head(PointHeadTemplate):
                 loss_utils.SigmoidFocalClassificationLoss(**losses_cfg.get("LOSS_CLS_CONFIG", {})),
             )
         elif losses_cfg.LOSS_CLS.startswith("PolyWeightedCrossEntropy"):
-            self.add_module("cls_loss_func", loss_utils.PolyWeightedCrossEntropy(epsilon=1))
+            self.add_module("cls_loss_func", loss_utils.PolyWeightedCrossEntropyLoss(epsilon=1))
         else:
             raise NotImplementedError
 
@@ -110,7 +110,7 @@ class IASSD_Head(PointHeadTemplate):
                     ),
                 )
             elif losses_cfg.LOSS_INS.startswith("PolyWeightedCrossEntropy"):
-                self.add_module("ins_loss_func", loss_utils.PolyWeightedCrossEntropy(epsilon=1))
+                self.add_module("ins_loss_func", loss_utils.PolyWeightedCrossEntropyLoss(epsilon=1))
             else:
                 raise NotImplementedError
 
