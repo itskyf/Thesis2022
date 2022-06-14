@@ -928,7 +928,7 @@ class IASSD_Head(PointHeadTemplate):
         iou3d_targets, _ = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).max(dim=-1)
 
         iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
-        iou3d_preds = iou3d_preds[pos_mask]
+        iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
 
         # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
         loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets)
