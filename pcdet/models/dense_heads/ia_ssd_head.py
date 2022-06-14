@@ -920,6 +920,7 @@ class IASSD_Head(PointHeadTemplate):
         pred_boxes = pred_boxes[pos_mask]
         pred_centers = self.forward_ret_dict["centers"].clone()
         pred_centers = pred_centers[pos_mask]
+        pred_centers = pred_centers[:, 1:4]
         pred_cls = self.forward_ret_dict["center_cls_preds"].clone()
         pred_cls = pred_cls[pos_mask]
         _, pred_classes = pred_cls.max(dim=-1)
