@@ -916,7 +916,7 @@ class IASSD_Head(PointHeadTemplate):
     def get_iou3d_layer_loss(self, tb_dict=None):
         pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
-        pred_boxes = self.forward_ret_dict["point_box_preds"].clone()
+        pred_boxes = self.forward_ret_dict["center_box_preds"].clone()
         pred_boxes = pred_boxes[pos_mask]
         pred_centers = self.forward_ret_dict["centers"].clone()
         pred_centers = pred_centers[pos_mask]
