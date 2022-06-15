@@ -25,15 +25,15 @@ MODEL:
     NAME: IASSD_Backbone
     SA_CONFIG:
       # Sampling setting:
-      NPOINT_LIST: [[4096], [1024], [512], [256], [-1], [256]]
-      SAMPLE_RANGE_LIST: [[-1], [-1], [-1], [-1], [-1], [-1]]
+      NPOINT_LIST: [[4096], [1024], [512], [256], [-1], [256], [256]]
+      SAMPLE_RANGE_LIST: [[-1], [-1], [-1], [-1], [-1], [-1], [-1]]
       SAMPLE_METHOD_LIST:
         &sample_method_list [
-          [D-FPS], [D-FPS], [ctr_aware], [ctr_aware], [], []
+          [D-FPS], [D-FPS], [ctr_aware], [ctr_aware], [], [], []
         ]
       # Group and Abstraction setting:
-      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [4.8, 6.4]]
-      NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32]]
+      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [4.8, 6.4],[4.8, 6.4]]
+      NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32],[16, 32]]
       MLPS:
         [
           [[16, 16, 32], [32, 32, 64]],
@@ -41,26 +41,28 @@ MODEL:
           [[128, 128, 256], [128, 256, 256]],
           [],
           [128],
-          [[256, 256, 512], [256, 512, 1024]],
+          [[256, 256, 256], [256, 512, 512]]
+          [[256, 256, 256], [256, 512, 512]],
         ]
 
       LAYER_TYPE:
         [
-          SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer
+          SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer, SA_Layer
         ]
-      DILATED_GROUP: [false, false, false, false, false, false]
-      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512]]
+      DILATED_GROUP: [false, false, false, false, false, false, false]
+      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512], [512]]
       # Instance-aware setting:
-      CONFIDENCE_MLPS: [[], [128], [256], [], [], []]
+      CONFIDENCE_MLPS: [[], [128], [256], [], [], [], []]
 
-      LAYER_INPUT: [0, 1, 2, 3, 4, 3]
-      CTR_INDEX: [-1, -1, -1, -1, -1, 5]
+      LAYER_INPUT: [0, 1, 2, 3, 4, 2, 3]
+      CTR_INDEX: [-1, -1, -1, -1, -1, 5, 5]
       MAX_TRANSLATE_RANGE: [3.0, 3.0, 2.0]
       # SAVE_SAMPLE_LIST: true
 
   POINT_HEAD:
     NAME: IASSD_Head
-    IOU_FC: [256, 256]
+    # IOU_FC: [256, 256]
+    INPUT_DIM: 1536
     CLS_FC: [256, 256]
     REG_FC: [256, 256]
     CLASS_AGNOSTIC: false
@@ -95,7 +97,7 @@ MODEL:
       CORNER_LOSS_REGULARIZATION: true
       CENTERNESS_REGULARIZATION: true
       CENTERNESS_REGULARIZATION_SA: true
-      IOU3D_REGULARIZATION: true
+      # IOU3D_REGULARIZATION: true
       LOSS_WEIGHTS:
         ins_aware_weight: [0, 1.0, 1.0]
         vote_weight: 1.0
@@ -117,7 +119,7 @@ MODEL:
 
     # IOU_SUPRESS: True
     NMS_CONFIG:
-      ALPHA: 0.25
+      # ALPHA: 0.25
       MULTI_CLASSES_NMS: false
       NMS_TYPE: nms_gpu
       NMS_THRESH: 0.01
