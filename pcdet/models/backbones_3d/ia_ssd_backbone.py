@@ -205,10 +205,10 @@ class IASSD_Backbone(nn.Module):
                 .contiguous()
                 .view(-1, encoder_features[k].shape[1])
             )
-            print(center_features_list[-1].size())
+            # print(center_features_list[-1].size())
 
         center_features = torch.cat(center_features_list, dim=-1)
-        print(center_features.size())
+        # print(center_features.size())
 
         batch_dict["centers_features"] = center_features
         batch_dict["ctr_batch_idx"] = ctr_batch_idx
