@@ -50,7 +50,7 @@ MODEL:
           SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer, SA_Layer
         ]
       DILATED_GROUP: [false, false, false, false, false, false, false]
-      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512], [512]]
+      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [256], [256]]
       # Instance-aware setting:
       CONFIDENCE_MLPS: [[], [128], [256], [], [], [], []]
 
@@ -63,9 +63,9 @@ MODEL:
   POINT_HEAD:
     NAME: IASSD_Head
     # IOU_FC: [256, 256]
-    INPUT_DIM: 1024
-    CLS_FC: [512, 256]
-    REG_FC: [512, 256]
+    INPUT_DIM: 512
+    CLS_FC: [256, 256]
+    REG_FC: [256, 256]
     CLASS_AGNOSTIC: false
     USE_POINT_FEATURES_BEFORE_FUSION: false
     TARGET_CONFIG:
@@ -107,7 +107,7 @@ MODEL:
         corner_weight: 1.0
         code_weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
         dir_weight: 0.2
-        iou3d_weight: 1.0
+        # iou3d_weight: 1.0
 
   POST_PROCESSING:
     # 'normal'(default), 'detail', 'speed'(no recall info)
