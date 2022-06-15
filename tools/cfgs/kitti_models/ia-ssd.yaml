@@ -57,6 +57,7 @@ MODEL:
       LAYER_INPUT: [0, 1, 2, 3, 4, 2, 3]
       CTR_INDEX: [-1, -1, -1, -1, -1, 5, 5]
       MAX_TRANSLATE_RANGE: [3.0, 3.0, 2.0]
+      NUM_LAYERS_FEATURE: 2
       # SAVE_SAMPLE_LIST: true
 
   POINT_HEAD:
