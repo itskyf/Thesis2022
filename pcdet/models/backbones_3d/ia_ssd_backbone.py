@@ -29,7 +29,7 @@ class IASSD_Backbone(nn.Module):
         self.confidence_mlps = sa_config.get("CONFIDENCE_MLPS", None)
         self.max_translate_range = sa_config.get("MAX_TRANSLATE_RANGE", None)
 
-        self.num_layers_feature = sa_cfg.get("NUM_LAYERS_FEATURE", 1)
+        self.num_layers_feature = sa_config.get("NUM_LAYERS_FEATURE", 1)
 
         for k in range(sa_config.NSAMPLE_LIST.__len__()):
             if isinstance(self.layer_inputs[k], list):  ###
