@@ -29,6 +29,8 @@ class IASSD_Backbone(nn.Module):
         self.confidence_mlps = sa_config.get("CONFIDENCE_MLPS", None)
         self.max_translate_range = sa_config.get("MAX_TRANSLATE_RANGE", None)
 
+        self.num_layers_feature = model_cfg.get("NUM_LAYERS_FEATURE", 1)
+
         for k in range(sa_config.NSAMPLE_LIST.__len__()):
             if isinstance(self.layer_inputs[k], list):  ###
                 channel_in = channel_out_list[self.layer_inputs[k][-1]]
@@ -187,12 +189,25 @@ class IASSD_Backbone(nn.Module):
             (ctr_batch_idx[:, None].float(), centers_origin.contiguous().view(-1, 3)), dim=1
         )
 
-        center_features = (
-            encoder_features[-1]
-            .permute(0, 2, 1)
-            .contiguous()
-            .view(-1, encoder_features[-1].shape[1])
-        )
+
+        # center_features = (
+        #     encoder_features[-1]
+        #     .permute(0, 2, 1)
+        #     .contiguous()
+        #     .view(-1, encoder_features[-1].shape[1])
+        # )
+
+        center_features_list = []
+        for k in range(-self.num_layers_feature, 0):
+            center_features_list.append(
+                encoder_features[-k]
+                .permute(0, 2, 1)
+                .contiguous()
+                .view(-1, encoder_features[-k].shape[1])
+            )
+
+        center_features = torch.cat(center_features_list, dim=-1)
+
         batch_dict["centers_features"] = center_features
         batch_dict["ctr_batch_idx"] = ctr_batch_idx
         batch_dict["encoder_xyz"] = encoder_xyz
