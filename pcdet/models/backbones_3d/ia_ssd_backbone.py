@@ -190,23 +190,23 @@ class IASSD_Backbone(nn.Module):
         )
 
 
-        # center_features = (
-        #     encoder_features[-1]
-        #     .permute(0, 2, 1)
-        #     .contiguous()
-        #     .view(-1, encoder_features[-1].shape[1])
-        # )
+        center_features = (
+            encoder_features[-1]
+            .permute(0, 2, 1)
+            .contiguous()
+            .view(-1, encoder_features[-1].shape[1])
+        )
 
-        center_features_list = []
-        for k in range(-self.num_layers_feature, 0):
-            center_features_list.append(
-                encoder_features[-k]
-                .permute(0, 2, 1)
-                .contiguous()
-                .view(-1, encoder_features[-k].shape[1])
-            )
+        # center_features_list = []
+        # for k in range(-self.num_layers_feature, 0):
+        #     center_features_list.append(
+        #         encoder_features[-k]
+        #         .permute(0, 2, 1)
+        #         .contiguous()
+        #         .view(-1, encoder_features[-k].shape[1])
+        #     )
 
-        center_features = torch.cat(center_features_list, dim=-1)
+        # center_features = torch.cat(center_features_list, dim=-1)
 
         batch_dict["centers_features"] = center_features
         batch_dict["ctr_batch_idx"] = ctr_batch_idx
