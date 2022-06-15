@@ -200,10 +200,10 @@ class IASSD_Backbone(nn.Module):
         center_features_list = []
         for k in range(-self.num_layers_feature, 0):
             center_features_list.append(
-                encoder_features[-k]
+                encoder_features[k]
                 .permute(0, 2, 1)
                 .contiguous()
-                .view(-1, encoder_features[-k].shape[1])
+                .view(-1, encoder_features[k].shape[1])
             )
             print(center_features_list[-1].size())
 
