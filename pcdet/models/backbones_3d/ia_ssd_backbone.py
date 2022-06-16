@@ -207,7 +207,7 @@ class IASSD_Backbone(nn.Module):
         #     )
             # print(center_features_list[-1].size())
 
-        center_features = torch.cat(center_features_list, dim=-1)
+        # center_features = torch.cat(center_features_list, dim=-1)
         # print(center_features.size())
 
         batch_dict["centers_features"] = center_features
