@@ -32,7 +32,7 @@ MODEL:
           [D-FPS], [D-FPS], [ctr_aware], [ctr_aware], [], [], []
         ]
       # Group and Abstraction setting:
-      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [2.4, 4.8], [4.8, 6.4]]
+      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [1.2, 2.4], [4.8, 6.4]]
       NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32],[16, 32]]
       MLPS:
         [
@@ -54,7 +54,7 @@ MODEL:
       # Instance-aware setting:
       CONFIDENCE_MLPS: [[], [128], [256], [], [], [], []]
 
-      LAYER_INPUT: [0, 1, 2, 3, 4, 2, 3]
+      LAYER_INPUT: [0, 1, 2, 3, 4, 3, 3]
       CTR_INDEX: [-1, -1, -1, -1, -1, 5, 5]
       MAX_TRANSLATE_RANGE: [3.0, 3.0, 2.0]
       NUM_LAYERS_FEATURE: 2
