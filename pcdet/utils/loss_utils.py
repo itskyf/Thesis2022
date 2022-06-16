@@ -297,10 +297,12 @@ class PolyWeightedCrossEntropyLoss(nn.Module):
         super().__init__()
         self.epsilon = epsilon
     def forward(self, x: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+        print(x.shape)
+        print(target.shape)
         pt = (target * functional.softmax(x, dim=-1)).sum(dim=-1)
-        # print(pt.shape)
-        # print(x.shape)
-        # print(target.shape)
+        print(pt.shape)
+        print(x.shape)
+        print(target.shape)
         x = x.permute(0, 2, 1)
         target=target.argmax(dim=-1)
         return (functional.cross_entropy(x, target, reduction='none') + self.epsilon * (1 - pt)) * weight
