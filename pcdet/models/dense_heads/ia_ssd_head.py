@@ -747,12 +747,16 @@ class IASSD_Head(PointHeadTemplate):
             )
 
             sa_ins_loss += point_loss_ins
+
+            counts = point_cls_preds.clone().detach()
+            counts = (counts > 0.5).sum(dim=0)
             if tb_dict is None:
                 tb_dict = {}
             tb_dict.update(
                 {
                     "sa%s_loss_ins" % str(i): point_loss_ins.item(),
                     "sa%s_pos_num" % str(i): pos_normalizer.item(),
+                    "sa%s_predict_pos_num" % str(i): counts.item()
                 }
             )
 
