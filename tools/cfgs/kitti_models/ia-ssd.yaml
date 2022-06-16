@@ -1,5 +1,5 @@
 ---
-CLASS_NAMES: [Car, Pedestrian, Cyclist]
+CLASS_NAMES: [Pedestrian, 'Cyclist']
 
 DATA_CONFIG:
   _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
@@ -32,8 +32,8 @@ MODEL:
           [D-FPS], [D-FPS], [ctr_aware], [ctr_aware], [], [], []
         ]
       # Group and Abstraction setting:
-      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [1.2, 2.4], [4.8, 6.4]]
-      NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32],[16, 32]]
+      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 2.4], [], [], [1.2, 2.4]]
+      NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32]]
       MLPS:
         [
           [[16, 16, 32], [32, 32, 64]],
@@ -42,22 +42,22 @@ MODEL:
           [],
           [128],
           [[256, 256, 256], [256, 512, 512]],
-          [[256, 256, 256], [256, 512, 512]],
+          # [[256, 256, 256], [256, 512, 512]],
         ]
 
       LAYER_TYPE:
         [
-          SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer, SA_Layer
+          SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer,
         ]
-      DILATED_GROUP: [false, false, false, false, false, false, false]
-      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [256], [256]]
+      DILATED_GROUP: [false, false, false, false, false, false]
+      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512]]
       # Instance-aware setting:
-      CONFIDENCE_MLPS: [[], [128], [256], [], [], [], []]
+      CONFIDENCE_MLPS: [[], [128], [256], [], [], []]
 
-      LAYER_INPUT: [0, 1, 2, 3, 4, 3, 3]
-      CTR_INDEX: [-1, -1, -1, -1, -1, 5, 5]
+      LAYER_INPUT: [0, 1, 2, 3, 4, 3]
+      CTR_INDEX: [-1, -1, -1, -1, -1, 5]
       MAX_TRANSLATE_RANGE: [3.0, 3.0, 2.0]
-      NUM_LAYERS_FEATURE: 2
+      NUM_LAYERS_FEATURE: 1
       # SAVE_SAMPLE_LIST: true
 
   POINT_HEAD:
