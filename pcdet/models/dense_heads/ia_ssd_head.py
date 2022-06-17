@@ -920,15 +920,16 @@ class IASSD_Head(PointHeadTemplate):
     def get_iou3d_layer_loss(self, tb_dict=None):
         pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
-        pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
+        pred_boxes = self.forward_ret_dict["center_box_preds"].clone()
         pred_boxes = pred_boxes[pos_mask]
-        pred_centers = self.forward_ret_dict["centers"].clone().detach()
+        pred_centers = self.forward_ret_dict["centers"].clone()
         pred_centers = pred_centers[pos_mask]
         pred_centers = pred_centers[:, 1:4]
-        pred_cls = self.forward_ret_dict["center_cls_preds"].clone().detach()
-        pred_cls = pred_cls[pos_mask]
-        _, pred_classes = pred_cls.max(dim=-1)
-        decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, pred_classes + 1)
+        gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
+        # pred_cls = pred_cls[pos_mask]
+        # _, pred_classes = pred_cls.max(dim=-1)
+        self.box_coder.mean_size = self.box_coder.mean_size.detach()
+        decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
         iou3d_targets, _ = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).max(dim=-1)
 
@@ -963,9 +964,13 @@ class IASSD_Head(PointHeadTemplate):
         center_coords = batch_dict["centers"]
         center_cls_preds = self.cls_center_layers(center_features)  # (total_centers, num_class)
         center_box_preds = self.box_center_layers(center_features)  # (total_centers, box_code_size)
-        box_iou3d_preds = (
-            self.box_iou3d_layers(center_features) if self.box_iou3d_layers is not None else None
-        )
+        if self.box_iou3d_layers:
+            # copy_center_features = center_features.clone().detach()
+            box_iou3d_preds = (
+                self.box_iou3d_layers(center_features)
+            )
+        else:
+            box_iou3d_preds = None
 
         ret_dict = {
             "center_cls_preds": center_cls_preds,

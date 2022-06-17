@@ -107,10 +107,12 @@ MODEL:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
+        IOU_SUPRESS: True
 
         EVAL_METRIC: kitti
 
         NMS_CONFIG:
+            ALPHA: 0.75
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
             NMS_THRESH: 0.01
