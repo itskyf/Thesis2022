@@ -61,6 +61,7 @@ class IASSD(Detector3DTemplate):
 
             box_preds = batch_dict["batch_box_preds"][batch_mask]
             box_iou3d_preds = batch_dict["box_iou3d_preds"][batch_mask]
+            box_iou3d_preds = torch.sigmoid(box_iou3d_preds)
             src_box_preds = box_preds
 
             if not isinstance(batch_dict["batch_cls_preds"], list):
