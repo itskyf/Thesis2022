@@ -928,7 +928,7 @@ class IASSD_Head(PointHeadTemplate):
         gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
         # pred_cls = pred_cls[pos_mask]
         # _, pred_classes = pred_cls.max(dim=-1)
-        self.box_coder.mean_size = self.box_coder.mean_size.detach()
+        # self.box_coder.mean_size = self.box_coder.mean_size.detach()
         decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
         iou3d_targets, _ = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).max(dim=-1)
