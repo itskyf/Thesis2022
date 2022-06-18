@@ -931,7 +931,7 @@ class IASSD_Head(PointHeadTemplate):
         # self.box_coder.mean_size = self.box_coder.mean_size.detach()
         # print(self.box_coder.mean_size.requires_grad)
         assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0]
-        if gr_cls.shape[0]:
+        if gt_cls.shape[0]:
             decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
             iou3d_targets = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
