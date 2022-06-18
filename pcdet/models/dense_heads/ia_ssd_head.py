@@ -980,12 +980,14 @@ class IASSD_Head(PointHeadTemplate):
 
         iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
         iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
+        print(iou3d_targets.size())
 
         assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
         if gt_cls.shape[0]:
             decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
             iou3d_targets[pos_mask] = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+            print(iou3d_targets.size())
 
             # iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
             # iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
