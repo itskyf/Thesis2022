@@ -228,10 +228,10 @@ class WeightedBinaryCrossEntropyLoss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted cross entropy loss without reduction
         """
-        return (
-            functional.binary_cross_entropy_with_logits(input, target, reduction="none").mean(dim=-1)
-            * weights
+        unweighted_loss = torch.mean(
+            functional.binary_cross_entropy_with_logits(input, target, reduction="none"), dim=-1
         )
+        return unweighted_loss * weights
 
 
 def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):

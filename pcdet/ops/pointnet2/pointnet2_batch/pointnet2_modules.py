@@ -413,7 +413,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
             new_xyz = ctr_xyz
 
         if len(self.groupers) > 0:
-            for grouper, mlp in zip(self.groupers,self.mlps):
+            for grouper, mlp in zip(self.groupers, self.mlps):
                 new_features = grouper(xyz, new_xyz, features)  # (B, C, npoint, nsample)
                 new_features = mlp(new_features)  # (B, mlp[-1], npoint, nsample)
                 if self.pool_method == "max_pool":

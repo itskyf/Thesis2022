@@ -376,9 +376,7 @@ class Detector3DTemplate(nn.Module):
                 else:
                     # (k1, k2, k3, c_in, c_out) to (c_out, k1, k2, k3, c_in)
                     assert val.dim() == 5, "currently only spconv 3D is supported"
-                    val_implicit = val.permute(
-                        4, 0, 1, 2, 3
-                    )
+                    val_implicit = val.permute(4, 0, 1, 2, 3)
                     if val_implicit.shape == state_dict[key].shape:
                         val = val_implicit.contiguous()
 

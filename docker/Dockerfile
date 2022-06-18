@@ -2,7 +2,7 @@ FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel as builder
 
 ARG CUDA_ARCH
 RUN conda install -y --channel conda-forge git ninja pip setuptools &&\
-	git clone https://github.com/ncakhoa/Thesis2022.git &&\
+	git clone --branch ia-ssd --single-branch https://github.com/ncakhoa/Thesis2022.git &&\
 	TORCH_CUDA_ARCH_LIST=$CUDA_ARCH pip install \
 	--no-build-isolation --no-cache-dir --no-deps --upgrade --editable ./Thesis2022 &&\
 	rm -rf ./Thesis2022/build &&\
@@ -11,11 +11,11 @@ RUN conda install -y --channel conda-forge git ninja pip setuptools &&\
 FROM mambaorg/micromamba:latest
 
 RUN micromamba install -y --name base --channel pytorch --channel conda-forge \
-	cudatoolkit=11.3 numpy python=3.8 pytorch &&\
+	tensorboard pytorch cudatoolkit=11.3 python=3.8 &&\
 	micromamba clean -y --all
 
 RUN micromamba install -y --name base --channel conda-forge \
-	fire kornia lark pip portalocker pybind11 \
+	fire kornia lark numba pip portalocker pybind11 \
 	easydict scikit-image sharedarray tqdm &&\
 	micromamba install -y --name base --channel conda-forge gdown git rclone tmux vim &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\
@@ -27,6 +27,8 @@ RUN --mount=target=/tmp/context,source=. \
 	apt-get update &&\
 	apt-get install -y --no-install-recommends openssh-server &&\
 	echo 'set -g mouse on' >> ~/.tmux.conf &&\
+	echo 'setw -g mode-keys vi' >> ~/.tmux.conf &&\
+	echo 'bind Escape copy-mode' >> ~/.tmux.conf &&\
 	rm -rf /var/lib/apt/lists/*
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
@@ -34,7 +36,7 @@ RUN --mount=target=/tmp/builder,source=/workspace,from=builder \
 	cp -r /tmp/builder/Thesis2022 ~ &&\
 	echo "$HOME/Thesis2022" > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/easy-install.pth &&\
 	printf "$HOME/Thesis2022\n." > $MAMBA_ROOT_PREFIX/lib/python3.8/site-packages/pcdet.egg-link &&\
-	pip install --no-cache-dir --upgrade numba spconv-cu113 tensorboard
+	pip install --no-cache-dir --upgrade spconv-cu113
 
 WORKDIR /root/Thesis2022/tools
 CMD ["~/start.sh"]
