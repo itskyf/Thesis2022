@@ -961,7 +961,7 @@ class IASSD_Head(PointHeadTemplate):
         if loss_iou3d != None:
             tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
         else:
-            tb_dict.update({'iou3d_loss_reg'}: None)
+            tb_dict.update({'iou3d_loss_reg': None})
         return loss_iou3d, tb_dict
 
     def forward(self, batch_dict):
