@@ -21,7 +21,7 @@ class IASSD(Detector3DTemplate):
         if self.model_cfg.POST_PROCESSING.get('IOU_SUPRESS', False) == False:
             pred_dicts, recall_dicts = self.post_processing(batch_dict)
         else:
-            pred_dicts, recall_dict = self.post_processing_iou(batch_dict)
+            pred_dicts, recall_dicts = self.post_processing_iou(batch_dict)
         return pred_dicts, recall_dicts
 
     def get_training_loss(self):
