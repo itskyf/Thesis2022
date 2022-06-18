@@ -489,12 +489,16 @@ class IASSD_Head(PointHeadTemplate):
         ):
             if self.model_cfg.LOSS_CONFIG.get("LOSS_VOTE_TYPE", "none") == "ver1":
                 center_loss_reg, tb_dict_3 = self.get_contextual_vote_loss_ver1()
+                # self.register_buffer(center_loss_reg, pesistent=False)
             elif self.model_cfg.LOSS_CONFIG.get("LOSS_VOTE_TYPE", "none") == "ver2":
                 center_loss_reg, tb_dict_3 = self.get_contextual_vote_loss_ver2()
+                # self.register_buffer(center_loss_reg, pesistent=False)
             else:  # 'none'
                 center_loss_reg, tb_dict_3 = self.get_contextual_vote_loss()
+                # self.register_buffer(center_loss_reg, pesistent=False)
         else:
             center_loss_reg, tb_dict_3 = self.get_vote_loss_loss()  # center assign
+            # self.register_buffer(center_loss_reg, pesistent=False)
         tb_dict.update(tb_dict_3)
 
         # semantic loss in SA layers
@@ -503,32 +507,39 @@ class IASSD_Head(PointHeadTemplate):
                 "sa_ins_labels" in self.forward_ret_dict
             )
             sa_loss_cls, tb_dict_0 = self.get_sa_ins_layer_loss()
+            # self.register_buffer(sa_loss_cls, pesistent=False)
             tb_dict.update(tb_dict_0)
         else:
             sa_loss_cls = 0
 
         # cls loss
         center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss()
+        # self.register_buffer(center_loss_cls, pesistent=False)
         tb_dict.update(tb_dict_4)
 
         # reg loss
         if self.model_cfg.TARGET_CONFIG.BOX_CODER == "PointResidualCoder":
             center_loss_box, tb_dict_5 = self.get_box_layer_loss()
+            # self.register_buffer(center_loss_box, pesistent=False)
         else:
             center_loss_box, tb_dict_5 = self.get_center_box_binori_layer_loss()
+            # self.register_buffer(center_loss_box, pesistent=False)
         tb_dict.update(tb_dict_5)
 
         # corner loss
         if self.model_cfg.LOSS_CONFIG.get("CORNER_LOSS_REGULARIZATION", False):
             corner_loss, tb_dict_6 = self.get_corner_layer_loss()
+            # self.register_buffer(corner_loss, pesistent=False)
             tb_dict.update(tb_dict_6)
 
         # iou loss
         iou3d_loss = 0
         if self.model_cfg.LOSS_CONFIG.get("IOU3D_REGULARIZATION", False):
             iou3d_loss, tb_dict_7 = self.get_iou3d_layer_loss()
+            # self.register_buffer(iou3d_loss, pesistent=False)
             tb_dict.update(tb_dict_7)
-
+        if iou3d_loss == None:
+            iou3d_loss = 0.0
         point_loss = (
             center_loss_reg
             + center_loss_cls
@@ -930,7 +941,7 @@ class IASSD_Head(PointHeadTemplate):
         # _, pred_classes = pred_cls.max(dim=-1)
         # self.box_coder.mean_size = self.box_coder.mean_size.detach()
         # print(self.box_coder.mean_size.requires_grad)
-        assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0]
+        assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
         if gt_cls.shape[0]:
             decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
@@ -940,14 +951,17 @@ class IASSD_Head(PointHeadTemplate):
             iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
 
         # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
-            loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets)
+            loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
         else:
-            loss_iou3d = torch.zeros(1).float()
+            loss_iou3d = None
         
-        loss_iou3d = loss_iou3d * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
+        # loss_iou3d = loss_iou3d 
         if tb_dict is None:
             tb_dict = {}
-        tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
+        if loss_iou3d != None:
+            tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
+        else:
+            tb_dict.update({'iou3d_loss_reg'}: None)
         return loss_iou3d, tb_dict
 
     def forward(self, batch_dict):
