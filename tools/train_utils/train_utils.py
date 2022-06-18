@@ -117,7 +117,7 @@ def train_model(
     lr_warmup_scheduler,
     save_interval: int,
 ):
-    start_epoch=start_iter=0
+    # start_epoch=start_iter=0
     accumulated_iter = start_iter
     with tqdm.trange(
         start_epoch, total_epochs, desc="Epochs", dynamic_ncols=True, leave=tb_log is not None
