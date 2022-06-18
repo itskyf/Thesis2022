@@ -522,7 +522,12 @@ class IASSD_Head(PointHeadTemplate):
             center_loss_box, tb_dict_5 = self.get_box_layer_loss()
             # self.register_buffer(center_loss_box, pesistent=False)
         else:
-            center_loss_box, tb_dict_5 = self.get_center_box_binori_layer_loss()
+            if self.model_cfg.LOSS_CONFIG.get('LOSS_REG_TYPE', 'none') == 'none':
+                center_loss_box, tb_dict_5 = self.get_center_box_binori_layer_loss()
+            elif self.model_cfg.LOSS_CONFIG.get('LOSS_REG_TYPE', 'none') == 'iou':
+                center_loss_box, tb_dict_5 = self.get_center_box_binori_layer_loss2()
+            else:
+                raise NotImplementedError
             # self.register_buffer(center_loss_box, pesistent=False)
         tb_dict.update(tb_dict_5)
 
@@ -893,6 +898,74 @@ class IASSD_Head(PointHeadTemplate):
         tb_dict.update({"center_loss_box_ori_res": loss_ori_reg.item()})
         return point_loss_box, tb_dict
 
+    def get_center_box_binori_layer_loss2(self, tb_dict=None):
+        pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
+        point_box_labels = self.forward_ret_dict["center_box_labels"]
+        point_box_preds = self.forward_ret_dict["center_box_preds"]
+
+        reg_weights = pos_mask.float()
+        pos_normalizer = pos_mask.sum().float()
+        reg_weights /= torch.clamp(pos_normalizer, min=1.0)
+
+        pred_box_xyzwhl = point_box_preds[:, :6]
+        label_box_xyzwhl = point_box_labels[:, :6]
+
+        point_loss_box_src = self.reg_loss_func(
+            pred_box_xyzwhl[None, ...], label_box_xyzwhl[None, ...], weights=reg_weights[None, ...]
+        )
+        point_loss_xyzwhl = point_loss_box_src.sum()
+
+        pred_ori_bin_id = point_box_preds[:, 6 : 6 + self.box_coder.bin_size]
+        pred_ori_bin_res = point_box_preds[:, 6 + self.box_coder.bin_size :]
+
+        label_ori_bin_id = point_box_labels[:, 6]
+        label_ori_bin_res = point_box_labels[:, 7]
+        criterion = torch.nn.CrossEntropyLoss(reduction="none")
+        loss_ori_cls = criterion(pred_ori_bin_id.contiguous(), label_ori_bin_id.long().contiguous())
+        loss_ori_cls = torch.sum(loss_ori_cls * reg_weights)
+
+        label_id_one_hot = functional.one_hot(
+            label_ori_bin_id.long().contiguous(), self.box_coder.bin_size
+        )
+        pred_ori_bin_res = torch.sum(pred_ori_bin_res * label_id_one_hot.float(), dim=-1)
+        loss_ori_reg = functional.smooth_l1_loss(pred_ori_bin_res, label_ori_bin_res)
+        loss_ori_reg = torch.sum(loss_ori_reg * reg_weights)
+
+        loss_weights_dict = self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS
+        loss_ori_cls = loss_ori_cls * loss_weights_dict.get("dir_weight", 1.0)
+
+        pred_boxes = point_box_preds[pos_mask].clone()
+        # print(pred_boxes.size())
+        pred_centers = self.forward_ret_dict["centers"].clone()
+        pred_centers = pred_centers[pos_mask]
+        pred_centers = pred_centers[:, 1:4]
+        gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
+        gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
+        if gt_cls.shape[0]:
+            decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
+            # print(decode_pred_boxes.requires_grad)
+            loss_iou3d_reg = (1 - boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()).mean() * loss_weights_dict["iou3d_reg_weight"]
+        else:
+            loss_iou3d_reg = None
+
+
+        point_loss_box = point_loss_xyzwhl + loss_ori_reg + loss_ori_cls
+        if loss_iou3d_reg != None:
+            point_loss_box += loss_iou3d_reg
+        point_loss_box = point_loss_box * loss_weights_dict["point_box_weight"]
+
+        if tb_dict is None:
+            tb_dict = {}
+        tb_dict.update({"center_loss_box": point_loss_box.item()})
+        tb_dict.update({"center_loss_box_xyzwhl": point_loss_xyzwhl.item()})
+        tb_dict.update({"center_loss_box_ori_bin": loss_ori_cls.item()})
+        tb_dict.update({"center_loss_box_ori_res": loss_ori_reg.item()})
+        if loss_iou3d_reg != None:
+            tb_dict.update({"center_loss_iou": loss_iou3d_reg.item()})
+        else:
+            tb_dict.update({"center_loss_iou": None})
+        return point_loss_box, tb_dict
+
     def get_center_box_layer_loss(self, tb_dict=None):
         pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
         point_box_labels = self.forward_ret_dict["center_box_labels"]
@@ -928,7 +1001,7 @@ class IASSD_Head(PointHeadTemplate):
         tb_dict.update({"corner_loss_reg": loss_corner.item()})
         return loss_corner, tb_dict
 
-    def get_iou3d_layer_loss2(self, tb_dict=None):
+    def get_iou3d_layer_loss(self, tb_dict=None):
         pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
         pred_boxes = self.forward_ret_dict["center_box_preds"].clone()
@@ -964,45 +1037,47 @@ class IASSD_Head(PointHeadTemplate):
             tb_dict.update({'iou3d_loss_reg': None})
         return loss_iou3d, tb_dict
 
-    def get_iou3d_layer_loss(self, tb_dict=None):
-        pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
-        gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
-        pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
-        pred_boxes = pred_boxes[pos_mask]
-        pred_centers = self.forward_ret_dict["centers"].clone().detach()
-        pred_centers = pred_centers[pos_mask]
-        pred_centers = pred_centers[:, 1:4]
-        gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
-        # pred_cls = pred_cls[pos_mask]
-        # _, pred_classes = pred_cls.max(dim=-1)
-        # self.box_coder.mean_size = self.box_coder.mean_size.detach()
-        # print(self.box_coder.mean_size.requires_grad)
+    # def get_iou3d_layer_loss(self, tb_dict=None):
+    #     pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
+    #     # print(pos_mask.size())
+    #     gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
+    #     pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
+    #     pred_boxes = pred_boxes[pos_mask]
+    #     pred_centers = self.forward_ret_dict["centers"].clone().detach()
+    #     pred_centers = pred_centers[pos_mask]
+    #     pred_centers = pred_centers[:, 1:4]
+    #     gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
+    #     # pred_cls = pred_cls[pos_mask]
+    #     # _, pred_classes = pred_cls.max(dim=-1)
+    #     # self.box_coder.mean_size = self.box_coder.mean_size.detach()
+    #     # print(self.box_coder.mean_size.requires_grad)
 
-        iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
-        iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
-        print(iou3d_targets.size())
+    #     iou3d_preds = torch.sigmoid(self.forward_ret_dict["box_iou3d_preds"].squeeze(-1))
+    #     iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
 
-        assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
-        if gt_cls.shape[0]:
-            decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
+    #     assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
+    #     if gt_cls.shape[0]:
+    #         decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
-            iou3d_targets[pos_mask] = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
-            print(iou3d_targets.size())
+    #         # iou3d_targets[pos_mask] = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+    #         # print(boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal().size())
 
-            # iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
-            # iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
+    #         # iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
+    #         # iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
 
-        # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
-        loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
+    #     # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
         
-        # loss_iou3d = loss_iou3d 
-        if tb_dict is None:
-            tb_dict = {}
-        if loss_iou3d != None:
-            tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
-        else:
-            tb_dict.update({'iou3d_loss_reg': None})
-        return loss_iou3d, tb_dict
+    #     # loss_iou3d = ((iou3d_targets[pos_mask] * functional.binary_cross_entropy(iou3d_preds[pos_mask], iou3d_targets[pos_mask], reduction='none')).sum() - (0.25 * torch.pow(iou3d_preds[~pos_mask], 2.0) * torch.log(1 - iou3d_preds[~pos_mask])).sum()) / pos_mask.shape[0]
+    #     loss_iou3d = (pos_mask * iou3d_targets * functional.binary_cross_entropy(iou3d_preds, iou3d_targets) - ~pos_mask * 0.25 * torch.pow(iou3d_preds, 5.0) * torch.log(1 - iou3d_preds)).mean()
+        
+    #     # loss_iou3d = loss_iou3d 
+    #     if tb_dict is None:
+    #         tb_dict = {}
+    #     if loss_iou3d != None:
+    #         tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
+    #     else:
+    #         tb_dict.update({'iou3d_loss_reg': None})
+    #     return loss_iou3d, tb_dict
 
     def forward(self, batch_dict):
         """
@@ -1023,7 +1098,7 @@ class IASSD_Head(PointHeadTemplate):
         center_coords = batch_dict["centers"]
         center_cls_preds = self.cls_center_layers(center_features)  # (total_centers, num_class)
         center_box_preds = self.box_center_layers(center_features)  # (total_centers, box_code_size)
-        if self.box_iou3d_layers:
+        if self.box_iou3d_layers != None:
             # copy_center_features = center_features.clone().detach()
             box_iou3d_preds = (
                 self.box_iou3d_layers(center_features)
