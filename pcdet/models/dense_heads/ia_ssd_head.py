@@ -942,7 +942,7 @@ class IASSD_Head(PointHeadTemplate):
         # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
             loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets)
         else:
-            loss_iou3d = 0.0
+            loss_iou3d = torch.zeros(1).float()
         
         loss_iou3d = loss_iou3d * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
         if tb_dict is None:
