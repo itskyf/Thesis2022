@@ -928,7 +928,7 @@ class IASSD_Head(PointHeadTemplate):
         tb_dict.update({"corner_loss_reg": loss_corner.item()})
         return loss_corner, tb_dict
 
-    def get_iou3d_layer_loss(self, tb_dict=None):
+    def get_iou3d_layer_loss2(self, tb_dict=None):
         pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
         pred_boxes = self.forward_ret_dict["center_box_preds"].clone()
@@ -954,6 +954,44 @@ class IASSD_Head(PointHeadTemplate):
             loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
         else:
             loss_iou3d = None
+        
+        # loss_iou3d = loss_iou3d 
+        if tb_dict is None:
+            tb_dict = {}
+        if loss_iou3d != None:
+            tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
+        else:
+            tb_dict.update({'iou3d_loss_reg': None})
+        return loss_iou3d, tb_dict
+
+    def get_iou3d_layer_loss(self, tb_dict=None):
+        pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
+        gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
+        pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
+        pred_boxes = pred_boxes[pos_mask]
+        pred_centers = self.forward_ret_dict["centers"].clone().detach()
+        pred_centers = pred_centers[pos_mask]
+        pred_centers = pred_centers[:, 1:4]
+        gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
+        # pred_cls = pred_cls[pos_mask]
+        # _, pred_classes = pred_cls.max(dim=-1)
+        # self.box_coder.mean_size = self.box_coder.mean_size.detach()
+        # print(self.box_coder.mean_size.requires_grad)
+
+        iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
+        iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
+
+        assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
+        if gt_cls.shape[0]:
+            decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
+
+            iou3d_targets[pos_mask] = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+
+            # iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
+            # iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
+
+        # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
+        loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
         
         # loss_iou3d = loss_iou3d 
         if tb_dict is None:
