@@ -4,25 +4,26 @@ channels:
   - pytorch
   - conda-forge
 dependencies:
-  - cudatoolkit=11.3
-  - cudatoolkit-dev=11.3
-  - pip
   - pytorch
-  - wget
+  - tensorboard
+  - cudatoolkit=11.3
   # spconv requirements
   - fire
   - lark
+  - pip
   - portalocker
   - pybind11
   # OpenPCDet requirements
+  - cudatoolkit-dev=11.3
   - easydict
   - gxx=10
   - kornia
+  - mayavi
   - numba
   - scikit-image
   - sharedarray
-  - tensorboard
   - tqdm
+  - wget
   # Linter
   - autoflake
   - black
@@ -33,5 +34,4 @@ dependencies:
   - pylint
   - yamllint
   - pip:
-      - open3d  # Visualize
       - spconv-cu113

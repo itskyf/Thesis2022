@@ -2,7 +2,7 @@ FROM pytorch/pytorch:1.11.0-cuda11.3-cudnn8-devel as builder
 
 ARG CUDA_ARCH
 RUN conda install -y --channel conda-forge git ninja pip setuptools &&\
-	git clone --branch ia-ssd --single-branch https://github.com/ncakhoa/Thesis2022.git &&\
+	git clone https://github.com/ncakhoa/Thesis2022.git &&\
 	TORCH_CUDA_ARCH_LIST=$CUDA_ARCH pip install \
 	--no-build-isolation --no-cache-dir --no-deps --upgrade --editable ./Thesis2022 &&\
 	rm -rf ./Thesis2022/build &&\

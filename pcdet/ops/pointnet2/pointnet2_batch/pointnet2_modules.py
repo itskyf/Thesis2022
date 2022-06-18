@@ -23,7 +23,6 @@ class _PointnetSAModuleBase(nn.Module):
         """
         n = a.shape[1]
         m = b.shape[1]
-        num_channel = a.shape[-1]
         a_square = a.unsqueeze(dim=2)  # [bs, n, 1, c]
         b_square = b.unsqueeze(dim=1)  # [bs, 1, m, c]
         a_square = torch.sum(a_square * a_square, dim=-1)  # [bs, n, 1]
