@@ -30,21 +30,22 @@ class IASSD_Backbone(nn.Module):
         self.max_translate_range = sa_config.get("MAX_TRANSLATE_RANGE", None)
 
         for k in range(sa_config.NSAMPLE_LIST.__len__()):
-            if isinstance(self.layer_inputs[k], list):  ###
-                channel_in = channel_out_list[self.layer_inputs[k][-1]]
-            else:
-                channel_in = channel_out_list[self.layer_inputs[k]]
+            channel_in = (
+                channel_out_list[self.layer_inputs[k][-1]]
+                if isinstance(self.layer_inputs[k], list)
+                else channel_out_list[self.layer_inputs[k]]
+            )
 
             if self.layer_types[k] == "SA_Layer":
                 mlps = sa_config.MLPS[k].copy()
                 channel_out = 0
-                for idx in range(mlps.__len__()):
+                for idx in range(len(mlps)):
                     mlps[idx] = [channel_in] + mlps[idx]
                     channel_out += mlps[idx][-1]
 
                 if self.aggregation_mlps and self.aggregation_mlps[k]:
                     aggregation_mlp = self.aggregation_mlps[k].copy()
-                    if aggregation_mlp.__len__() == 0:
+                    if len(aggregation_mlp) == 0:
                         aggregation_mlp = None
                     else:
                         channel_out = aggregation_mlp[-1]
@@ -53,7 +54,7 @@ class IASSD_Backbone(nn.Module):
 
                 if self.confidence_mlps and self.confidence_mlps[k]:
                     confidence_mlp = self.confidence_mlps[k].copy()
-                    if confidence_mlp.__len__() == 0:
+                    if len(confidence_mlp) == 0:
                         confidence_mlp = None
                 else:
                     confidence_mlp = None
@@ -177,21 +178,18 @@ class IASSD_Backbone(nn.Module):
         ctr_batch_idx = batch_idx.view(batch_size, -1)[:, : li_xyz.shape[1]]
         ctr_batch_idx = ctr_batch_idx.contiguous().view(-1)
         batch_dict["ctr_offsets"] = torch.cat(
-            (ctr_batch_idx[:, None].float(), ctr_offsets.contiguous().view(-1, 3)), dim=1
+            (ctr_batch_idx[:, None].float(), ctr_offsets.reshape(-1, 3)), dim=1
         )
 
         batch_dict["centers"] = torch.cat(
-            (ctr_batch_idx[:, None].float(), centers.contiguous().view(-1, 3)), dim=1
+            (ctr_batch_idx[:, None].float(), centers.reshape(-1, 3)), dim=1
         )
         batch_dict["centers_origin"] = torch.cat(
-            (ctr_batch_idx[:, None].float(), centers_origin.contiguous().view(-1, 3)), dim=1
+            (ctr_batch_idx[:, None].float(), centers_origin.reshape(-1, 3)), dim=1
         )
 
         center_features = (
-            encoder_features[-1]
-            .permute(0, 2, 1)
-            .contiguous()
-            .view(-1, encoder_features[-1].shape[1])
+            encoder_features[-1].permute(0, 2, 1).reshape(-1, encoder_features[-1].shape[1])
         )
         batch_dict["centers_features"] = center_features
         batch_dict["ctr_batch_idx"] = ctr_batch_idx
@@ -201,31 +199,31 @@ class IASSD_Backbone(nn.Module):
         batch_dict["encoder_features"] = encoder_features
 
         ###save per frame
-        if self.model_cfg.SA_CONFIG.get("SAVE_SAMPLE_LIST", False) and not self.training:
+        # if self.model_cfg.SA_CONFIG.get("SAVE_SAMPLE_LIST", False) and not self.training:
 
-            result_dir = np.load("/home/yifan/tmp.npy", allow_pickle=True)
-            for i in range(batch_size):
-                # i=0
-                # point_saved_path = '/home/yifan/tmp'
-                point_saved_path = result_dir / "sample_list_save"
-                os.makedirs(point_saved_path, exist_ok=True)
-                idx = batch_dict["frame_id"][i]
-                xyz_list = []
-                for sa_xyz in encoder_xyz:
-                    xyz_list.append(sa_xyz[i].cpu().numpy())
-                if "/" in idx:  # Kitti_tracking
-                    sample_xyz = (
-                        point_saved_path
-                        / idx.split("/")[0]
-                        / ("sample_list_" + ("%s" % idx.split("/")[1]))
-                    )
+        #    result_dir = np.load("/home/yifan/tmp.npy", allow_pickle=True)
+        #    for i in range(batch_size):
+        #        # i=0
+        #        # point_saved_path = '/home/yifan/tmp'
+        #        point_saved_path = result_dir / "sample_list_save"
+        #        os.makedirs(point_saved_path, exist_ok=True)
+        #        idx = batch_dict["frame_id"][i]
+        #        xyz_list = []
+        #        for sa_xyz in encoder_xyz:
+        #            xyz_list.append(sa_xyz[i].cpu().numpy())
+        #        if "/" in idx:  # Kitti_tracking
+        #            sample_xyz = (
+        #                point_saved_path
+        #                / idx.split("/")[0]
+        #                / ("sample_list_" + ("%s" % idx.split("/")[1]))
+        #            )
 
-                    os.makedirs(point_saved_path / idx.split("/")[0], exist_ok=True)
+        #            os.makedirs(point_saved_path / idx.split("/")[0], exist_ok=True)
 
-                else:
-                    sample_xyz = point_saved_path / ("sample_list_" + ("%s" % idx))
+        #        else:
+        #            sample_xyz = point_saved_path / ("sample_list_" + ("%s" % idx))
 
-                np.save(str(sample_xyz), xyz_list)
-                # np.save(str(new_file), point_new.detach().cpu().numpy())
+        #        np.save(str(sample_xyz), xyz_list)
+        #        # np.save(str(new_file), point_new.detach().cpu().numpy())
 
         return batch_dict

@@ -1,8 +1,8 @@
 import time
 
 import torch
-import torch.nn.utils
 import tqdm
+from torch import nn
 
 from pcdet.utils import common_utils, commu_utils
 
@@ -62,7 +62,7 @@ def train_one_epoch(
         cur_forward_time = forward_timer - data_timer
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
+        nn.utils.clip_grad_norm_(model.parameters(), optim_cfg.GRAD_NORM_CLIP)
         optimizer.step()
 
         accumulated_iter += 1
@@ -79,13 +79,10 @@ def train_one_epoch(
             forward_time.update(avg_forward_time)
             batch_time.update(avg_batch_time)
             disp_dict.update(
-                {
-                    "loss": loss.item(),
-                    "lr": cur_lr,
-                    "d_time": f"{data_time.val:.2f}({data_time.avg:.2f})",
-                    "f_time": f"{forward_time.val:.2f}({forward_time.avg:.2f})",
-                    "b_time": f"{batch_time.val:.2f}({batch_time.avg:.2f})",
-                }
+                loss=loss.item(),
+                d_time=f"{data_time.val:.2f}({data_time.avg:.2f})",
+                f_time=f"{forward_time.val:.2f}({forward_time.avg:.2f})",
+                b_time=f"{batch_time.val:.2f}({batch_time.avg:.2f})",
             )
 
             pbar.update()
@@ -163,19 +160,17 @@ def model_state_to_cpu(model_state):
     return model_state_cpu
 
 
-def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
+def checkpoint_state(model, optimizer, epoch, step):
     optim_state = optimizer.state_dict() if optimizer is not None else None
-    if model is not None:
-        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-            model_state = model_state_to_cpu(model.module.state_dict())
-        else:
-            model_state = model.state_dict()
-    else:
-        model_state = None
+    model_state = (
+        model_state_to_cpu(model.module.state_dict())
+        if isinstance(model, nn.parallel.DistributedDataParallel)
+        else model.state_dict()
+    )
 
     return {
         "epoch": epoch,
-        "it": it,
+        "step": step,
         "model_state": model_state,
         "optimizer_state": optim_state,
     }

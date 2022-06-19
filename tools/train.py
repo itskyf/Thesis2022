@@ -44,7 +44,6 @@ def main():
     )
     logger = create_logger(log_path, local_rank)
 
-    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
     log_config_to_file(conf, logger)
     if tb_writer is not None:
         shutil.copy(args.cfg_path, args.output_dir / args.cfg_path.name)
@@ -67,8 +66,9 @@ def main():
     last_epoch = start_epoch + 1
 
     model.cuda(local_rank)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     logger.info(model)
+    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
     lr_scheduler, lr_warmup_scheduler = build_scheduler(
         optimizer,

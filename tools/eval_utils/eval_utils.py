@@ -19,11 +19,10 @@ def statistics_info(cfg, ret_dict, metric, disp_dict):
         metric[f"recall_rcnn_{cur_thresh}"] += ret_dict.get(f"rcnn_{cur_thresh}", 0)
     metric["gt_num"] += ret_dict.get("gt", 0)
     min_thresh = cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST[0]
-    disp_dict[f"recall_{min_thresh}"] = "(%d, %d) / %d" % (
-        metric[f"recall_roi_{min_thresh}"],
-        metric[f"recall_rcnn_{min_thresh}"],
-        metric["gt_num"],
-    )
+
+    recall_roi = metric[f"recall_roi_{min_thresh}"]
+    recall_rcnn = metric[f"recall_rcnn_{min_thresh}"]
+    disp_dict[f"recall_{min_thresh}"] = f"({recall_roi}, {recall_rcnn}) / {metric['gt_num']}"
 
 
 @torch.no_grad()
@@ -91,19 +90,19 @@ def eval_one_epoch(
         return {}
 
     ret_dict = {}
-    for key, val in metric[0].items():
+    for key in metric[0]:
         for k in range(1, world_size):
             metric[0][key] += metric[k][key]
     metric = metric[0]
 
     gt_num_cnt = metric["gt_num"]
     for cur_thresh in cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST:
-        cur_roi_recall = metric["recall_roi_%s" % str(cur_thresh)] / max(gt_num_cnt, 1)
-        cur_rcnn_recall = metric["recall_rcnn_%s" % str(cur_thresh)] / max(gt_num_cnt, 1)
-        logger.info("recall_roi_%s: %f" % (cur_thresh, cur_roi_recall))
-        logger.info("recall_rcnn_%s: %f" % (cur_thresh, cur_rcnn_recall))
-        ret_dict["recall/roi_%s" % str(cur_thresh)] = cur_roi_recall
-        ret_dict["recall/rcnn_%s" % str(cur_thresh)] = cur_rcnn_recall
+        cur_roi_recall = metric[f"recall_roi_{cur_thresh}"] / max(gt_num_cnt, 1)
+        cur_rcnn_recall = metric[f"recall_rcnn_{cur_thresh}"] / max(gt_num_cnt, 1)
+        logger.info("recall_roi_%s: %f", cur_thresh, cur_roi_recall)
+        logger.info("recall_rcnn_%s: %f", cur_thresh, cur_rcnn_recall)
+        ret_dict[f"recall/roi_{cur_thresh}"] = cur_roi_recall
+        ret_dict[f"recall/rcnn_{cur_thresh}"] = cur_rcnn_recall
 
     total_pred_objects = sum(len(anno["name"]) for anno in det_annos)
 
@@ -113,8 +112,8 @@ def eval_one_epoch(
         total_pred_objects / max(1, len(det_annos)),
     )
 
-    with open(eval_dir / "result.pkl", "wb") as f:
-        pickle.dump(det_annos, f)
+    with (eval_dir / "result.pkl").open("wb") as det_annos_file:
+        pickle.dump(det_annos, det_annos_file)
 
     result_str, result_dict = dataset.evaluation(
         det_annos,

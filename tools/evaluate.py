@@ -35,7 +35,6 @@ def main():
     log_path = args.output_dir / f"log_eval_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     logger = create_logger(log_path, local_rank)
 
-    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
     log_config_to_file(conf, logger)
 
     val_set, val_loader = build_dataloader(
@@ -46,8 +45,9 @@ def main():
     model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), val_set)
     model.load_params_from_file(args.ckpt, logger)
     model.cuda(local_rank)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
     logger.info(model)
+    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
+    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
     with torch.cuda.device(local_rank):
         eval_utils.eval_one_epoch(

@@ -1,9 +1,11 @@
+from typing import Optional
+
 import numpy as np
 import torch
 from torch import nn
 from torch.nn import functional
 
-from . import box_utils
+from .box_utils import boxes_to_corners_3d
 
 
 class SigmoidFocalClassificationLoss(nn.Module):
@@ -17,18 +19,18 @@ class SigmoidFocalClassificationLoss(nn.Module):
             gamma: Weighting parameter to balance loss for hard and easy examples.
             alpha: Weighting parameter to balance loss for positive and negative examples.
         """
-        super(SigmoidFocalClassificationLoss, self).__init__()
+        super().__init__()
         self.alpha = alpha
         self.gamma = gamma
 
     @staticmethod
-    def sigmoid_cross_entropy_with_logits(input: torch.Tensor, target: torch.Tensor):
+    def sigmoid_cross_entropy_with_logits(pred: torch.Tensor, target: torch.Tensor):
         """PyTorch Implementation for tf.nn.sigmoid_cross_entropy_with_logits:
             max(x, 0) - x * z + log(1 + exp(-abs(x))) in
             https://www.tensorflow.org/api_docs/python/tf/nn/sigmoid_cross_entropy_with_logits
 
         Args:
-            input: (B, #anchors, #classes) float tensor.
+            pred: (B, #anchors, #classes) float tensor.
                 Predicted logits for each class
             target: (B, #anchors, #classes) float tensor.
                 One-hot encoded classification targets
@@ -37,14 +39,12 @@ class SigmoidFocalClassificationLoss(nn.Module):
             loss: (B, #anchors, #classes) float tensor.
                 Sigmoid cross entropy loss without reduction
         """
-        return (
-            torch.clamp(input, min=0) - input * target + torch.log1p(torch.exp(-torch.abs(input)))
-        )
+        return torch.clamp(pred, min=0) - pred * target + torch.log1p(torch.exp(-torch.abs(pred)))
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
         Args:
-            input: (B, #anchors, #classes) float tensor.
+            pred: (B, #anchors, #classes) float tensor.
                 Predicted logits for each class
             target: (B, #anchors, #classes) float tensor.
                 One-hot encoded classification targets
@@ -54,20 +54,18 @@ class SigmoidFocalClassificationLoss(nn.Module):
         Returns:
             weighted_loss: (B, #anchors, #classes) float tensor after weighting.
         """
-        pred_sigmoid = torch.sigmoid(input)
+        pred_sigmoid = torch.sigmoid(pred)
         alpha_weight = target * self.alpha + (1 - target) * (1 - self.alpha)
         pt = target * (1.0 - pred_sigmoid) + (1.0 - target) * pred_sigmoid
         focal_weight = alpha_weight * torch.pow(pt, self.gamma)
 
-        bce_loss = self.sigmoid_cross_entropy_with_logits(input, target)
+        bce_loss = self.sigmoid_cross_entropy_with_logits(pred, target)
 
         loss = focal_weight * bce_loss
-
         if weights.dim() == 2 or (weights.dim() == 1 and target.dim() == 2):
             weights = weights.unsqueeze(-1)
 
         assert weights.dim() == loss.dim()
-
         return loss * weights
 
 
@@ -78,7 +76,7 @@ class WeightedSmoothL1Loss(nn.Module):
                   | 0.5 * x ** 2 / beta   if abs(x) < beta
     smoothl1(x) = |
                   | abs(x) - 0.5 * beta   otherwise,
-    where x = input - target.
+    where x = pred - target.
     """
 
     def __init__(self, beta: float = 1.0 / 9.0, code_weights: list = None):
@@ -90,26 +88,19 @@ class WeightedSmoothL1Loss(nn.Module):
             code_weights: (#codes) float list if not None.
                 Code-wise weights.
         """
-        super(WeightedSmoothL1Loss, self).__init__()
+        super().__init__()
         self.beta = beta
         if code_weights is not None:
-            code_weights = np.array(code_weights, dtype=np.float32)
-            self.register_buffer("code_weights", torch.from_numpy(code_weights))
+            self.register_buffer(
+                "code_weights", torch.tensor(code_weights, dtype=torch.float32).view(1, 1, -1)
+            )
 
-    @staticmethod
-    def smooth_l1_loss(diff, beta):
-        if beta < 1e-5:
-            loss = torch.abs(diff)
-        else:
-            n = torch.abs(diff)
-            loss = torch.where(n < beta, 0.5 * n**2 / beta, n - 0.5 * beta)
-
-        return loss
-
-    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor = None):
+    def forward(
+        self, pred: torch.Tensor, target: torch.Tensor, weights: Optional[torch.Tensor] = None
+    ):
         """
         Args:
-            input: (B, #anchors, #codes) float tensor.
+            pred: (B, #anchors, #codes) float tensor.
                 Ecoded predicted locations of objects.
             target: (B, #anchors, #codes) float tensor.
                 Regression targets.
@@ -119,19 +110,29 @@ class WeightedSmoothL1Loss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted smooth l1 loss without reduction.
         """
-        target = torch.where(torch.isnan(target), input, target)  # ignore nan targets
+        target = torch.where(torch.isnan(target), pred, target)  # ignore nan targets
 
-        diff = input - target
         # code-wise weighting
-        if self.code_weights is not None:
-            diff = diff * self.code_weights.view(1, 1, -1)
-
+        try:
+            diff = self.code_weights * (pred - target)
+        except AttributeError:
+            diff = pred - target
         loss = self.smooth_l1_loss(diff, self.beta)
 
         # anchor-wise weighting
         if weights is not None:
-            assert weights.shape[0] == loss.shape[0] and weights.shape[1] == loss.shape[1]
+            assert weights.size(0) == loss.size(0) and weights.size(1) == loss.size(1)
             loss = loss * weights.unsqueeze(-1)
+
+        return loss
+
+    @staticmethod
+    def smooth_l1_loss(diff, beta):
+        if beta < 1e-5:
+            loss = torch.abs(diff)
+        else:
+            abs_diff = torch.abs(diff)
+            loss = torch.where(abs_diff < beta, 0.5 * abs_diff**2 / beta, abs_diff - 0.5 * beta)
 
         return loss
 
@@ -143,15 +144,18 @@ class WeightedL1Loss(nn.Module):
             code_weights: (#codes) float list if not None.
                 Code-wise weights.
         """
-        super(WeightedL1Loss, self).__init__()
+        super().__init__()
         if code_weights is not None:
-            self.code_weights = np.array(code_weights, dtype=np.float32)
-            self.code_weights = torch.from_numpy(self.code_weights)
+            self.register_buffer(
+                "code_weights", torch.tensor(code_weights, dtype=torch.float32).view(1, 1, -1)
+            )
 
-    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor = None):
+    def forward(
+        self, pred: torch.Tensor, target: torch.Tensor, weights: Optional[torch.Tensor] = None
+    ):
         """
         Args:
-            input: (B, #anchors, #codes) float tensor.
+            pred: (B, #anchors, #codes) float tensor.
                 Ecoded predicted locations of objects.
             target: (B, #anchors, #codes) float tensor.
                 Regression targets.
@@ -161,18 +165,19 @@ class WeightedL1Loss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted smooth l1 loss without reduction.
         """
-        target = torch.where(torch.isnan(target), input, target)  # ignore nan targets
+        target = torch.where(torch.isnan(target), pred, target)  # ignore nan targets
 
-        diff = input - target
-        # code-wise weighting
-        if self.code_weights is not None:
-            diff = diff * self.code_weights.view(1, 1, -1)
+        try:
+            # code-wise weighting
+            diff = self.get_buffer("code_weights") * (pred - target)
+        except AttributeError:
+            diff = pred - target
 
         loss = torch.abs(diff)
 
         # anchor-wise weighting
         if weights is not None:
-            assert weights.shape[0] == loss.shape[0] and weights.shape[1] == loss.shape[1]
+            assert weights.size(0) == loss.size(0) and weights.size(1) == loss.size(1)
             loss = loss * weights.unsqueeze(-1)
 
         return loss
@@ -184,13 +189,10 @@ class WeightedCrossEntropyLoss(nn.Module):
     with anchor-wise weighting.
     """
 
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, x: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
         Args:
-            input: (B, #anchors, #classes) float tensor.
+            pred: (B, #anchors, #classes) float tensor.
                 Predited logits for each class.
             target: (B, #anchors, #classes) float tensor.
                 One-hot classification targets.
@@ -201,9 +203,63 @@ class WeightedCrossEntropyLoss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted cross entropy loss without reduction
         """
-        x = x.permute(0, 2, 1)
+        pred = pred.transpose(1, 2)
         target = target.argmax(dim=-1)
-        return functional.cross_entropy(x, target, reduction="none") * weights
+        return functional.cross_entropy(pred, target, reduction="none") * weights
+
+
+class WeightedClassificationLoss(nn.Module):
+    @staticmethod
+    def sigmoid_cross_entropy_with_logits(pred: torch.Tensor, target: torch.Tensor):
+        """PyTorch Implementation for tf.nn.sigmoid_cross_entropy_with_logits:
+            max(x, 0) - x * z + log(1 + exp(-abs(x))) in
+            https://www.tensorflow.org/api_docs/python/tf/nn/sigmoid_cross_entropy_with_logits
+
+        Args:
+            pred: (B, #anchors, #classes) float tensor.
+                Predicted logits for each class
+            target: (B, #anchors, #classes) float tensor.
+                One-hot encoded classification targets
+
+        Returns:
+            loss: (B, #anchors, #classes) float tensor.
+                Sigmoid cross entropy loss without reduction
+        """
+        return torch.clamp(pred, min=0) - pred * target + torch.log1p(torch.exp(-torch.abs(pred)))
+
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, weights=None, reduction="none"):
+        """
+        Args:
+            pred: (B, #anchors, #classes) float tensor.
+                Predited logits for each class.
+            target: (B, #anchors, #classes) float tensor.
+                One-hot classification targets.
+            weights: (B, #anchors) float tensor.
+                Anchor-wise weights.
+
+        Returns:
+            loss: (B, #anchors) float tensor.
+                Weighted cross entropy loss without reduction
+        """
+        bce_loss = self.sigmoid_cross_entropy_with_logits(pred, target)
+
+        if weights is not None:
+            if weights.dim() == 2 or (weights.dim() == 1 and target.dim() == 2):
+                weights = weights.unsqueeze(-1)
+
+            assert weights.dim() == bce_loss.dim()
+
+            loss = weights * bce_loss
+        else:
+            loss = bce_loss
+
+        if reduction == "sum":
+            return loss.sum(dim=-1)
+
+        if reduction == "mean":
+            return loss.mean(dim=-1)
+
+        return loss
 
 
 class WeightedBinaryCrossEntropyLoss(nn.Module):
@@ -212,13 +268,10 @@ class WeightedBinaryCrossEntropyLoss(nn.Module):
     with anchor-wise weighting.
     """
 
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, input: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
+    def forward(self, pred: torch.Tensor, target: torch.Tensor, weights: torch.Tensor):
         """
         Args:
-            input: (B, #anchors, #classes) float tensor.
+            pred: (B, #anchors, #classes) float tensor.
                 Predited logits for each class.
             target: (B, #anchors, #classes) float tensor.
                 One-hot classification targets.
@@ -228,10 +281,10 @@ class WeightedBinaryCrossEntropyLoss(nn.Module):
             loss: (B, #anchors) float tensor.
                 Weighted cross entropy loss without reduction
         """
-        unweighted_loss = torch.mean(
-            functional.binary_cross_entropy_with_logits(input, target, reduction="none"), dim=-1
+        loss = torch.mean(
+            functional.binary_cross_entropy_with_logits(pred, target, reduction="none"), dim=-1
         )
-        return unweighted_loss * weights
+        return loss * weights
 
 
 def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):
@@ -243,14 +296,14 @@ def get_corner_loss_lidar(pred_bbox3d: torch.Tensor, gt_bbox3d: torch.Tensor):
     Returns:
         corner_loss: (N) float Tensor.
     """
-    assert pred_bbox3d.shape[0] == gt_bbox3d.shape[0]
+    assert pred_bbox3d.size(0) == gt_bbox3d.size(0)
 
-    pred_box_corners = box_utils.boxes_to_corners_3d(pred_bbox3d)
-    gt_box_corners = box_utils.boxes_to_corners_3d(gt_bbox3d)
+    pred_box_corners = boxes_to_corners_3d(pred_bbox3d)
+    gt_box_corners = boxes_to_corners_3d(gt_bbox3d)
 
     gt_bbox3d_flip = gt_bbox3d.clone()
     gt_bbox3d_flip[:, 6] += np.pi
-    gt_box_corners_flip = box_utils.boxes_to_corners_3d(gt_bbox3d_flip)
+    gt_box_corners_flip = boxes_to_corners_3d(gt_bbox3d_flip)
     # (N, 8)
     corner_dist = torch.min(
         torch.norm(pred_box_corners - gt_box_corners, dim=2),
@@ -282,9 +335,9 @@ def compute_fg_mask(gt_boxes2d, shape, downsample_factor=1, device=torch.device(
     gt_boxes2d = gt_boxes2d.long()
 
     # Set all values within each box to True
-    B, N = gt_boxes2d.shape[:2]
-    for b in range(B):
-        for n in range(N):
+    b, n = gt_boxes2d.shape[:2]
+    for b in range(b):
+        for n in range(n):
             u1, v1, u2, v2 = gt_boxes2d[b, n]
             fg_mask[b, v1:v2, u1:u2] = True
 
@@ -294,7 +347,8 @@ def compute_fg_mask(gt_boxes2d, shape, downsample_factor=1, device=torch.device(
 def neg_loss_cornernet(pred, gt, mask=None):
     """
     Refer to https://github.com/tianweiy/CenterPoint.
-    Modified focal loss. Exactly the same as CornerNet. Runs faster and costs a little bit more memory
+    Modified focal loss. Exactly the same as CornerNet.
+    Runs faster and costs a little bit more memory
     Args:
         pred: (batch x c x h x w)
         gt: (batch x c x h x w)
@@ -322,11 +376,7 @@ def neg_loss_cornernet(pred, gt, mask=None):
     pos_loss = pos_loss.sum()
     neg_loss = neg_loss.sum()
 
-    if num_pos == 0:
-        loss = loss - neg_loss
-    else:
-        loss = loss - (pos_loss + neg_loss) / num_pos
-    return loss
+    return (loss - neg_loss) if num_pos == 0 else (loss - (pos_loss + neg_loss) / num_pos)
 
 
 class FocalLossCenterNet(nn.Module):
@@ -335,7 +385,7 @@ class FocalLossCenterNet(nn.Module):
     """
 
     def __init__(self):
-        super(FocalLossCenterNet, self).__init__()
+        super().__init__()
         self.neg_loss = neg_loss_cornernet
 
     def forward(self, out, target, mask=None):
@@ -369,9 +419,7 @@ def _reg_loss(regr, gt_regr, mask):
     #  loss = loss.reshape(loss.shape[0], -1)
 
     # loss = loss / (num + 1e-4)
-    loss = loss / torch.clamp_min(num, min=1.0)
-    # import pdb; pdb.set_trace()
-    return loss
+    return loss / torch.clamp_min(num, min=1.0)
 
 
 def _gather_feat(feat, ind, mask=None):
@@ -397,9 +445,6 @@ class RegLossCenterNet(nn.Module):
     Refer to https://github.com/tianweiy/CenterPoint
     """
 
-    def __init__(self):
-        super(RegLossCenterNet, self).__init__()
-
     def forward(self, output, mask, ind=None, target=None):
         """
         Args:
@@ -409,9 +454,5 @@ class RegLossCenterNet(nn.Module):
             target: (batch x max_objects x dim)
         Returns:
         """
-        if ind is None:
-            pred = output
-        else:
-            pred = _transpose_and_gather_feat(output, ind)
-        loss = _reg_loss(pred, target, mask)
-        return loss
+        pred = output if ind is None else _transpose_and_gather_feat(output, ind)
+        return _reg_loss(pred, target, mask)
