@@ -99,7 +99,7 @@ class IASSD_Head(PointHeadTemplate):
             if losses_cfg.LOSS_INS.startswith("WeightedBinaryCrossEntropy"):
                 self.add_module("ins_loss_func", loss_utils.WeightedBinaryCrossEntropyLoss())
             elif losses_cfg.LOSS_INS.startswith("WeightedCrossEntropy"):
-                self.add_module("ins_loss_func", loss_utils.SigmoidFocalClassificationLoss())
+                self.add_module("ins_loss_func", loss_utils.WeightedClassificationLoss())
             elif losses_cfg.LOSS_INS.startswith("FocalLoss"):
                 self.add_module(
                     "ins_loss_func",
