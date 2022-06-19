@@ -1,6 +1,3 @@
-import os
-
-import numpy as np
 import torch
 from torch import nn
 
@@ -29,7 +26,7 @@ class IASSD_Backbone(nn.Module):
         self.confidence_mlps = sa_config.get("CONFIDENCE_MLPS", None)
         self.max_translate_range = sa_config.get("MAX_TRANSLATE_RANGE", None)
 
-        for k in range(sa_config.NSAMPLE_LIST.__len__()):
+        for k, nsamples in enumerate(sa_config.NSAMPLE_LIST):
             channel_in = (
                 channel_out_list[self.layer_inputs[k][-1]]
                 if isinstance(self.layer_inputs[k], list)
@@ -65,7 +62,7 @@ class IASSD_Backbone(nn.Module):
                         sample_range_list=sa_config.SAMPLE_RANGE_LIST[k],
                         sample_type_list=sa_config.SAMPLE_METHOD_LIST[k],
                         radii=sa_config.RADIUS_LIST[k],
-                        nsamples=sa_config.NSAMPLE_LIST[k],
+                        nsamples=nsamples,
                         mlps=mlps,
                         use_xyz=True,
                         dilated_group=sa_config.DILATED_GROUP[k],
@@ -126,20 +123,18 @@ class IASSD_Backbone(nn.Module):
         encoder_coords = [torch.cat([batch_idx.view(batch_size, -1, 1), xyz], dim=-1)]
 
         li_cls_pred = None
-        for i in range(len(self.sa_modules)):
+        for i, sa_module in enumerate(self.sa_modules):
             xyz_input = encoder_xyz[self.layer_inputs[i]]
             feature_input = encoder_features[self.layer_inputs[i]]
 
             if self.layer_types[i] == "SA_Layer":
                 ctr_xyz = encoder_xyz[self.ctr_idx_list[i]] if self.ctr_idx_list[i] != -1 else None
-                li_xyz, li_features, li_cls_pred = self.sa_modules[i](
+                li_xyz, li_features, li_cls_pred = sa_module(
                     xyz_input, feature_input, li_cls_pred, ctr_xyz=ctr_xyz
                 )
 
             elif self.layer_types[i] == "Vote_Layer":  # i=4
-                li_xyz, li_features, xyz_select, ctr_offsets = self.sa_modules[i](
-                    xyz_input, feature_input
-                )
+                li_xyz, li_features, xyz_select, ctr_offsets = sa_module(xyz_input, feature_input)
                 centers = li_xyz
                 centers_origin = xyz_select
                 center_origin_batch_idx = batch_idx.view(batch_size, -1)[
@@ -197,33 +192,4 @@ class IASSD_Backbone(nn.Module):
         batch_dict["encoder_coords"] = encoder_coords
         batch_dict["sa_ins_preds"] = sa_ins_preds
         batch_dict["encoder_features"] = encoder_features
-
-        ###save per frame
-        # if self.model_cfg.SA_CONFIG.get("SAVE_SAMPLE_LIST", False) and not self.training:
-
-        #    result_dir = np.load("/home/yifan/tmp.npy", allow_pickle=True)
-        #    for i in range(batch_size):
-        #        # i=0
-        #        # point_saved_path = '/home/yifan/tmp'
-        #        point_saved_path = result_dir / "sample_list_save"
-        #        os.makedirs(point_saved_path, exist_ok=True)
-        #        idx = batch_dict["frame_id"][i]
-        #        xyz_list = []
-        #        for sa_xyz in encoder_xyz:
-        #            xyz_list.append(sa_xyz[i].cpu().numpy())
-        #        if "/" in idx:  # Kitti_tracking
-        #            sample_xyz = (
-        #                point_saved_path
-        #                / idx.split("/")[0]
-        #                / ("sample_list_" + ("%s" % idx.split("/")[1]))
-        #            )
-
-        #            os.makedirs(point_saved_path / idx.split("/")[0], exist_ok=True)
-
-        #        else:
-        #            sample_xyz = point_saved_path / ("sample_list_" + ("%s" % idx))
-
-        #        np.save(str(sample_xyz), xyz_list)
-        #        # np.save(str(new_file), point_new.detach().cpu().numpy())
-
         return batch_dict

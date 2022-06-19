@@ -35,7 +35,7 @@ class PointHeadTemplate(nn.Module):
     def make_fc_layers(fc_cfg, input_channels, output_channels):
         fc_layers = []
         c_in = input_channels
-        for k in range(0, fc_cfg.__len__()):
+        for k in range(len(fc_cfg)):
             fc_layers.extend(
                 [
                     nn.Linear(c_in, fc_cfg[k], bias=False),

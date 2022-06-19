@@ -53,7 +53,7 @@ class IASSD_Head(PointHeadTemplate):
             raise NotImplementedError
 
         for module in self.modules():
-            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Conv1d):
+            if isinstance(module, (nn.Conv1d, nn.Conv2d)):
                 if weight_init == "normal":
                     init_func(module.weight, mean=0, std=0.001)
                 else:
@@ -81,7 +81,7 @@ class IASSD_Head(PointHeadTemplate):
                 "reg_loss_func",
                 loss_utils.WeightedSmoothL1Loss(
                     code_weights=losses_cfg.LOSS_WEIGHTS.get("code_weights", None),
-                    **losses_cfg.get("LOSS_REG_CONFIG", {})
+                    **losses_cfg.get("LOSS_REG_CONFIG", {}),
                 ),
             )
         elif losses_cfg.LOSS_REG == "WeightedL1Loss":
@@ -115,9 +115,7 @@ class IASSD_Head(PointHeadTemplate):
         points,
         gt_boxes,
         extend_gt_boxes=None,
-        weighted_labels=False,
         ret_box_labels=False,
-        ret_offset_labels=True,
         set_ignore_flag=True,
         use_ball_constraint=False,
         central_radius=2.0,
@@ -137,17 +135,11 @@ class IASSD_Head(PointHeadTemplate):
             point_box_labels: (N1 + N2 + N3 + ..., code_size)
 
         """
-        assert len(points.shape) == 2 and points.shape[1] == 4, "points.shape=%s" % str(
-            points.shape
-        )
-        assert len(gt_boxes.shape) == 3 and gt_boxes.shape[2] == 8, "gt_boxes.shape=%s" % str(
-            gt_boxes.shape
-        )
+        assert points.dim() == 2 and points.size(1) == 4, f"points.shape={points.shape}"
+        assert gt_boxes.dim() == 3 and gt_boxes.size(2) == 8, f"gt_boxes.shape={gt_boxes.shape}"
         assert (
-            extend_gt_boxes is None
-            or len(extend_gt_boxes.shape) == 3
-            and extend_gt_boxes.shape[2] == 8
-        ), "extend_gt_boxes.shape=%s" % str(extend_gt_boxes.shape)
+            extend_gt_boxes is None or extend_gt_boxes.dim() == 3 and extend_gt_boxes.size(2) == 8
+        ), f"extend_gt_boxes.shape={extend_gt_boxes.shape}"
         batch_size = gt_boxes.shape[0]
         bs_idx = points[:, 0]
         point_cls_labels = points.new_zeros(points.shape[0]).long()
@@ -310,9 +302,8 @@ class IASSD_Head(PointHeadTemplate):
             "gt_box_of_fg_points"
         ]
         targets_dict_center["center_cls_labels"] = center_targets_dict["point_cls_labels"]
-        targets_dict_center["center_box_labels"] = center_targets_dict[
-            "point_box_labels"
-        ]  # only center assign
+        # only center assign
+        targets_dict_center["center_box_labels"] = center_targets_dict["point_box_labels"]
         targets_dict_center["center_gt_box_of_points"] = center_targets_dict["gt_box_of_points"]
         if target_cfg.get("INS_AWARE_ASSIGN", False):
             (
@@ -377,10 +368,11 @@ class IASSD_Head(PointHeadTemplate):
                 gt_boxes.view(-1, gt_boxes.shape[-1]), extra_width=extra_method.EXTRA_WIDTH
             ).view(batch_size, -1, gt_boxes.shape[-1])
 
-            if extra_method.get("ASSIGN_TYPE", "centers") == "centers_origin":
-                points = input_dict["centers_origin"].detach()
-            else:
-                points = input_dict["centers"].detach()  # default setting
+            points = (
+                input_dict["centers_origin"].detach()
+                if extra_method.get("ASSIGN_TYPE", "centers") == "centers_origin"
+                else input_dict["centers"].detach()
+            )  # default setting
 
             targets_dict = self.assign_stack_targets_IASSD(
                 points=points,
@@ -404,10 +396,11 @@ class IASSD_Head(PointHeadTemplate):
                 gt_boxes.view(-1, gt_boxes.shape[-1]), factor=extra_method.EXTRA_FACTOR
             ).view(batch_size, -1, gt_boxes.shape[-1])
 
-            if extra_method.get("ASSIGN_TYPE", "centers") == "centers_origin":
-                points = input_dict["centers_origin"].detach()
-            else:
-                points = input_dict["centers"].detach()
+            points = (
+                input_dict["centers_origin"].detach()
+                if extra_method.get("ASSIGN_TYPE", "centers") == "centers_origin"
+                else input_dict["centers"].detach()
+            )
 
             targets_dict = self.assign_stack_targets_IASSD(
                 points=points,
