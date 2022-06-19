@@ -31,7 +31,7 @@ def build_optimizer(model, optim_cfg):
             else [module]
         )
 
-        optimizer_func = partial(optim.Adam, betas=(0.9, 0.99))
+        optimizer_func = partial(optim.AdamW, betas=(0.9, 0.99))
         return OptimWrapper.create(
             optimizer_func,
             3e-3,
