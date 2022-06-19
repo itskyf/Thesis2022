@@ -29,10 +29,9 @@ class KittiDataset(DatasetTemplate):
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
         self.root_split_path = self.root_path / ("training" if self.split != "test" else "testing")
 
-        split_dir = self.root_path / "ImageSets" / (self.split + ".txt")
-        self.sample_id_list = (
-            [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
-        )
+        split_path = self.root_path / "ImageSets" / f"{self.split}.txt"
+        with split_path.open() as split_file:
+            self.sample_id_list = [x.strip() for x in split_file.readlines()]
 
         self.kitti_infos = []
         self.include_kitti_data(self.mode)
@@ -46,35 +45,18 @@ class KittiDataset(DatasetTemplate):
             info_path = self.root_path / info_path
             if not info_path.exists():
                 continue
-            with open(info_path, "rb") as f:
-                infos = pickle.load(f)
+            with info_path.open("rb") as info_file:
+                infos = pickle.load(info_file)
                 kitti_infos.extend(infos)
 
         self.kitti_infos.extend(kitti_infos)
 
         if self.logger is not None:
-            self.logger.info("Total samples for KITTI dataset: %d" % (len(kitti_infos)))
-
-    def set_split(self, split):
-        super().__init__(
-            dataset_cfg=self.dataset_cfg,
-            class_names=self.class_names,
-            training=self.training,
-            root_path=self.root_path,
-            logger=self.logger,
-        )
-        self.split = split
-        self.root_split_path = self.root_path / ("training" if self.split != "test" else "testing")
-
-        split_dir = self.root_path / "ImageSets" / (self.split + ".txt")
-        self.sample_id_list = (
-            [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
-        )
+            self.logger.info("Total samples for KITTI dataset: %d", len(kitti_infos))
 
     def get_lidar(self, idx):
-        lidar_file = self.root_split_path / "velodyne" / ("%s.bin" % idx)
-        assert lidar_file.exists()
-        return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 4)
+        lidar_path = self.root_split_path / "velodyne" / f"{idx}.bin"
+        return np.fromfile(str(lidar_path), dtype=np.float32).reshape(-1, 4)
 
     def get_image(self, idx):
         """
@@ -84,22 +66,18 @@ class KittiDataset(DatasetTemplate):
         Returns:
             image: (H, W, 3), RGB Image
         """
-        img_file = self.root_split_path / "image_2" / ("%s.png" % idx)
-        assert img_file.exists()
-        image = io.imread(img_file)
+        img_path = self.root_split_path / "image_2" / f"{idx}.png"
+        image = io.imread(img_path)
         image = image.astype(np.float32)
-        image /= 255.0
-        return image
+        return image / 255.0
 
     def get_image_shape(self, idx):
-        img_file = self.root_split_path / "image_2" / ("%s.png" % idx)
-        assert img_file.exists()
-        return np.array(io.imread(img_file).shape[:2], dtype=np.int32)
+        img_path = self.root_split_path / "image_2" / f"{idx}.png"
+        return np.array(io.imread(img_path).shape[:2], dtype=np.int32)
 
     def get_label(self, idx):
-        label_file = self.root_split_path / "label_2" / ("%s.txt" % idx)
-        assert label_file.exists()
-        return object3d_kitti.get_objects_from_label(label_file)
+        label_path = self.root_split_path / "label_2" / f"{idx}.txt"
+        return object3d_kitti.get_objects_from_label(label_path)
 
     def get_depth_map(self, idx):
         """
@@ -109,25 +87,22 @@ class KittiDataset(DatasetTemplate):
         Returns:
             depth: (H, W), Depth map
         """
-        depth_file = self.root_split_path / "depth_2" / ("%s.png" % idx)
-        assert depth_file.exists()
-        depth = io.imread(depth_file)
+        depth_path = self.root_split_path / "depth_2" / f"{idx}.png"
+        depth = io.imread(depth_path)
         depth = depth.astype(np.float32)
-        depth /= 256.0
-        return depth
+        return depth / 256.0
 
     def get_calib(self, idx):
-        calib_file = self.root_split_path / "calib" / ("%s.txt" % idx)
-        assert calib_file.exists()
-        return calibration_kitti.Calibration(calib_file)
+        calib_path = self.root_split_path / "calib" / f"{idx}.txt"
+        return calibration_kitti.Calibration(calib_path)
 
     def get_road_plane(self, idx):
-        plane_file = self.root_split_path / "planes" / ("%s.txt" % idx)
-        if not plane_file.exists():
+        plane_path = self.root_split_path / "planes" / f"{idx}.txt"
+        if not plane_path.exists():
             return None
 
-        with open(plane_file, "r") as f:
-            lines = f.readlines()
+        with plane_path.open() as plane_file:
+            lines = plane_file.readlines()
         lines = [float(i) for i in lines[3].split()]
         plane = np.asarray(lines)
 
@@ -135,9 +110,7 @@ class KittiDataset(DatasetTemplate):
         if plane[1] > 0:
             plane = -plane
 
-        norm = np.linalg.norm(plane[0:3])
-        plane = plane / norm
-        return plane
+        return plane / np.linalg.norm(plane[0:3])
 
     @staticmethod
     def get_fov_flag(pts_rect, img_shape, calib):
@@ -303,7 +276,7 @@ class KittiDataset(DatasetTemplate):
             pickle.dump(all_db_infos, f)
 
     @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names, output_path=None):
+    def generate_prediction_dicts(batch_dict, pred_dicts, class_names):
         """
         Args:
             batch_dict:
@@ -372,7 +345,7 @@ class KittiDataset(DatasetTemplate):
 
         return annos
 
-    def evaluation(self, det_annos, class_names, **kwargs):
+    def evaluation(self, det_annos, class_names):
         if "annos" not in self.kitti_infos[0].keys():
             return None, {}
 
@@ -380,11 +353,7 @@ class KittiDataset(DatasetTemplate):
 
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info["annos"]) for info in self.kitti_infos]
-        ap_result_str, ap_dict = kitti_eval.get_official_eval_result(
-            eval_gt_annos, eval_det_annos, class_names
-        )
-
-        return ap_result_str, ap_dict
+        return kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
 
     def __len__(self):
         return len(self.kitti_infos)

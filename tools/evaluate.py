@@ -8,6 +8,7 @@ from typing import List
 import torch
 import torch.backends.cudnn
 from eval_utils import eval_utils
+from tabulate import tabulate
 from torch import distributed, nn
 from torch.distributed.elastic.multiprocessing.errors import record
 from torch.utils.data import DataLoader
@@ -21,9 +22,9 @@ from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_f
 @record
 def main():
     args, conf = parse_config()
-    distributed.init_process_group(backend="nccl")
     torch.backends.cudnn.benchmark = True
     local_rank = int(os.environ["LOCAL_RANK"])
+    distributed.init_process_group(backend="nccl")
 
     batch_size = (
         conf.OPTIMIZATION.BATCH_SIZE_PER_GPU if args.batch_size is None else args.batch_size
@@ -34,25 +35,31 @@ def main():
 
     log_path = args.output_dir / f"log_eval_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
     logger = create_logger(log_path, local_rank)
-
     log_config_to_file(conf, logger)
 
+    class_names = conf.CLASS_NAMES
     val_set, val_loader = build_dataloader(
-        conf.DATA_CONFIG, batch_size, args.num_workers, conf.CLASS_NAMES
+        conf.DATA_CONFIG, batch_size, args.num_workers, class_names
     )
 
     model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
-    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), val_set)
+    model = model_fn(conf.MODEL, len(class_names), val_set)
     model.load_params_from_file(args.ckpt, logger)
     model.cuda(local_rank)
     logger.info(model)
-    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
+
+    total_batch_size = distributed.get_world_size() * batch_size
+    logger.info("Total batch size: %d", total_batch_size)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
 
     with torch.cuda.device(local_rank):
-        eval_utils.eval_one_epoch(
-            cfg, model, val_loader, local_rank, logger, args.save_to_file, eval_dir
-        )
+        ret = eval_utils.eval_one_epoch(cfg, model, val_loader, local_rank, logger, eval_dir)
+
+    table = [["Easy"], ["Moderate"], ["Hard"]]
+    for row in table:
+        for name in class_names:
+            row.append(ret[f"{name}_3d/{row[0]}_R40"])
+    logger.info(tabulate(table, headers=["Kitti R40", *class_names]))
 
 
 def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: List[str]):
@@ -70,14 +77,14 @@ def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: L
     return val_set, val_loader
 
 
-def create_logger(log_file, rank):
+def create_logger(log_path: Path, rank: int):
     logger = logging.getLogger(__name__)
     logger.setLevel(logging.INFO if rank == 0 else logging.WARNING)
     console = logging.StreamHandler()
     console.setLevel(logging.INFO if rank == 0 else logging.WARNING)
     logger.addHandler(console)
-    if log_file is not None:
-        file_handler = logging.FileHandler(filename=log_file)
+    if log_path is not None:
+        file_handler = logging.FileHandler(filename=log_path)
         file_handler.setLevel(logging.INFO if rank == 0 else logging.WARNING)
         logger.addHandler(file_handler)
     logger.propagate = False
@@ -102,7 +109,6 @@ def parse_config():
     parser.add_argument(
         "--ckpt_dir", type=str, help="specify a ckpt directory to be evaluated if needed"
     )
-    parser.add_argument("--save_to_file", action="store_true", default=False)
     args = parser.parse_args()
 
     cfg_from_yaml_file(args.cfg_path, cfg)

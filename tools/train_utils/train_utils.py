@@ -146,7 +146,7 @@ def train_model(
             # save trained model
             trained_epoch = cur_epoch + 1
             if tb_log is not None and trained_epoch % save_interval == 0:
-                ckpt_path = ckpt_dir / f"checkpoint_epoch_{trained_epoch}"
+                ckpt_path = ckpt_dir / f"ckpt_epoch_{trained_epoch}"
                 torch.save(
                     checkpoint_state(model, optimizer, trained_epoch, accumulated_iter),
                     f"{ckpt_path}.pth",

@@ -32,15 +32,9 @@ def eval_one_epoch(
     dataloader: DataLoader,
     local_rank: int,
     logger: logging.Logger,
-    save_to_file: bool,
     eval_dir: Path,
 ):
     model.eval()
-
-    final_output_dir = eval_dir / "final_result"
-    if save_to_file:
-        final_output_dir.mkdir(parents=True, exist_ok=True)
-
     metric = {"gt_num": 0}
     for cur_thresh in cfg.MODEL.POST_PROCESSING.RECALL_THRESH_LIST:
         metric[f"recall_roi_{cur_thresh}"] = 0
@@ -64,13 +58,7 @@ def eval_one_epoch(
         disp_dict = {}
 
         statistics_info(cfg, ret_dict, metric, disp_dict)
-        annos = dataset.generate_prediction_dicts(
-            batch_dict,
-            pred_dicts,
-            class_names,
-            output_path=final_output_dir if save_to_file else None,
-        )
-        det_annos += annos
+        det_annos += dataset.generate_prediction_dicts(batch_dict, pred_dicts, class_names)
         if progress_bar is not None:
             progress_bar.set_postfix(disp_dict)
             progress_bar.update()
@@ -84,12 +72,11 @@ def eval_one_epoch(
     metric = common_utils.merge_results_dist([metric], world_size, tmpdir)
 
     sec_per_example = (time.time() - start_time) / len(dataset)
-    logger.info("Generate label finished(sec_per_example: %.4f second).", sec_per_example)
+    logger.info("Generate label finished (%.4f seconds per sample)", sec_per_example)
 
     if local_rank != 0:
         return {}
 
-    ret_dict = {}
     for key in metric[0]:
         for k in range(1, world_size):
             metric[0][key] += metric[k][key]
@@ -101,29 +88,16 @@ def eval_one_epoch(
         cur_rcnn_recall = metric[f"recall_rcnn_{cur_thresh}"] / max(gt_num_cnt, 1)
         logger.info("recall_roi_%s: %f", cur_thresh, cur_roi_recall)
         logger.info("recall_rcnn_%s: %f", cur_thresh, cur_rcnn_recall)
-        ret_dict[f"recall/roi_{cur_thresh}"] = cur_roi_recall
-        ret_dict[f"recall/rcnn_{cur_thresh}"] = cur_rcnn_recall
 
     total_pred_objects = sum(len(anno["name"]) for anno in det_annos)
 
     logger.info(
-        "Average predicted number of objects(%d samples): %.3f",
+        "Average predicted number of objects (%d samples): %.3f",
         len(det_annos),
         total_pred_objects / max(1, len(det_annos)),
     )
 
-    with (eval_dir / "result.pkl").open("wb") as det_annos_file:
+    with (eval_dir / "det_annos.pkl").open("wb") as det_annos_file:
         pickle.dump(det_annos, det_annos_file)
-
-    result_str, result_dict = dataset.evaluation(
-        det_annos,
-        class_names,
-        eval_metric=cfg.MODEL.POST_PROCESSING.EVAL_METRIC,
-        output_path=final_output_dir,
-    )
-
-    logger.info(result_str)
-    ret_dict.update(result_dict)
-    logger.info("Result is save to %s", eval_dir)
-    logger.info("****************Evaluation done.*****************")
-    return ret_dict
+    logger.info("Predictions is save to %s", eval_dir)
+    return dataset.evaluation(det_annos, class_names)

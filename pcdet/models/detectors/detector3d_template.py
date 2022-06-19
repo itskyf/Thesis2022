@@ -407,11 +407,11 @@ class Detector3DTemplate(nn.Module):
         logger.info("Loading checkpoint %s to CPU", path)
         checkpoint = torch.load(path, map_location="cpu")
 
-        cur_it = checkpoint.get("it", 0.0)
+        cur_step = checkpoint.get("step", 0.0)
         epoch = checkpoint.get("epoch", -1)
         self._load_state_dict(checkpoint["model_state"])
         optimizer.load_state_dict(checkpoint["optimizer_state"])
 
         if "version" in checkpoint:
             logger.info("Checkpoint trained from version: %s", checkpoint["version"])
-        return cur_it, epoch
+        return cur_step, epoch

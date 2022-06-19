@@ -1,7 +1,7 @@
 import abc
 from collections import defaultdict
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 import numpy as np
 from torch.utils.data import Dataset
@@ -18,11 +18,8 @@ class DatasetTemplate(abc.ABC, Dataset):
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.class_names = class_names
-        self.logger = logger
         self.root_path = Path(dataset_cfg.DATA_PATH)
         self.logger = logger
-        if self.dataset_cfg is None or class_names is None:
-            return
 
         self.point_cloud_range = np.array(self.dataset_cfg.POINT_CLOUD_RANGE, dtype=np.float32)
         self.point_feature_encoder = PointFeatureEncoder(
@@ -54,6 +51,12 @@ class DatasetTemplate(abc.ABC, Dataset):
         except AttributeError:
             self.depth_downsample_factor = None
 
+    @abc.abstractmethod
+    def evaluation(
+        self, det_annos: List[Dict[str, Any]], class_names: List[str]
+    ) -> Dict[str, float]:
+        ...
+
     @property
     def mode(self):
         return "train" if self.training else "test"
@@ -67,7 +70,8 @@ class DatasetTemplate(abc.ABC, Dataset):
         self.__dict__.update(d)
 
     @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names):
+    @abc.abstractmethod
+    def generate_prediction_dicts(batch_dict, pred_dicts, class_names) -> List[Dict[str, Any]]:
         """
         To support a custom dataset, implement this function to receive the predicted results from the model, and then
         transform the unified normative coordinate to your required coordinate, and optionally save them to disk.
@@ -115,9 +119,7 @@ class DatasetTemplate(abc.ABC, Dataset):
                 [n in self.class_names for n in data_dict["gt_names"]], dtype=np.bool_
             )
 
-            data_dict = self.data_augmentor.forward(
-                data_dict={**data_dict, "gt_boxes_mask": gt_boxes_mask}
-            )
+            data_dict = self.data_augmentor(data_dict={**data_dict, "gt_boxes_mask": gt_boxes_mask})
 
         if data_dict.get("gt_boxes", None) is not None:
             selected = common_utils.keep_arrays_by_name(data_dict["gt_names"], self.class_names)
@@ -126,10 +128,9 @@ class DatasetTemplate(abc.ABC, Dataset):
             gt_classes = np.array(
                 [self.class_names.index(n) + 1 for n in data_dict["gt_names"]], dtype=np.int32
             )
-            gt_boxes = np.concatenate(
+            data_dict["gt_boxes"] = np.concatenate(
                 (data_dict["gt_boxes"], gt_classes.reshape(-1, 1).astype(np.float32)), axis=1
             )
-            data_dict["gt_boxes"] = gt_boxes
 
             if data_dict.get("gt_boxes2d", None) is not None:
                 data_dict["gt_boxes2d"] = data_dict["gt_boxes2d"][selected]
@@ -140,11 +141,10 @@ class DatasetTemplate(abc.ABC, Dataset):
         data_dict = self.data_processor.forward(data_dict=data_dict)
 
         if self.training and len(data_dict["gt_boxes"]) == 0:
-            new_index = np.random.randint(self.__len__())
-            return self.__getitem__(new_index)
+            new_index = np.random.randint(len(self))
+            return self[new_index]
 
         data_dict.pop("gt_names", None)
-
         return data_dict
 
     @staticmethod
@@ -166,7 +166,7 @@ class DatasetTemplate(abc.ABC, Dataset):
                     coors.append(coor_pad)
                 ret[key] = np.concatenate(coors)
             elif key in ["gt_boxes"]:
-                max_gt = max([len(x) for x in val])
+                max_gt = max(len(x) for x in val)
                 batch_gt_boxes3d = np.zeros(
                     (batch_size, max_gt, val[0].shape[-1]), dtype=np.float32
                 )
@@ -174,8 +174,7 @@ class DatasetTemplate(abc.ABC, Dataset):
                     batch_gt_boxes3d[k, : val[k].__len__(), :] = val[k]
                 ret[key] = batch_gt_boxes3d
             elif key in ["gt_boxes2d"]:
-                max_boxes = 0
-                max_boxes = max([len(x) for x in val])
+                max_boxes = max(len(x) for x in val)
                 batch_boxes2d = np.zeros(
                     (batch_size, max_boxes, val[0].shape[-1]), dtype=np.float32
                 )
