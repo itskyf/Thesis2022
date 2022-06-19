@@ -77,7 +77,7 @@ class IASSD_Head(PointHeadTemplate):
             self.add_module("cls_loss_func", loss_utils.PolySigmoidFocalClassificationLoss(epsilon=1))
         # elif losses_cfg.LOSS_CLS.startswith("VarifocalLoss"):
 
-        else:
+        elif losses_cfg.LOSS_CLS.startswith("VarifocalLoss") == False:
             raise NotImplementedError
 
         # regression loss
@@ -515,7 +515,7 @@ class IASSD_Head(PointHeadTemplate):
             sa_loss_cls = 0
 
         # cls loss
-        if self.model.LOSS_CLS.startswith('VarifocalLoss'):
+        if self.model_cfg.LOSS_CLS.startswith('VarifocalLoss'):
             center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss2()
         else:    
             center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss()
@@ -744,7 +744,7 @@ class IASSD_Head(PointHeadTemplate):
         if gt_cls.shape[0]:
             decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
-            iou3d_targets = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+            iou3d_targets = torch.clamp(2 * boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()-0.5, min=0.0, max=1.0)
             one_hot_targets.scatter(-1, (point_cls_labels * (point_cls_labels >= 0).long()).unsqueeze(dim=-1).long(), iou3d_targets)
 
         # one_hot_targets.scatter_(
