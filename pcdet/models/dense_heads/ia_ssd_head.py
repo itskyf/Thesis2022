@@ -75,6 +75,8 @@ class IASSD_Head(PointHeadTemplate):
             )
         elif losses_cfg.LOSS_CLS.startswith("PolyWeightedCrossEntropy"):
             self.add_module("cls_loss_func", loss_utils.PolySigmoidFocalClassificationLoss(epsilon=1))
+        # elif losses_cfg.LOSS_CLS.startswith("VarifocalLoss"):
+
         else:
             raise NotImplementedError
 
@@ -513,7 +515,10 @@ class IASSD_Head(PointHeadTemplate):
             sa_loss_cls = 0
 
         # cls loss
-        center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss()
+        if self.model.LOSS_CLS.startswith('VarifocalLoss'):
+            center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss2()
+        else:    
+            center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss()
         # self.register_buffer(center_loss_cls, pesistent=False)
         tb_dict.update(tb_dict_4)
 
@@ -704,6 +709,65 @@ class IASSD_Head(PointHeadTemplate):
             .mean(dim=-1)
             .sum()
         )
+        loss_weights_dict = self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS
+        point_loss_cls = point_loss_cls * loss_weights_dict["point_cls_weight"]
+        if tb_dict is None:
+            tb_dict = {}
+        tb_dict.update(
+            {"center_loss_cls": point_loss_cls.item(), "center_pos_num": pos_normalizer.item()}
+        )
+        return point_loss_cls, tb_dict
+
+    def get_center_cls_layer_loss2(self, tb_dict=None):
+        point_cls_labels = self.forward_ret_dict["center_cls_labels"].view(-1)
+        point_cls_preds = self.forward_ret_dict["center_cls_preds"].view(-1, self.num_class)
+        positives = point_cls_labels > 0
+        negative_cls_weights = (point_cls_labels == 0) * 1.0
+
+        cls_weights = (1.0 * negative_cls_weights + 1.0 * positives).float()
+        pos_normalizer = positives.sum(dim=0).float()
+        cls_weights /= torch.clamp(pos_normalizer, min=1.0)
+        
+        one_hot_targets = point_cls_preds.new_zeros(
+            *list(point_cls_labels.shape), self.num_class + 1
+        )
+
+        # pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
+        gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
+        pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
+        pred_boxes = pred_boxes[pos_mask]
+        pred_centers = self.forward_ret_dict["centers"].clone().detach()
+        pred_centers = pred_centers[pos_mask]
+        pred_centers = pred_centers[:, 1:4]
+        gt_cls = self.forward_ret_dict["center_cls_labels"][pos_mask]
+
+        if gt_cls.shape[0]:
+            decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
+
+            iou3d_targets = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+            one_hot_targets.scatter(-1, (point_cls_labels * (point_cls_labels >= 0).long()).unsqueeze(dim=-1).long(), iou3d_targets)
+
+        # one_hot_targets.scatter_(
+        #     -1, (point_cls_labels * (point_cls_labels >= 0).long()).unsqueeze(dim=-1).long(), 1.0
+        # )
+        one_hot_targets = one_hot_targets[..., 1:]
+
+        # if self.model_cfg.LOSS_CONFIG.CENTERNESS_REGULARIZATION:
+        #     centerness_mask = self.generate_center_ness_mask()
+        #     one_hot_targets = one_hot_targets * centerness_mask.unsqueeze(-1).repeat(
+        #         1, one_hot_targets.shape[1]
+        #     )
+
+        pos_mask = one_hot_targets > 0
+        point_loss_cls = ((
+            one_hot_targets * functional.binary_cross_entropy(point_cls_preads, one_hot_targets, reduction='none') - ~pos_mask * 0.75 * torch.pow(point_cls_preads, 2.0) * torch.log(1 - point_cls_preads)
+        ) * cls_weights).mean(dim=-1).sum()
+
+        # point_loss_cls = (
+        #     self.cls_loss_func(point_cls_preds, one_hot_targets, weights=cls_weights)
+        #     .mean(dim=-1)
+        #     .sum()
+        # )
         loss_weights_dict = self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS
         point_loss_cls = point_loss_cls * loss_weights_dict["point_cls_weight"]
         if tb_dict is None:
