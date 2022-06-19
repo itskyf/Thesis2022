@@ -732,7 +732,7 @@ class IASSD_Head(PointHeadTemplate):
             *list(point_cls_labels.shape), self.num_class + 1
         )
 
-        # pos_mask = self.forward_ret_dict["center_cls_labels"] > 0
+        pos_mask = positives
         gt_boxes = self.forward_ret_dict["center_gt_box_of_fg_points"]
         pred_boxes = self.forward_ret_dict["center_box_preds"].clone().detach()
         pred_boxes = pred_boxes[pos_mask]
