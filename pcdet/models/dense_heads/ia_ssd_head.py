@@ -515,7 +515,7 @@ class IASSD_Head(PointHeadTemplate):
             sa_loss_cls = 0
 
         # cls loss
-        if self.model_cfg.LOSS_CLS.startswith('VarifocalLoss'):
+        if self.model_cfg.LOSS_CONFIG.LOSS_CLS.startswith('VarifocalLoss'):
             center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss2()
         else:    
             center_loss_cls, tb_dict_4 = self.get_center_cls_layer_loss()

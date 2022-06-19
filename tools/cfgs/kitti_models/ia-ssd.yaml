@@ -80,12 +80,12 @@ MODEL:
 
         LOSS_CONFIG:
             # Ref: 'WeightedBinaryCrossEntropy', 'WeightedCrossEntropy', 'FocalLoss'
-            LOSS_CLS: WeightedCrossEntropy
+            LOSS_CLS: VarifocalLoss
             LOSS_REG: WeightedSmoothL1Loss
             LOSS_INS: WeightedCrossEntropy
             SAMPLE_METHOD_LIST: *sample_method_list
             LOSS_VOTE_TYPE: 'none'  #'none', 'ver1', 'ver2', 
-            LOSS_REG_TYPE: 'iou' #'iou'
+            LOSS_REG_TYPE: 'none' #'iou'
 
             CORNER_LOSS_REGULARIZATION: True
             CENTERNESS_REGULARIZATION: True
@@ -95,11 +95,11 @@ MODEL:
                 'ins_aware_weight': [0, 1.0, 1.0],
                 'vote_weight': 1.0,
                 'point_cls_weight': 1.0,
-                'point_box_weight': 1.0,
+                'point_box_weight': 2.0,
                 'corner_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
                 'dir_weight': 0.2,
-                'iou3d_reg_weight': 0.5
+                # 'iou3d_reg_weight': 0.5
                 # 'iou3d_weight': 1.0
             }
 
