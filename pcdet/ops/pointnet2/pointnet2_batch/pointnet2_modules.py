@@ -214,7 +214,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     [
                         nn.Conv2d(mlp_spec[k], mlp_spec[k + 1], kernel_size=1, bias=False),
                         nn.BatchNorm2d(mlp_spec[k + 1]),
-                        nn.ReLU(),
+                        nn.GELU(),
                     ]
                 )
             self.mlps.append(nn.Sequential(*shared_mlps))
@@ -229,7 +229,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     [
                         nn.Conv1d(out_channels, aggregation_mlp[k], kernel_size=1, bias=False),
                         nn.BatchNorm1d(aggregation_mlp[k]),
-                        nn.ReLU(),
+                        nn.GELU(),
                     ]
                 )
                 out_channels = aggregation_mlp[k]
@@ -244,7 +244,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     [
                         nn.Conv1d(out_channels, confidence_mlp[k], kernel_size=1, bias=False),
                         nn.BatchNorm1d(confidence_mlp[k]),
-                        nn.ReLU(),
+                        nn.GELU(),
                     ]
                 )
                 out_channels = confidence_mlp[k]
@@ -461,7 +461,7 @@ class Vote_layer(nn.Module):
                     [
                         nn.Conv1d(pre_channel, mlp_list[i], kernel_size=1, bias=False),
                         nn.BatchNorm1d(mlp_list[i]),
-                        nn.ReLU(),
+                        nn.GELU(),
                     ]
                 )
                 pre_channel = mlp_list[i]

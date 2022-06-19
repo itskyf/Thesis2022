@@ -40,7 +40,7 @@ class PointHeadTemplate(nn.Module):
                 [
                     nn.Linear(c_in, fc_cfg[k], bias=False),
                     nn.BatchNorm1d(fc_cfg[k]),
-                    nn.ReLU(),
+                    nn.GELU(),
                 ]
             )
             c_in = fc_cfg[k]
