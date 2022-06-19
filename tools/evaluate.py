@@ -44,7 +44,7 @@ def main():
 
     model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
     model = model_fn(conf.MODEL, len(class_names), val_set)
-    model.load_params_from_file(args.ckpt, logger)
+    model.load_params_from_file(args.ckpt, local_rank, logger)
     model.cuda(local_rank)
     logger.info(model)
 

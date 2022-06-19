@@ -94,10 +94,7 @@ class IASSD_Backbone(nn.Module):
     def forward(self, batch_dict):
         """
         Args:
-            batch_dict:
-                batch_size: int
-                vfe_features: (num_voxels, C)
-                points: (num_points, 4 + C), [batch_idx, x, y, z, ...]
+            points:
         Returns:
             batch_dict:
                 encoded_spconv_tensor: sparse tensor

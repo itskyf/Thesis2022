@@ -56,16 +56,18 @@ def main():
     model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), train_set)
     optimizer = build_optimizer(model, conf.OPTIMIZATION)
 
+    model.cuda(local_rank)
     # load checkpoint if it is possible
     start_epoch = cur_it = 0
     last_epoch = -1
     if args.pretrained is not None:
-        model.load_params_from_file(args.pretrained, logger)
+        model.load_params_from_file(args.pretrained, local_rank, logger)
     if args.ckpt is not None:
-        cur_it, start_epoch = model.load_params_with_optimizer(args.ckpt, optimizer, logger)
+        cur_it, start_epoch = model.load_params_with_optimizer(
+            args.ckpt, optimizer, local_rank, logger
+        )
     last_epoch = start_epoch + 1
 
-    model.cuda(local_rank)
     logger.info(model)
     logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
     model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
@@ -78,7 +80,7 @@ def main():
         optim_cfg=conf.OPTIMIZATION,
     )
 
-    logger.info("Start training")
+    logger.info("Start training, start epoch: %s", start_epoch)
     with torch.cuda.device(local_rank):
         # -----------------------start training---------------------------
         train_model(

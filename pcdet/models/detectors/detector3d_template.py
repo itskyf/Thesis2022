@@ -391,9 +391,9 @@ class Detector3DTemplate(nn.Module):
             self.load_state_dict(state_dict)
         return state_dict, update_model_state
 
-    def load_params_from_file(self, path: Path, logger: logging.Logger):
+    def load_params_from_file(self, path: Path, rank: int, logger: logging.Logger):
         logger.info("Loading checkpoint %s to CPU", path)
-        checkpoint = torch.load(path, map_location="cpu")
+        checkpoint = torch.load(path, map_location=f"cuda:{rank}")
         model_state_disk = checkpoint["model_state"]
 
         version = checkpoint.get("version", None)
@@ -403,9 +403,9 @@ class Detector3DTemplate(nn.Module):
         self._load_state_dict(model_state_disk)
         logger.info("Done loading")
 
-    def load_params_with_optimizer(self, path: Path, optimizer, logger: logging.Logger):
+    def load_params_with_optimizer(self, path: Path, optimizer, rank: int, logger: logging.Logger):
         logger.info("Loading checkpoint %s to CPU", path)
-        checkpoint = torch.load(path, map_location="cpu")
+        checkpoint = torch.load(path, map_location=f"cuda:{rank}")
 
         cur_step = checkpoint.get("step", 0.0)
         epoch = checkpoint.get("epoch", -1)
