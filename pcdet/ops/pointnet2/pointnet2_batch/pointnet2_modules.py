@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 
 import torch
 from torch import nn
@@ -146,7 +146,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         *,
         npoint_list: List[int],
         sample_range_list: List[int],
-        sample_type_list: List[int],
+        sample_type_list: List[str],
         radii: List[float],
         nsamples: List[int],
         mlps: List[List[int]],
@@ -222,30 +222,24 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
 
         if (aggregation_mlp is not None) and (len(aggregation_mlp) != 0) and (len(self.mlps) > 0):
             shared_mlp = []
-            for k in range(len(aggregation_mlp)):
-                shared_mlp.extend(
-                    [
-                        nn.Conv1d(out_channels, aggregation_mlp[k], kernel_size=1, bias=False),
-                        nn.BatchNorm1d(aggregation_mlp[k]),
-                        nn.GELU(),
-                    ]
-                )
-                out_channels = aggregation_mlp[k]
+            for aggregation_c in aggregation_mlp:
+                shared_mlp.append(nn.Conv1d(out_channels, aggregation_c, kernel_size=1, bias=False))
+                shared_mlp.append(nn.BatchNorm1d(aggregation_c))
+                shared_mlp.append(nn.GELU())
+
+                out_channels = aggregation_c
             self.aggregation_layer = nn.Sequential(*shared_mlp)
         else:
             self.aggregation_layer = None
 
         if (confidence_mlp is not None) and (len(confidence_mlp) != 0):
             shared_mlp = []
-            for k in range(len(confidence_mlp)):
-                shared_mlp.extend(
-                    [
-                        nn.Conv1d(out_channels, confidence_mlp[k], kernel_size=1, bias=False),
-                        nn.BatchNorm1d(confidence_mlp[k]),
-                        nn.GELU(),
-                    ]
-                )
-                out_channels = confidence_mlp[k]
+            for confidence_c in confidence_mlp:
+                shared_mlp.append(nn.Conv1d(out_channels, confidence_c, kernel_size=1, bias=False))
+                shared_mlp.append(nn.BatchNorm1d(confidence_c))
+                shared_mlp.append(nn.GELU())
+
+                out_channels = confidence_c
             shared_mlp.append(
                 nn.Conv1d(out_channels, num_class, kernel_size=1, bias=True),
             )
@@ -256,8 +250,8 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
     def forward(
         self,
         xyz: torch.Tensor,
-        features: torch.Tensor = None,
-        cls_features: torch.Tensor = None,
+        features: Optional[torch.Tensor] = None,
+        cls_features: Optional[torch.Tensor] = None,
         new_xyz=None,
         ctr_xyz=None,
     ):
@@ -278,8 +272,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         if ctr_xyz is None:
             last_sample_end_index = 0
 
-            for i in range(len(self.sample_type_list)):
-                sample_type = self.sample_type_list[i]
+            for i, sample_type in enumerate(self.sample_type_list):
                 sample_range = self.sample_range_list[i]
                 npoint = self.npoint_list[i]
 
@@ -287,9 +280,8 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     continue
                 if sample_range == -1:  # 全部
                     xyz_tmp = xyz[:, last_sample_end_index:, :]
-                    feature_tmp = features.transpose(1, 2)[
-                        :, last_sample_end_index:, :
-                    ].contiguous()
+                    feature_tmp = features.transpose(1, 2)[:, last_sample_end_index:, :]
+                    feature_tmp = feature_tmp.contiguous()
                     cls_features_tmp = (
                         cls_features[:, last_sample_end_index:, :]
                         if cls_features is not None
@@ -305,33 +297,33 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     )
                     last_sample_end_index += sample_range
 
-                if xyz_tmp.shape[1] <= npoint:  # No downsampling
+                if xyz_tmp.size(1) <= npoint:  # No downsampling
                     sample_idx = torch.arange(
-                        xyz_tmp.shape[1], device=xyz_tmp.device, dtype=torch.int32
+                        xyz_tmp.size(1), device=xyz_tmp.device, dtype=torch.int32
                     ) * torch.ones(
-                        xyz_tmp.shape[0], xyz_tmp.shape[1], device=xyz_tmp.device, dtype=torch.int32
+                        xyz_tmp.size(0), xyz_tmp.size(1), device=xyz_tmp.device, dtype=torch.int32
                     )
 
                 elif ("cls" in sample_type) or ("ctr" in sample_type):
-                    cls_features_max, class_pred = cls_features_tmp.max(dim=-1)
+                    cls_features_max = cls_features_tmp.max(dim=-1)[0]
                     score_pred = torch.sigmoid(cls_features_max)  # B,N
-                    score_picked, sample_idx = torch.topk(score_pred, npoint, dim=-1)
+                    sample_idx = torch.topk(score_pred, npoint, dim=-1)[1]
                     sample_idx = sample_idx.int()
 
                 elif "D-FPS" in sample_type or "DFS" in sample_type:
                     sample_idx = pointnet2_utils.furthest_point_sample(xyz_tmp.contiguous(), npoint)
 
                 elif "F-FPS" in sample_type or "FFS" in sample_type:
-                    features_SSD = torch.cat([xyz_tmp, feature_tmp], dim=-1)
-                    features_for_fps_distance = self.calc_square_dist(features_SSD, features_SSD)
+                    features_ssd = torch.cat([xyz_tmp, feature_tmp], dim=-1)
+                    features_for_fps_distance = self.calc_square_dist(features_ssd, features_ssd)
                     features_for_fps_distance = features_for_fps_distance.contiguous()
                     sample_idx = pointnet2_utils.furthest_point_sample_with_dist(
                         features_for_fps_distance, npoint
                     )
 
                 elif sample_type == "FS":
-                    features_SSD = torch.cat([xyz_tmp, feature_tmp], dim=-1)
-                    features_for_fps_distance = self.calc_square_dist(features_SSD, features_SSD)
+                    features_ssd = torch.cat([xyz_tmp, feature_tmp], dim=-1)
+                    features_for_fps_distance = self.calc_square_dist(features_ssd, features_ssd)
                     features_for_fps_distance = features_for_fps_distance.contiguous()
                     sample_idx_1 = pointnet2_utils.furthest_point_sample_with_dist(
                         features_for_fps_distance, npoint
@@ -339,30 +331,24 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     sample_idx_2 = pointnet2_utils.furthest_point_sample(xyz_tmp, npoint)
                     sample_idx = torch.cat([sample_idx_1, sample_idx_2], dim=-1)  # [bs, npoint * 2]
                 elif "Rand" in sample_type:
-                    sample_idx = (
-                        torch.randperm(xyz_tmp.shape[1], device=xyz_tmp.device)[None, :npoint]
-                        .int()
-                        .repeat(xyz_tmp.shape[0], 1)
-                    )
-                elif sample_type == "ds_FPS" or sample_type == "ds-FPS":
+                    sample_idx = torch.randperm(xyz_tmp.size(1), device=xyz_tmp.device)
+                    sample_idx = sample_idx[None, :npoint].int().repeat(xyz_tmp.size(0), 1)
+                elif sample_type in ("ds_FPS", "ds-FPS"):
                     part_num = 4
                     xyz_div = []
                     idx_div = []
-                    for i in range(len(xyz_tmp)):
-                        per_xyz = xyz_tmp[i]
+                    for per_xyz in xyz_tmp:
                         radii = per_xyz.norm(dim=-1) - 5
-                        storted_radii, indince = radii.sort(dim=0, descending=False)
+                        indince = radii.sort(dim=0, descending=False)[1]
                         per_xyz_sorted = per_xyz[indince]
                         per_xyz_sorted_div = per_xyz_sorted.view(part_num, -1, 3)
 
                         per_idx_div = indince.view(part_num, -1)
                         xyz_div.append(per_xyz_sorted_div)
                         idx_div.append(per_idx_div)
-                    xyz_div = torch.cat(xyz_div, dim=0)
-                    idx_div = torch.cat(idx_div, dim=0)
-                    idx_sampled = pointnet2_utils.furthest_point_sample(
-                        xyz_div, (npoint // part_num)
-                    )
+                    xyz_div = torch.cat(xyz_div)
+                    idx_div = torch.cat(idx_div)
+                    idx_sampled = pointnet2_utils.furthest_point_sample(xyz_div, npoint // part_num)
 
                     indince_div = []
                     for idx_sampled_per, idx_per in zip(idx_sampled, idx_div):
@@ -370,32 +356,30 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     index = torch.cat(indince_div, dim=-1)
                     sample_idx = index.reshape(xyz.shape[0], npoint).int()
 
-                elif sample_type == "ry_FPS" or sample_type == "ry-FPS":
+                elif sample_type in ("ry_FPS", "ry-FPS"):
                     part_num = 4
                     xyz_div = []
                     idx_div = []
-                    for i in range(len(xyz_tmp)):
-                        per_xyz = xyz_tmp[i]
+                    for per_xyz in xyz_tmp:
                         ry = torch.atan(per_xyz[:, 0] / per_xyz[:, 1])
-                        storted_ry, indince = ry.sort(dim=0, descending=False)
+                        indince = ry.sort(dim=0, descending=False)[1]
                         per_xyz_sorted = per_xyz[indince]
                         per_xyz_sorted_div = per_xyz_sorted.view(part_num, -1, 3)
 
                         per_idx_div = indince.view(part_num, -1)
                         xyz_div.append(per_xyz_sorted_div)
                         idx_div.append(per_idx_div)
-                    xyz_div = torch.cat(xyz_div, dim=0)
-                    idx_div = torch.cat(idx_div, dim=0)
-                    idx_sampled = pointnet2_utils.furthest_point_sample(
-                        xyz_div, (npoint // part_num)
-                    )
+                    xyz_div = torch.cat(xyz_div)
+                    idx_div = torch.cat(idx_div)
+                    idx_sampled = pointnet2_utils.furthest_point_sample(xyz_div, npoint // part_num)
 
-                    indince_div = []
-                    for idx_sampled_per, idx_per in zip(idx_sampled, idx_div):
-                        indince_div.append(idx_per[idx_sampled_per.long()])
+                    indince_div = [
+                        idx_per[idx_sampled_per.long()]
+                        for idx_sampled_per, idx_per in zip(idx_sampled, idx_div)
+                    ]
                     index = torch.cat(indince_div, dim=-1)
 
-                    sample_idx = index.reshape(xyz.shape[0], npoint).int()
+                    sample_idx = index.reshape(xyz.size(0), npoint).int()
 
                 sampled_idx_list.append(sample_idx)
 
@@ -454,7 +438,6 @@ class Vote_layer(nn.Module):
         if len(mlp_list) > 0:
             for i in range(len(mlp_list)):
                 shared_mlps = []
-
                 shared_mlps.extend(
                     [
                         nn.Conv1d(pre_channel, mlp_list[i], kernel_size=1, bias=False),

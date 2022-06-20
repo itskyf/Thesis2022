@@ -62,6 +62,7 @@ MODEL:
     NAME: IASSD_Head
     CLS_FC: [256, 256]
     REG_FC: [256, 256]
+    # IOU_FC: [256, 256]
     CLASS_AGNOSTIC: false
     USE_POINT_FEATURES_BEFORE_FUSION: false
     TARGET_CONFIG:
@@ -92,6 +93,7 @@ MODEL:
       CORNER_LOSS_REGULARIZATION: true
       CENTERNESS_REGULARIZATION: true
       CENTERNESS_REGULARIZATION_SA: true
+      # IOU3D_REGULARIZATION: true
       LOSS_WEIGHTS:
         ins_aware_weight: [0, 1.0, 1.0]
         vote_weight: 1.0

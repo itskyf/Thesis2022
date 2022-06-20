@@ -110,7 +110,7 @@ class IASSD_Head(PointHeadTemplate):
             else:
                 raise NotImplementedError
 
-    def assign_stack_targets_IASSD(
+    def assign_stack_targets_iassd(
         self,
         points,
         gt_boxes,
@@ -289,8 +289,8 @@ class IASSD_Head(PointHeadTemplate):
         extend_gt_boxes = box_utils.enlarge_box3d(
             extend_gt.view(-1, extend_gt.shape[-1]), extra_width=target_cfg.GT_EXTRA_WIDTH
         ).view(batch_size, -1, gt_boxes.shape[-1])
-        assert gt_boxes.shape.__len__() == 3, "gt_boxes.shape=%s" % str(gt_boxes.shape)
-        center_targets_dict = self.assign_stack_targets_IASSD(
+        assert gt_boxes.dim() == 3, f"gt_boxes.shape={gt_boxes.shape}"
+        center_targets_dict = self.assign_stack_targets_iassd(
             points=input_dict["centers"].detach(),
             gt_boxes=extend_gt,
             extend_gt_boxes=extend_gt_boxes,
@@ -323,7 +323,7 @@ class IASSD_Head(PointHeadTemplate):
                         gt_boxes.view(-1, gt_boxes.shape[-1]),
                         extra_width=[0.5, 0.5, 0.5],  # [0.2, 0.2, 0.2]
                     ).view(batch_size, -1, gt_boxes.shape[-1])
-                    sa_targets_dict = self.assign_stack_targets_IASSD(
+                    sa_targets_dict = self.assign_stack_targets_iassd(
                         points=sa_xyz.view(-1, sa_xyz.shape[-1]).detach(),
                         gt_boxes=gt_boxes,
                         extend_gt_boxes=extend_gt_boxes,
@@ -335,7 +335,7 @@ class IASSD_Head(PointHeadTemplate):
                     extend_gt_boxes = box_utils.enlarge_box3d(
                         gt_boxes.view(-1, gt_boxes.shape[-1]), extra_width=[0.5, 0.5, 0.5]
                     ).view(batch_size, -1, gt_boxes.shape[-1])
-                    sa_targets_dict = self.assign_stack_targets_IASSD(
+                    sa_targets_dict = self.assign_stack_targets_iassd(
                         points=sa_xyz.view(-1, sa_xyz.shape[-1]).detach(),
                         gt_boxes=gt_boxes,
                         extend_gt_boxes=extend_gt_boxes,
@@ -374,7 +374,7 @@ class IASSD_Head(PointHeadTemplate):
                 else input_dict["centers"].detach()
             )  # default setting
 
-            targets_dict = self.assign_stack_targets_IASSD(
+            targets_dict = self.assign_stack_targets_iassd(
                 points=points,
                 gt_boxes=gt_boxes,
                 extend_gt_boxes=extend_gt_boxes,
@@ -402,7 +402,7 @@ class IASSD_Head(PointHeadTemplate):
                 else input_dict["centers"].detach()
             )
 
-            targets_dict = self.assign_stack_targets_IASSD(
+            targets_dict = self.assign_stack_targets_iassd(
                 points=points,
                 gt_boxes=gt_boxes,
                 extend_gt_boxes=extend_gt_boxes,
@@ -427,7 +427,7 @@ class IASSD_Head(PointHeadTemplate):
             else:
                 points = input_dict["centers"].detach()
 
-            targets_dict = self.assign_stack_targets_IASSD(
+            targets_dict = self.assign_stack_targets_iassd(
                 points=points,
                 gt_boxes=gt_boxes,
                 extend_gt_boxes=extend_gt_boxes,
@@ -449,7 +449,7 @@ class IASSD_Head(PointHeadTemplate):
             elif extra_method.get("ASSIGN_TYPE", "centers") == "centers":
                 points = input_dict["centers"].detach()
 
-            targets_dict = self.assign_stack_targets_IASSD(
+            targets_dict = self.assign_stack_targets_iassd(
                 points=points,
                 gt_boxes=gt_boxes,
                 extend_gt_boxes=extend_gt_boxes,

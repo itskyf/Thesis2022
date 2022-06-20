@@ -36,12 +36,8 @@ class PointHeadTemplate(nn.Module):
         fc_layers = []
         c_in = input_channels
         for channel in fc_cfg:
-            fc_layers.extend(
-                [
-                    nn.Linear(c_in, channel, bias=False),
-                    nn.BatchNorm1d(channel),
-                ]
-            )
+            fc_layers.append(nn.Linear(c_in, channel, bias=False))
+            fc_layers.append(nn.BatchNorm1d(channel))
             c_in = channel
         fc_layers.append(nn.Linear(c_in, output_channels, bias=True))
         return nn.Sequential(*fc_layers[:-2], nn.GELU(), *fc_layers[-2:])
@@ -73,17 +69,11 @@ class PointHeadTemplate(nn.Module):
             point_box_labels: (N1 + N2 + N3 + ..., code_size)
 
         """
-        assert len(points.shape) == 2 and points.shape[1] == 4, "points.shape=%s" % str(
-            points.shape
-        )
-        assert len(gt_boxes.shape) == 3 and gt_boxes.shape[2] == 8, "gt_boxes.shape=%s" % str(
-            gt_boxes.shape
-        )
+        assert points.dim() == 2 and points.size(1) == 4, f"points.shape={points.shape}"
+        assert gt_boxes.dim() == 3 and gt_boxes.size(2) == 8, f"gt_boxes.shape={gt_boxes.shape}"
         assert (
-            extend_gt_boxes is None
-            or len(extend_gt_boxes.shape) == 3
-            and extend_gt_boxes.shape[2] == 8
-        ), "extend_gt_boxes.shape=%s" % str(extend_gt_boxes.shape)
+            extend_gt_boxes is None or extend_gt_boxes.dim() == 3 and extend_gt_boxes.size(2) == 8
+        ), f"extend_gt_boxes.shape={extend_gt_boxes.shape}"
         assert set_ignore_flag != use_ball_constraint, "Choose one only!"
         batch_size = gt_boxes.shape[0]
         bs_idx = points[:, 0]
