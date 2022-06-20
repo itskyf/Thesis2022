@@ -35,17 +35,16 @@ class PointHeadTemplate(nn.Module):
     def make_fc_layers(fc_cfg, input_channels, output_channels):
         fc_layers = []
         c_in = input_channels
-        for k in range(len(fc_cfg)):
+        for channel in fc_cfg:
             fc_layers.extend(
                 [
-                    nn.Linear(c_in, fc_cfg[k], bias=False),
-                    nn.BatchNorm1d(fc_cfg[k]),
-                    nn.GELU(),
+                    nn.Linear(c_in, channel, bias=False),
+                    nn.BatchNorm1d(channel),
                 ]
             )
-            c_in = fc_cfg[k]
+            c_in = channel
         fc_layers.append(nn.Linear(c_in, output_channels, bias=True))
-        return nn.Sequential(*fc_layers)
+        return nn.Sequential(*fc_layers[:-2], nn.GELU(), *fc_layers[-2:])
 
     def assign_stack_targets(
         self,

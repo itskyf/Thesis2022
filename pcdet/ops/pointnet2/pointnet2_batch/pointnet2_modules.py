@@ -183,8 +183,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         self.mlps = nn.ModuleList()
 
         out_channels = 0
-        for i in range(len(radii)):
-            radius = radii[i]
+        for i, radius in enumerate(radii):
             nsample = nsamples[i]
             if self.dilated_group:
                 if i == 0:
@@ -214,10 +213,9 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                     [
                         nn.Conv2d(mlp_spec[k], mlp_spec[k + 1], kernel_size=1, bias=False),
                         nn.BatchNorm2d(mlp_spec[k + 1]),
-                        nn.GELU(),
                     ]
                 )
-            self.mlps.append(nn.Sequential(*shared_mlps))
+            self.mlps.append(nn.Sequential(*shared_mlps[:-2], nn.GELU(), *shared_mlps[-2:]))
             out_channels += mlp_spec[-1]
 
         self.pool_method = pool_method
