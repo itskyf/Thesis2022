@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Optional, Tuple
 
 import torch
 from torch import nn
@@ -246,17 +246,20 @@ ball_query = BallQuery.apply
 
 
 class QueryAndGroup(nn.Module):
-    def __init__(self, radius: float, nsample: int, use_xyz: bool = True):
+    def __init__(self, radius: float, nsample: int, normalize_dp: bool, use_xyz: bool):
         """
         :param radius: float, radius of ball
         :param nsample: int, maximum number of features to gather in the ball
         :param use_xyz:
         """
         super().__init__()
-        self.radius, self.nsample, self.use_xyz = radius, nsample, use_xyz
+        self.radius = radius
+        self.nsample = nsample
+        self.normalize_dp = normalize_dp
+        self.use_xyz = use_xyz
 
     def forward(
-        self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: torch.Tensor = None
+        self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: Optional[torch.Tensor] = None
     ) -> Tuple[torch.Tensor]:
         """
         :param xyz: (B, N, 3) xyz coordinates of the features
@@ -267,17 +270,20 @@ class QueryAndGroup(nn.Module):
         """
         idx = ball_query(self.radius, self.nsample, xyz, new_xyz)
         xyz_trans = xyz.transpose(1, 2).contiguous()
+
         grouped_xyz = grouping_operation(xyz_trans, idx)  # (B, 3, npoint, nsample)
         grouped_xyz -= new_xyz.transpose(1, 2).unsqueeze(-1)
+        if self.normalize_dp:
+            grouped_xyz /= self.radius
 
         if features is not None:
             grouped_features = grouping_operation(features, idx)
-            if self.use_xyz:
-                new_features = torch.cat(
-                    [grouped_xyz, grouped_features], dim=1
-                )  # (B, C + 3, npoint, nsample)
-            else:
-                new_features = grouped_features
+            new_features = (
+                # (B, C + 3, npoint, nsample)
+                torch.cat([grouped_xyz, grouped_features], dim=1)
+                if self.use_xyz
+                else grouped_features
+            )
         else:
             assert self.use_xyz, "Cannot have not features and not use xyz as a feature!"
             new_features = grouped_xyz

@@ -109,7 +109,6 @@ class PointnetSAModuleMSG(_PointnetSAModuleBase):
         :param pool_method: max_pool / avg_pool
         """
         super().__init__()
-
         assert len(radii) == len(nsamples) == len(mlps)
 
         self.npoint = npoint
@@ -186,10 +185,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         for i, radius in enumerate(radii):
             nsample = nsamples[i]
             if self.dilated_group:
-                if i == 0:
-                    min_radius = 0.0
-                else:
-                    min_radius = radii[i - 1]
+                min_radius = 0.0 if i == 0 else radii[i - 1]
                 self.groupers.append(
                     pointnet2_utils.QueryDilatedAndGroup(
                         radius, min_radius, nsample, use_xyz=use_xyz
@@ -199,7 +195,9 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
                 )
             else:
                 self.groupers.append(
-                    pointnet2_utils.QueryAndGroup(radius, nsample, use_xyz=use_xyz)
+                    pointnet2_utils.QueryAndGroup(
+                        radius, nsample, use_xyz=use_xyz, normalize_dp=True  # TODO config
+                    )
                     if npoint_list is not None
                     else pointnet2_utils.GroupAll(use_xyz)
                 )
@@ -209,12 +207,10 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
 
             shared_mlps = []
             for k in range(len(mlp_spec) - 1):
-                shared_mlps.extend(
-                    [
-                        nn.Conv2d(mlp_spec[k], mlp_spec[k + 1], kernel_size=1, bias=False),
-                        nn.BatchNorm2d(mlp_spec[k + 1]),
-                    ]
+                shared_mlps.append(
+                    nn.Conv2d(mlp_spec[k], mlp_spec[k + 1], kernel_size=1, bias=False)
                 )
+                shared_mlps.append(nn.BatchNorm2d(mlp_spec[k + 1]))
             self.mlps.append(nn.Sequential(*shared_mlps[:-2], nn.GELU(), *shared_mlps[-2:]))
             out_channels += mlp_spec[-1]
 
