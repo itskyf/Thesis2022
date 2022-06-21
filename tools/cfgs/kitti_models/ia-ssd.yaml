@@ -46,7 +46,7 @@ MODEL:
 
       LAYER_TYPE:
         [
-          SA_Layer, SA_Layer, SA_Layer, SA_Layer, Vote_Layer, SA_Layer
+          SALayer, SALayer, SALayer, SALayer, VoteLayer, SALayer
         ]
       DILATED_GROUP: [false, false, false, false, false, false]
       AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512]]

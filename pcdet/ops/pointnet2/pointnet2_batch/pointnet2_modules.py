@@ -216,32 +216,28 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
 
         self.pool_method = pool_method
 
+        self.aggregation_layer = None
         if (aggregation_mlp is not None) and (len(aggregation_mlp) != 0) and (len(self.mlps) > 0):
             shared_mlp = []
             for aggregation_c in aggregation_mlp:
                 shared_mlp.append(nn.Conv1d(out_channels, aggregation_c, kernel_size=1, bias=False))
                 shared_mlp.append(nn.BatchNorm1d(aggregation_c))
                 shared_mlp.append(nn.GELU())
-
                 out_channels = aggregation_c
             self.aggregation_layer = nn.Sequential(*shared_mlp)
-        else:
-            self.aggregation_layer = None
 
+        self.confidence_layers = None
         if (confidence_mlp is not None) and (len(confidence_mlp) != 0):
             shared_mlp = []
             for confidence_c in confidence_mlp:
                 shared_mlp.append(nn.Conv1d(out_channels, confidence_c, kernel_size=1, bias=False))
                 shared_mlp.append(nn.BatchNorm1d(confidence_c))
                 shared_mlp.append(nn.GELU())
-
                 out_channels = confidence_c
-            shared_mlp.append(
+            self.confidence_layers = nn.Sequential(
+                *shared_mlp,
                 nn.Conv1d(out_channels, num_class, kernel_size=1, bias=True),
             )
-            self.confidence_layers = nn.Sequential(*shared_mlp)
-        else:
-            self.confidence_layers = None
 
     def forward(
         self,
@@ -274,7 +270,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
 
                 if npoint <= 0:
                     continue
-                if sample_range == -1:  # 全部
+                if sample_range == -1:
                     xyz_tmp = xyz[:, last_sample_end_index:, :]
                     feature_tmp = features.transpose(1, 2)[:, last_sample_end_index:, :]
                     feature_tmp = feature_tmp.contiguous()
@@ -425,7 +421,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         return new_xyz, new_features, cls_features
 
 
-class Vote_layer(nn.Module):
+class VoteLayer(nn.Module):
     """Light voting module with limitation"""
 
     def __init__(self, mlp_list, pre_channel, max_translate_range):

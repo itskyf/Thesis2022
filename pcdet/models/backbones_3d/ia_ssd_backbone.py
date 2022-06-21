@@ -26,6 +26,7 @@ class IASSD_Backbone(nn.Module):
         self.confidence_mlps = sa_config.get("CONFIDENCE_MLPS", None)
         self.max_translate_range = sa_config.get("MAX_TRANSLATE_RANGE", None)
 
+        channel_out = None
         for k, nsamples in enumerate(sa_config.NSAMPLE_LIST):
             channel_in = (
                 channel_out_list[self.layer_inputs[k][-1]]
@@ -33,28 +34,23 @@ class IASSD_Backbone(nn.Module):
                 else channel_out_list[self.layer_inputs[k]]
             )
 
-            if self.layer_types[k] == "SA_Layer":
+            if self.layer_types[k] == "SALayer":
                 mlps = sa_config.MLPS[k].copy()
                 channel_out = 0
                 for idx in range(len(mlps)):
                     mlps[idx] = [channel_in] + mlps[idx]
                     channel_out += mlps[idx][-1]
 
-                if self.aggregation_mlps and self.aggregation_mlps[k]:
+                aggregation_mlp = None
+                if self.aggregation_mlps and len(self.aggregation_mlps[k]) > 0:
                     aggregation_mlp = self.aggregation_mlps[k].copy()
-                    if len(aggregation_mlp) == 0:
-                        aggregation_mlp = None
-                    else:
-                        channel_out = aggregation_mlp[-1]
-                else:
-                    aggregation_mlp = None
+                    channel_out = aggregation_mlp[-1]
 
-                if self.confidence_mlps and self.confidence_mlps[k]:
-                    confidence_mlp = self.confidence_mlps[k].copy()
-                    if len(confidence_mlp) == 0:
-                        confidence_mlp = None
-                else:
-                    confidence_mlp = None
+                confidence_mlp = (
+                    self.confidence_mlps[k].copy()
+                    if self.confidence_mlps and len(self.confidence_mlps[k]) > 0
+                    else None
+                )
 
                 self.sa_modules.append(
                     pointnet2_modules.PointnetSAModuleMSG_WithSampling(
@@ -71,10 +67,9 @@ class IASSD_Backbone(nn.Module):
                         num_class=self.num_class,
                     )
                 )
-
-            elif self.layer_types[k] == "Vote_Layer":
+            elif self.layer_types[k] == "VoteLayer":
                 self.sa_modules.append(
-                    pointnet2_modules.Vote_layer(
+                    pointnet2_modules.VoteLayer(
                         mlp_list=sa_config.MLPS[k],
                         pre_channel=channel_out_list[self.layer_inputs[k]],
                         max_translate_range=self.max_translate_range,
@@ -85,7 +80,7 @@ class IASSD_Backbone(nn.Module):
 
         self.num_point_features = channel_out
 
-    def break_up_pc(self, pc):
+    def split_xyz(self, pc):
         batch_idx = pc[:, 0]
         xyz = pc[:, 1:4].contiguous()
         features = pc[:, 4:].contiguous() if pc.size(-1) > 4 else None
@@ -102,19 +97,16 @@ class IASSD_Backbone(nn.Module):
         """
         batch_size = batch_dict["batch_size"]
         points = batch_dict["points"]
-        batch_idx, xyz, features = self.break_up_pc(points)
+        batch_idx, xyz, features = self.split_xyz(points)
 
-        xyz_batch_cnt = xyz.new_zeros(batch_size).int()
+        xyz_batch_cnt = xyz.new_zeros(batch_size, dtype=torch.int)
         for bs_idx in range(batch_size):
-            xyz_batch_cnt[bs_idx] = (batch_idx == bs_idx).sum()
+            xyz_batch_cnt[bs_idx] = torch.sum(batch_idx == bs_idx)
 
-        assert xyz_batch_cnt.min() == xyz_batch_cnt.max()
+        assert torch.min(xyz_batch_cnt) == torch.max(xyz_batch_cnt)
         xyz = xyz.view(batch_size, -1, 3)
-        features = (
-            features.view(batch_size, -1, features.shape[-1]).permute(0, 2, 1).contiguous()
-            if features is not None
-            else None
-        )  ###
+        if features is not None:
+            features = features.view(batch_size, -1, features.size(-1)).transpose(1, 2).contiguous()
 
         encoder_xyz, encoder_features, sa_ins_preds = [xyz], [features], []
         encoder_coords = [torch.cat([batch_idx.view(batch_size, -1, 1), xyz], dim=-1)]
@@ -124,19 +116,17 @@ class IASSD_Backbone(nn.Module):
             xyz_input = encoder_xyz[self.layer_inputs[i]]
             feature_input = encoder_features[self.layer_inputs[i]]
 
-            if self.layer_types[i] == "SA_Layer":
+            if self.layer_types[i] == "SALayer":
                 ctr_xyz = encoder_xyz[self.ctr_idx_list[i]] if self.ctr_idx_list[i] != -1 else None
                 li_xyz, li_features, li_cls_pred = sa_module(
                     xyz_input, feature_input, li_cls_pred, ctr_xyz=ctr_xyz
                 )
-
-            elif self.layer_types[i] == "Vote_Layer":  # i=4
+            elif self.layer_types[i] == "VoteLayer":  # i=4
                 li_xyz, li_features, xyz_select, ctr_offsets = sa_module(xyz_input, feature_input)
                 centers = li_xyz
                 centers_origin = xyz_select
-                center_origin_batch_idx = batch_idx.view(batch_size, -1)[
-                    :, : centers_origin.shape[1]
-                ]
+                center_origin_batch_idx = batch_idx.view(batch_size, -1)
+                center_origin_batch_idx = center_origin_batch_idx[:, : centers_origin.size(1)]
                 encoder_coords.append(
                     torch.cat(
                         [
@@ -148,18 +138,18 @@ class IASSD_Backbone(nn.Module):
                 )
 
             encoder_xyz.append(li_xyz)
-            li_batch_idx = batch_idx.view(batch_size, -1)[:, : li_xyz.shape[1]]
+            li_batch_idx = batch_idx.view(batch_size, -1)[:, : li_xyz.size(1)]
             encoder_coords.append(
                 torch.cat([li_batch_idx[..., None].float(), li_xyz.view(batch_size, -1, 3)], dim=-1)
             )
             encoder_features.append(li_features)
             if li_cls_pred is not None:
-                li_cls_batch_idx = batch_idx.view(batch_size, -1)[:, : li_cls_pred.shape[1]]
+                li_cls_batch_idx = batch_idx.view(batch_size, -1)[:, : li_cls_pred.size(1)]
                 sa_ins_preds.append(
                     torch.cat(
                         [
                             li_cls_batch_idx[..., None].float(),
-                            li_cls_pred.view(batch_size, -1, li_cls_pred.shape[-1]),
+                            li_cls_pred.view(batch_size, -1, li_cls_pred.size(-1)),
                         ],
                         dim=-1,
                     )
@@ -167,8 +157,8 @@ class IASSD_Backbone(nn.Module):
             else:
                 sa_ins_preds.append([])
 
-        ctr_batch_idx = batch_idx.view(batch_size, -1)[:, : li_xyz.shape[1]]
-        ctr_batch_idx = ctr_batch_idx.contiguous().view(-1)
+        ctr_batch_idx = batch_idx.view(batch_size, -1)[:, : li_xyz.size(1)]
+        ctr_batch_idx = ctr_batch_idx.flatten()
         batch_dict["ctr_offsets"] = torch.cat(
             (ctr_batch_idx[:, None].float(), ctr_offsets.reshape(-1, 3)), dim=1
         )
@@ -181,7 +171,7 @@ class IASSD_Backbone(nn.Module):
         )
 
         center_features = (
-            encoder_features[-1].permute(0, 2, 1).reshape(-1, encoder_features[-1].shape[1])
+            encoder_features[-1].permute(0, 2, 1).reshape(-1, encoder_features[-1].size(1))
         )
         batch_dict["centers_features"] = center_features
         batch_dict["ctr_batch_idx"] = ctr_batch_idx
