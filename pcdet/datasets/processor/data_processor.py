@@ -74,7 +74,14 @@ class VoxelGeneratorWrapper:
 
 
 class DataProcessor:
-    def __init__(self, processor_configs, point_cloud_range, training, num_point_features):
+    def __init__(
+        self,
+        processor_configs,
+        point_cloud_range,
+        training,
+        num_point_features,
+        rng: np.random.Generator,
+    ):
         self.point_cloud_range = point_cloud_range
         self.training = training
         self.num_point_features = num_point_features
@@ -83,6 +90,7 @@ class DataProcessor:
         self.data_processor_queue = []
 
         self.voxel_generator = None
+        self._rng = rng
 
         for cur_cfg in processor_configs:
             cur_processor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
@@ -115,7 +123,7 @@ class DataProcessor:
 
         if config.SHUFFLE_ENABLED[self.mode]:
             points = data_dict["points"]
-            shuffle_idx = np.random.permutation(points.shape[0])
+            shuffle_idx = self._rng.permutation(points.shape[0])
             points = points[shuffle_idx]
             data_dict["points"] = points
 
@@ -181,24 +189,26 @@ class DataProcessor:
             near_idxs = np.where(pts_near_flag == 1)[0]
             choice = []
             if num_points > len(far_idxs_choice):
-                near_idxs_choice = np.random.choice(
-                    near_idxs, num_points - len(far_idxs_choice), replace=False
+                near_idxs_choice = self._rng.choice(
+                    near_idxs, size=num_points - len(far_idxs_choice), replace=False
                 )
                 choice = (
-                    np.concatenate((near_idxs_choice, far_idxs_choice), axis=0)
+                    np.concatenate([near_idxs_choice, far_idxs_choice])
                     if len(far_idxs_choice) > 0
                     else near_idxs_choice
                 )
             else:
-                choice = np.arange(0, len(points), dtype=np.int32)
-                choice = np.random.choice(choice, num_points, replace=False)
-            np.random.shuffle(choice)
+                choice = np.arange(len(points), dtype=np.int32)
+                choice = self._rng.choice(choice, size=num_points, replace=False)
+            self._rng.shuffle(choice)
         else:
-            choice = np.arange(0, len(points), dtype=np.int32)
+            choice = np.arange(len(points), dtype=np.int32)
             if num_points > len(points):
-                extra_choice = np.random.choice(choice, num_points - len(points), replace=False)
-                choice = np.concatenate((choice, extra_choice), axis=0)
-            np.random.shuffle(choice)
+                extra_choice = self._rng.choice(
+                    choice, size=num_points - len(points), replace=False
+                )
+                choice = np.concatenate([choice, extra_choice])
+            self._rng.shuffle(choice)
         data_dict["points"] = points[choice]
         return data_dict
 

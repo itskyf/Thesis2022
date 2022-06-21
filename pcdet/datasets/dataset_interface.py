@@ -15,6 +15,7 @@ from .processor.point_feature_encoder import PointFeatureEncoder
 class DatasetTemplate(abc.ABC, Dataset):
     def __init__(self, dataset_cfg, class_names: List[str], training: bool, logger=None):
         super().__init__()
+        self._rng = np.random.default_rng()
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.class_names = class_names
@@ -40,6 +41,7 @@ class DatasetTemplate(abc.ABC, Dataset):
             point_cloud_range=self.point_cloud_range,
             training=self.training,
             num_point_features=self.point_feature_encoder.num_point_features,
+            rng=self._rng,
         )
 
         self.grid_size = self.data_processor.grid_size
@@ -141,8 +143,8 @@ class DatasetTemplate(abc.ABC, Dataset):
         data_dict = self.data_processor.forward(data_dict=data_dict)
 
         if self.training and len(data_dict["gt_boxes"]) == 0:
-            new_index = np.random.randint(len(self))
-            return self[new_index]
+            new_idx = self._rng.integers(len(self))
+            return self[new_idx]
 
         data_dict.pop("gt_names", None)
         return data_dict
