@@ -1,7 +1,5 @@
 from .detector3d_template import Detector3DTemplate
 import torch
-from ..model_utils import model_nms_utils
-# from ...ops.iou3d_nms import iou3d_nms_utils
 
 
 class IASSD(Detector3DTemplate):
@@ -21,7 +19,7 @@ class IASSD(Detector3DTemplate):
         if self.model_cfg.POST_PROCESSING.get('IOU_SUPRESS', False) == False:
             pred_dicts, recall_dicts = self.post_processing(batch_dict)
         else:
-            pred_dicts, recall_dicts = self.post_processing_iou(batch_dict)
+            pred_dicts, recall_dict = self.post_processing_iou(batch_dict)
         return pred_dicts, recall_dicts
 
     def get_training_loss(self):
@@ -64,7 +62,7 @@ class IASSD(Detector3DTemplate):
 
             box_preds = batch_dict["batch_box_preds"][batch_mask]
             box_iou3d_preds = batch_dict["box_iou3d_preds"][batch_mask]
-            box_iou3d_preds = torch.sigmoid(box_iou3d_preds).view(-1)
+            box_iou3d_preds = torch.sigmoid(box_iou3d_preds)
             src_box_preds = box_preds
 
             if not isinstance(batch_dict["batch_cls_preds"], list):
