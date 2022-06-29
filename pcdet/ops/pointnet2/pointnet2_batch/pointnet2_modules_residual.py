@@ -5,7 +5,85 @@ from torch import nn
 from torch.nn import functional
 
 from . import pointnet2_utils
-from ..residual_mlp import ResPBlock1D, ResPBlock2D
+from ...residual_mlp import ResPBlock1D, ResPBlock2D
+
+class _PointnetSAModuleBase(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.npoint = None
+        self.groupers = None
+        self.mlps = None
+        self.pool_method = "max_pool"
+
+    def calc_square_dist(self, a, b, norm=True):
+        """
+        Calculating square distance between a and b
+        a: [bs, n, c]
+        b: [bs, m, c]
+        """
+        n = a.shape[1]
+        m = b.shape[1]
+        a_square = a.unsqueeze(dim=2)  # [bs, n, 1, c]
+        b_square = b.unsqueeze(dim=1)  # [bs, 1, m, c]
+        a_square = torch.sum(a_square * a_square, dim=-1)  # [bs, n, 1]
+        b_square = torch.sum(b_square * b_square, dim=-1)  # [bs, 1, m]
+        a_square = a_square.repeat((1, 1, m))  # [bs, n, m]
+        b_square = b_square.repeat((1, n, 1))  # [bs, n, m]
+
+        coor = torch.matmul(a, b.transpose(1, 2))  # [bs, n, m]
+
+        if norm:
+            dist = a_square + b_square - 2.0 * coor  # [bs, npoint, ndataset]
+            # dist = torch.sqrt(dist)
+        else:
+            dist = a_square + b_square - 2 * coor
+            # dist = torch.sqrt(dist)
+        return dist
+
+    def forward(
+        self, xyz: torch.Tensor, features: torch.Tensor = None, new_xyz=None
+    ) -> (torch.Tensor, torch.Tensor):
+        """
+        :param xyz: (B, N, 3) tensor of the xyz coordinates of the features
+        :param features: (B, N, C) tensor of the descriptors of the the features
+        :param new_xyz:
+        :return:
+            new_xyz: (B, npoint, 3) tensor of the new features' xyz
+            new_features: (B, npoint, \sum_k(mlps[k][-1])) tensor of the new_features descriptors
+        """
+        new_features_list = []
+
+        xyz_flipped = xyz.transpose(1, 2).contiguous()
+        if new_xyz is None:
+            new_xyz = (
+                pointnet2_utils.gather_operation(
+                    xyz_flipped, pointnet2_utils.farthest_point_sample(xyz, self.npoint)
+                )
+                .transpose(1, 2)
+                .contiguous()
+                if self.npoint is not None
+                else None
+            )
+
+        for grouper, mlp in zip(self.groupers, self.mlps):
+            new_features = grouper(xyz, new_xyz, features)  # (B, C, npoint, nsample)
+
+            new_features = mlp(new_features)  # (B, mlp[-1], npoint, nsample)
+            if self.pool_method == "max_pool":
+                new_features = functional.max_pool2d(
+                    new_features, kernel_size=[1, new_features.size(3)]
+                )  # (B, mlp[-1], npoint, 1)
+            elif self.pool_method == "avg_pool":
+                new_features = functional.avg_pool2d(
+                    new_features, kernel_size=[1, new_features.size(3)]
+                )  # (B, mlp[-1], npoint, 1)
+            else:
+                raise NotImplementedError
+
+            new_features = new_features.squeeze(-1)  # (B, mlp[-1], npoint)
+            new_features_list.append(new_features)
+
+        return new_xyz, torch.cat(new_features_list, dim=1)
 
 
 class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
