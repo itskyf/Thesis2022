@@ -44,12 +44,14 @@ MODEL:
           [[256, 256, 512], [256, 512, 1024]],
         ]
 
+      RESIDUAL_BLOCKS_2D: [[1, 1], [1, 1], [1, 1], [], [], [1, 1]]
       LAYER_TYPE:
         [
           SALayer, SALayer, SALayer, SALayer, VoteLayer, SALayer
         ]
       DILATED_GROUP: [false, false, false, false, false, false]
       AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512]]
+      RESIDUAL_BLOCKS: [1, 1, 1, 1, 1, 1]
       # Instance-aware setting:
       CONFIDENCE_MLPS: [[], [128], [256], [], [], []]
 

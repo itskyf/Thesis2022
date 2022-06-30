@@ -55,14 +55,14 @@ class IASSD_Backbone_Residual(nn.Module):
                 )
 
                 self.sa_modules.append(
-                    pointnet2_modules.PointnetSAModuleMSG_WithSampling(
+                    pointnet2_modules_residual.PointnetSAModuleMSG_WithSampling(
                         npoint_list=sa_config.NPOINT_LIST[k],
                         sample_range_list=sa_config.SAMPLE_RANGE_LIST[k],
                         sample_type_list=sa_config.SAMPLE_METHOD_LIST[k],
                         radii=sa_config.RADIUS_LIST[k],
                         nsamples=nsamples,
                         mlps=mlps,
-                        residual_blocks_2d=self.residual_blocks_2d,
+                        residual_blocks_2d=self.residual_blocks_2d[k],
                         use_xyz=True,
                         dilated_group=sa_config.DILATED_GROUP[k],
                         aggregation_mlp=aggregation_mlp,
@@ -73,7 +73,7 @@ class IASSD_Backbone_Residual(nn.Module):
                 )
             elif self.layer_types[k] == "VoteLayer":
                 self.sa_modules.append(
-                    pointnet2_modules.VoteLayer(
+                    pointnet2_modules_residual.VoteLayer(
                         mlp_list=sa_config.MLPS[k],
                         pre_channel=channel_out_list[self.layer_inputs[k]],
                         max_translate_range=self.max_translate_range,

@@ -173,7 +173,7 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         self.aggregation_layer = None
         if (aggregation_mlp is not None) and (len(aggregation_mlp) != 0) and (len(self.mlps) > 0):
             shared_mlp = []
-            for aggregation_c in aggregation_mlp, residual_blocks:
+            for aggregation_c in aggregation_mlp:
                 shared_mlp.append(nn.Conv1d(out_channels, aggregation_c, kernel_size=1, bias=False))
                 shared_mlp.append(nn.BatchNorm1d(aggregation_c))
                 shared_mlp.append(nn.GELU())
