@@ -979,6 +979,7 @@ class IASSD_Head(PointHeadTemplate):
         # print(self.box_coder.mean_size.requires_grad)
 
         iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
+        iou3d_preds = torch.sigmoid(iou3d_preds)
         iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
 
         assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
