@@ -56,12 +56,14 @@ def eval_one_epoch(
         if local_rank == 0
         else None
     )
-    start_time = time.time()
+    total_time = 0.0
 
-    for _, batch_dict in enumerate(dataloader):
+    for i, batch_dict in enumerate(dataloader):
         load_data_to_gpu(batch_dict)
         with torch.no_grad():
+            start_time = time.time()
             pred_dicts, ret_dict = model(batch_dict)
+            total_time += time.time() - start_time
         disp_dict = {}
 
         statistics_info(cfg, ret_dict, metric, disp_dict)
@@ -84,7 +86,7 @@ def eval_one_epoch(
     det_annos = common_utils.merge_results_dist(det_annos, len(dataset), tmpdir)
     metric = common_utils.merge_results_dist([metric], world_size, tmpdir)
 
-    sec_per_example = (time.time() - start_time) / len(dataset)
+    sec_per_example = total_time / len(dataset)
     logger.info("Generate label finished(sec_per_example: %.4f second).", sec_per_example)
 
     if local_rank != 0:

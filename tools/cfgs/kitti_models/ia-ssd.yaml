@@ -52,7 +52,7 @@ MODEL:
 
     POINT_HEAD:
         NAME: IASSD_Head
-        # IOU_FC: [256, 256]
+        IOU_FC: [256, 256]
         CLS_FC: [256, 256]
         REG_FC: [256, 256]
         CLASS_AGNOSTIC: False
@@ -80,27 +80,25 @@ MODEL:
 
         LOSS_CONFIG:
             # Ref: 'WeightedBinaryCrossEntropy', 'WeightedCrossEntropy', 'FocalLoss'
-            LOSS_CLS: VarifocalLoss
+            LOSS_CLS: WeightedCrossEntropy
             LOSS_REG: WeightedSmoothL1Loss
             LOSS_INS: WeightedCrossEntropy
             SAMPLE_METHOD_LIST: *sample_method_list
             LOSS_VOTE_TYPE: 'none'  #'none', 'ver1', 'ver2', 
-            LOSS_REG_TYPE: 'none' #'iou'
 
             CORNER_LOSS_REGULARIZATION: True
             CENTERNESS_REGULARIZATION: True
             CENTERNESS_REGULARIZATION_SA: True
-            # IOU3D_REGULARIZATION: True
+            IOU3D_REGULARIZATION: True
             LOSS_WEIGHTS: {
                 'ins_aware_weight': [0, 1.0, 1.0],
                 'vote_weight': 1.0,
                 'point_cls_weight': 1.0,
-                'point_box_weight': 2.0,
+                'point_box_weight': 1.0,
                 'corner_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
                 'dir_weight': 0.2,
-                # 'iou3d_reg_weight': 0.5
-                # 'iou3d_weight': 1.0
+                'iou3d_weight': 1.0
             }
 
 
@@ -109,12 +107,12 @@ MODEL:
         RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
         SCORE_THRESH: 0.1
         OUTPUT_RAW_SCORE: False
-        # IOU_SUPRESS: True
+        IOU_SUPRESS: True
 
         EVAL_METRIC: kitti
 
         NMS_CONFIG:
-            # ALPHA: 0.75
+            ALPHA: 0.75
             MULTI_CLASSES_NMS: False
             NMS_TYPE: nms_gpu
             NMS_THRESH: 0.01
@@ -124,7 +122,7 @@ MODEL:
 
 OPTIMIZATION:
     BATCH_SIZE_PER_GPU: 8
-    NUM_EPOCHS: 80
+    NUM_EPOCHS: 120
 
     OPTIMIZER: adam_onecycle
     LR: 0.01
