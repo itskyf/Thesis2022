@@ -979,20 +979,22 @@ class IASSD_Head(PointHeadTemplate):
         # print(self.box_coder.mean_size.requires_grad)
 
         iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
-        iou3d_preds = torch.sigmoid(iou3d_preds)
+        iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
         iou3d_targets = iou3d_preds.new_zeros(iou3d_preds.size(), requires_grad=False)
 
         assert pred_boxes.shape[0] == pred_centers.shape[0] == gt_cls.shape[0] == gt_boxes.shape[0]
         if gt_cls.shape[0]:
             decode_pred_boxes = self.box_coder.decode_torch(pred_boxes, pred_centers, gt_cls)
 
-            iou3d_targets[pos_mask] = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
+            iou3d_targets = boxes_iou3d_gpu(decode_pred_boxes[:, 0:7], gt_boxes[:, 0:7]).diagonal()
 
             # iou3d_preds = self.forward_ret_dict["box_iou3d_preds"].squeeze(-1)
             # iou3d_preds = torch.sigmoid(iou3d_preds[pos_mask])
 
         # loss_iou3d = functional.smooth_l1_loss(iou3d_preds, iou3d_targets)
-        loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
+            loss_iou3d = functional.binary_cross_entropy(iou3d_preds, iou3d_targets) * self.model_cfg.LOSS_CONFIG.LOSS_WEIGHTS["iou3d_weight"]
+        else:
+            loss_iou3d = None
         
         # loss_iou3d = loss_iou3d 
         if tb_dict is None:
@@ -1000,7 +1002,7 @@ class IASSD_Head(PointHeadTemplate):
         if loss_iou3d != None:
             tb_dict.update({"iou3d_loss_reg": loss_iou3d.item()})
         else:
-            tb_dict.update({'iou3d_loss_reg': None})
+            tb_dict.update({'iou3d_loss_reg': 0.0})
         return loss_iou3d, tb_dict
 
     def forward(self, batch_dict):
