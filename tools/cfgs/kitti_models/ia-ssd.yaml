@@ -98,7 +98,7 @@ MODEL:
                 'corner_weight': 1.0,
                 'code_weights': [1.0, 1.0, 1.0, 1.0, 1.0, 1.0],
                 'dir_weight': 0.2,
-                'iou3d_weight': 1.0
+                'iou3d_weight': 0.5
             }
 
 
