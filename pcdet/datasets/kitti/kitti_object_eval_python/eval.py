@@ -630,6 +630,19 @@ def do_eval(
         PR_detail_dict["3d"] = ret["precision"]
     return mAP_bbox, mAP_bev, mAP_3d, mAP_aos, mAP_bbox_R40, mAP_bev_R40, mAP_3d_R40, mAP_aos_R40
 
+def draw_pr_curve(gt_annos, dt_annos, current_classes, min_overlaps):
+    difficultys = [0, 1, 2]
+    ret = eval_class(gt_annos, dt_annos, current_classes, difficultys, 2, min_overlaps)
+    dict_diff = {0:"Easy", 1:"Moderate", 2:"Hard"}
+    dict_cls = {0:"Car", 1:"Pedestrian", 2:"Cyclist"}
+
+    for m, current_class in enumerate(current_classes):
+        plt.figure()
+        for l, difficulty in enumerate(difficultys):
+            plt.plot(x=ret["recall"][m, l, 0, :], y=ret["precision"][m, l, 0, :], label=dict_diff[difficulty])
+        plt.legend()
+        plt.title(label=dict_cls[current_class])
+        plt.savefig("/workspace/images"+dict_cls[current_class]+".png")
 
 def do_coco_style_eval(gt_annos, dt_annos, current_classes, overlap_ranges, compute_aos):
     # overlap_ranges: [range, metric, num_class]
@@ -808,6 +821,7 @@ def get_official_eval_result(gt_annos, dt_annos, current_classes, PR_detail_dict
                 ret_dict["%s_image/moderate_R40" % class_to_name[curcls]] = mAPbbox_R40[j, 1, 0]
                 ret_dict["%s_image/hard_R40" % class_to_name[curcls]] = mAPbbox_R40[j, 2, 0]
 
+    draw_pr_curve(gt_annos, dt_annos, current_classes, min_overlaps)
     return result, ret_dict
 
 
