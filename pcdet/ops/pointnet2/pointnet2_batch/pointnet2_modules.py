@@ -23,7 +23,7 @@ class PointnetSAModuleMSGSampling(nn.Module):
         pool_method="max_pool",
         aggregation_mlp: List[int],
         confidence_mlp: List[int],
-        num_class
+        num_class: int
     ):
         """
         :param npoint_list: list of int, number of samples for every sampling type
