@@ -289,29 +289,3 @@ class QueryAndGroup(nn.Module):
             new_features = grouped_xyz
 
         return new_features
-
-
-class GroupAll(nn.Module):
-    def __init__(self, use_xyz: bool = True):
-        super().__init__()
-        self.use_xyz = use_xyz
-
-    def forward(self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: torch.Tensor = None):
-        """
-        :param xyz: (B, N, 3) xyz coordinates of the features
-        :param new_xyz: ignored
-        :param features: (B, C, N) descriptors of the features
-        :return:
-            new_features: (B, C + 3, 1, N)
-        """
-        grouped_xyz = xyz.transpose(1, 2).unsqueeze(2)
-        if features is not None:
-            grouped_features = features.unsqueeze(2)
-            if self.use_xyz:
-                new_features = torch.cat([grouped_xyz, grouped_features], dim=1)  # (B, 3 + C, 1, N)
-            else:
-                new_features = grouped_features
-        else:
-            new_features = grouped_xyz
-
-        return new_features

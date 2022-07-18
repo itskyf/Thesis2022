@@ -53,7 +53,7 @@ class IASSD_Backbone(nn.Module):
                 )
 
                 self.sa_modules.append(
-                    pointnet2_modules.PointnetSAModuleMSG_WithSampling(
+                    pointnet2_modules.PointnetSAModuleMSGSampling(
                         npoint_list=sa_config.NPOINT_LIST[k],
                         sample_range_list=sa_config.SAMPLE_RANGE_LIST[k],
                         sample_type_list=sa_config.SAMPLE_METHOD_LIST[k],
@@ -61,7 +61,6 @@ class IASSD_Backbone(nn.Module):
                         nsamples=nsamples,
                         mlps=mlps,
                         use_xyz=True,
-                        dilated_group=sa_config.DILATED_GROUP[k],
                         aggregation_mlp=aggregation_mlp,
                         confidence_mlp=confidence_mlp,
                         num_class=self.num_class,

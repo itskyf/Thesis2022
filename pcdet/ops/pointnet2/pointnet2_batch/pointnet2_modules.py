@@ -7,137 +7,7 @@ from torch.nn import functional
 from . import pointnet2_utils
 
 
-class _PointnetSAModuleBase(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.npoint = None
-        self.groupers = None
-        self.mlps = None
-        self.pool_method = "max_pool"
-
-    def calc_square_dist(self, a, b, norm=True):
-        """
-        Calculating square distance between a and b
-        a: [bs, n, c]
-        b: [bs, m, c]
-        """
-        n = a.shape[1]
-        m = b.shape[1]
-        a_square = a.unsqueeze(dim=2)  # [bs, n, 1, c]
-        b_square = b.unsqueeze(dim=1)  # [bs, 1, m, c]
-        a_square = torch.sum(a_square * a_square, dim=-1)  # [bs, n, 1]
-        b_square = torch.sum(b_square * b_square, dim=-1)  # [bs, 1, m]
-        a_square = a_square.repeat((1, 1, m))  # [bs, n, m]
-        b_square = b_square.repeat((1, n, 1))  # [bs, n, m]
-
-        coor = torch.matmul(a, b.transpose(1, 2))  # [bs, n, m]
-
-        if norm:
-            dist = a_square + b_square - 2.0 * coor  # [bs, npoint, ndataset]
-            # dist = torch.sqrt(dist)
-        else:
-            dist = a_square + b_square - 2 * coor
-            # dist = torch.sqrt(dist)
-        return dist
-
-    def forward(
-        self, xyz: torch.Tensor, features: torch.Tensor = None, new_xyz=None
-    ) -> (torch.Tensor, torch.Tensor):
-        """
-        :param xyz: (B, N, 3) tensor of the xyz coordinates of the features
-        :param features: (B, N, C) tensor of the descriptors of the the features
-        :param new_xyz:
-        :return:
-            new_xyz: (B, npoint, 3) tensor of the new features' xyz
-            new_features: (B, npoint, \sum_k(mlps[k][-1])) tensor of the new_features descriptors
-        """
-        new_features_list = []
-
-        xyz_flipped = xyz.transpose(1, 2).contiguous()
-        if new_xyz is None:
-            new_xyz = (
-                pointnet2_utils.gather_operation(
-                    xyz_flipped, pointnet2_utils.farthest_point_sample(xyz, self.npoint)
-                )
-                .transpose(1, 2)
-                .contiguous()
-                if self.npoint is not None
-                else None
-            )
-
-        for grouper, mlp in zip(self.groupers, self.mlps):
-            new_features = grouper(xyz, new_xyz, features)  # (B, C, npoint, nsample)
-
-            new_features = mlp(new_features)  # (B, mlp[-1], npoint, nsample)
-            if self.pool_method == "max_pool":
-                new_features = functional.max_pool2d(
-                    new_features, kernel_size=[1, new_features.size(3)]
-                )  # (B, mlp[-1], npoint, 1)
-            elif self.pool_method == "avg_pool":
-                new_features = functional.avg_pool2d(
-                    new_features, kernel_size=[1, new_features.size(3)]
-                )  # (B, mlp[-1], npoint, 1)
-            else:
-                raise NotImplementedError
-
-            new_features = new_features.squeeze(-1)  # (B, mlp[-1], npoint)
-            new_features_list.append(new_features)
-
-        return new_xyz, torch.cat(new_features_list, dim=1)
-
-
-class PointnetSAModuleMSG(_PointnetSAModuleBase):
-    """Pointnet set abstraction layer with multiscale grouping"""
-
-    def __init__(
-        self,
-        *,
-        npoint: int,
-        radii: List[float],
-        nsamples: List[int],
-        mlps: List[List[int]],
-        use_xyz: bool = True,
-        pool_method="max_pool"
-    ):
-        """
-        :param npoint: int
-        :param radii: list of float, list of radii to group with
-        :param nsamples: list of int, number of samples in each ball query
-        :param mlps: list of list of int, spec of the pointnet before the global pooling for each scale
-        :param bn: whether to use batchnorm
-        :param use_xyz:
-        :param pool_method: max_pool / avg_pool
-        """
-        super().__init__()
-        assert len(radii) == len(nsamples) == len(mlps)
-
-        self.npoint = npoint
-        self.groupers = nn.ModuleList()
-        self.mlps = nn.ModuleList()
-        for radius, nsample, mlp in zip(radii, nsamples, mlps):
-            self.groupers.append(
-                pointnet2_utils.QueryAndGroup(radius, nsample, use_xyz=use_xyz)
-                if npoint is not None
-                else pointnet2_utils.GroupAll(use_xyz)
-            )
-            if use_xyz:
-                mlp[0] += 3
-
-            shared_mlps = []
-            for k in range(len(mlp) - 1):
-                shared_mlps.extend(
-                    [
-                        nn.Conv2d(mlp[k], mlp[k + 1], kernel_size=1, bias=False),
-                        nn.BatchNorm2d(mlp[k + 1]),
-                        nn.ReLU(),
-                    ]
-                )
-            self.mlps.append(nn.Sequential(*shared_mlps))
-
-        self.pool_method = pool_method
-
-
-class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
+class PointnetSAModuleMSGSampling(nn.Module):
     """Pointnet set abstraction layer with specific downsampling and multiscale grouping"""
 
     def __init__(
@@ -150,7 +20,6 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         nsamples: List[int],
         mlps: List[List[int]],
         use_xyz: bool = True,
-        dilated_group=False,
         pool_method="max_pool",
         aggregation_mlp: List[int],
         confidence_mlp: List[int],
@@ -165,7 +34,6 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         :param mlps: list of list of int, spec of the pointnet before the global pooling for each scale
         :param use_xyz:
         :param pool_method: max_pool / avg_pool
-        :param dilated_group: whether to use dilated group
         :param aggregation_mlp: list of int, spec aggregation mlp
         :param confidence_mlp: list of int, spec confidence mlp
         :param num_class: int, class for process
@@ -173,8 +41,6 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         super().__init__()
         self.sample_type_list = sample_type_list
         self.sample_range_list = sample_range_list
-        self.dilated_group = dilated_group
-
         assert len(radii) == len(nsamples) == len(mlps)
 
         self.npoint_list = npoint_list
@@ -184,23 +50,11 @@ class PointnetSAModuleMSG_WithSampling(_PointnetSAModuleBase):
         out_channels = 0
         for i, radius in enumerate(radii):
             nsample = nsamples[i]
-            if self.dilated_group:
-                min_radius = 0.0 if i == 0 else radii[i - 1]
-                self.groupers.append(
-                    pointnet2_utils.QueryDilatedAndGroup(
-                        radius, min_radius, nsample, use_xyz=use_xyz
-                    )
-                    if npoint_list is not None
-                    else pointnet2_utils.GroupAll(use_xyz)
+            self.groupers.append(
+                pointnet2_utils.QueryAndGroup(
+                    radius, nsample, use_xyz=use_xyz, normalize_dp=True  # TODO config
                 )
-            else:
-                self.groupers.append(
-                    pointnet2_utils.QueryAndGroup(
-                        radius, nsample, use_xyz=use_xyz, normalize_dp=True  # TODO config
-                    )
-                    if npoint_list is not None
-                    else pointnet2_utils.GroupAll(use_xyz)
-                )
+            )
             mlp_spec = mlps[i]
             if use_xyz:
                 mlp_spec[0] += 3
@@ -483,98 +337,3 @@ class VoteLayer(nn.Module):
             vote_xyz = xyz_select + ctr_offsets
 
         return vote_xyz, new_features, xyz_select, ctr_offsets
-
-
-class PointnetSAModule(PointnetSAModuleMSG):
-    """Pointnet set abstraction layer"""
-
-    def __init__(
-        self,
-        *,
-        mlp: List[int],
-        npoint: int = None,
-        radius: float = None,
-        nsample: int = None,
-        bn: bool = True,
-        use_xyz: bool = True,
-        pool_method="max_pool"
-    ):
-        """
-        :param mlp: list of int, spec of the pointnet before the global max_pool
-        :param npoint: int, number of features
-        :param radius: float, radius of ball
-        :param nsample: int, number of samples in the ball query
-        :param bn: whether to use batchnorm
-        :param use_xyz:
-        :param pool_method: max_pool / avg_pool
-        """
-        super().__init__(
-            mlps=[mlp],
-            npoint=npoint,
-            radii=[radius],
-            nsamples=[nsample],
-            bn=bn,
-            use_xyz=use_xyz,
-            pool_method=pool_method,
-        )
-
-
-class PointnetFPModule(nn.Module):
-    r"""Propigates the features of one set to another"""
-
-    def __init__(self, *, mlp: List[int], bn: bool = True):
-        """
-        :param mlp: list of int
-        :param bn: whether to use batchnorm
-        """
-        super().__init__()
-
-        shared_mlps = []
-        for k in range(len(mlp) - 1):
-            shared_mlps.extend(
-                [
-                    nn.Conv2d(mlp[k], mlp[k + 1], kernel_size=1, bias=False),
-                    nn.BatchNorm2d(mlp[k + 1]),
-                    nn.ReLU(),
-                ]
-            )
-        self.mlp = nn.Sequential(*shared_mlps)
-
-    def forward(
-        self,
-        unknown: torch.Tensor,
-        known: torch.Tensor,
-        unknow_feats: torch.Tensor,
-        known_feats: torch.Tensor,
-    ) -> torch.Tensor:
-        """
-        :param unknown: (B, n, 3) tensor of the xyz positions of the unknown features
-        :param known: (B, m, 3) tensor of the xyz positions of the known features
-        :param unknow_feats: (B, C1, n) tensor of the features to be propigated to
-        :param known_feats: (B, C2, m) tensor of features to be propigated
-        :return:
-            new_features: (B, mlp[-1], n) tensor of the features of the unknown features
-        """
-        if known is not None:
-            dist, idx = pointnet2_utils.three_nn(unknown, known)
-            dist_recip = 1.0 / (dist + 1e-8)
-            norm = torch.sum(dist_recip, dim=2, keepdim=True)
-            weight = dist_recip / norm
-
-            interpolated_feats = pointnet2_utils.three_interpolate(known_feats, idx, weight)
-        else:
-            interpolated_feats = known_feats.expand(*known_feats.size()[0:2], unknown.size(1))
-
-        if unknow_feats is not None:
-            new_features = torch.cat([interpolated_feats, unknow_feats], dim=1)  # (B, C2 + C1, n)
-        else:
-            new_features = interpolated_feats
-
-        new_features = new_features.unsqueeze(-1)
-        new_features = self.mlp(new_features)
-
-        return new_features.squeeze(-1)
-
-
-if __name__ == "__main__":
-    pass
