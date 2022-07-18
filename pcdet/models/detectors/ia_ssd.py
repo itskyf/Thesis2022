@@ -1,7 +1,7 @@
-from .detector3d_template import Detector3DTemplate
+from .detector3d_template import IDetector3D
 
 
-class IASSD(Detector3DTemplate):
+class IASSD(IDetector3D):
     def __init__(self, model_cfg, num_class, dataset):
         super().__init__(model_cfg=model_cfg, num_class=num_class, dataset=dataset)
         self.module_list = self.build_networks()
