@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional
 
 import torch
 from torch import nn
@@ -32,7 +32,7 @@ def masked_gather(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
         # Case: KNN, Ball Query where idx is of shape (N, P', K)
         # where P' is not necessarily the same as P as the
         # points may be gathered from a different pointcloud.
-        K = idx.shape[2]
+        K = idx.size(2)
         # Match dimensions for points and indices
         idx_expanded = idx[..., None].expand(-1, -1, -1, D)
         points = points[:, :, None, :].expand(-1, -1, K, -1)
@@ -55,7 +55,7 @@ def masked_gather(points: torch.Tensor, idx: torch.Tensor) -> torch.Tensor:
 
 class GroupingOperation(Function):
     @staticmethod
-    def forward(ctx, features: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
+    def forward(ctx, features: torch.Tensor, indices: torch.Tensor):
         """
         :param ctx:
         :param features: (B, C, N) tensor of features to group
@@ -83,40 +83,4 @@ class GroupingOperation(Function):
         return grad_features, None
 
 
-grouping_operation = GroupingOperation.apply
-
-
-class QueryAndGroup(nn.Module):
-    def __init__(self, radius: float, nsample: int, normalize_dp: bool):
-        """
-        :param radius: float, radius of ball
-        :param nsample: int, maximum number of features to gather in the ball
-        """
-        super().__init__()
-        self.radius = radius
-        self.nsample = nsample
-        self.normalize_dp = normalize_dp
-
-    def forward(
-        self, xyz: torch.Tensor, new_xyz: torch.Tensor, features: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor]:
-        """
-        :param xyz: (B, N, 3) xyz coordinates of the features
-        :param new_xyz: (B, npoint, 3) centroids
-        :param features: (B, C, N) descriptors of the features
-        :return:
-            new_features: (B, 3 + C, npoint, nsample)
-        """
-        indices = ball_query(self.radius, self.nsample, xyz, new_xyz)
-        xyz_trans = xyz.transpose(1, 2).contiguous()
-
-        grouped_xyz = grouping_operation(xyz_trans, indices)  # (B, 3, K, n_neighbors)
-        grouped_xyz -= new_xyz.transpose(1, 2).unsqueeze(-1)
-        if self.normalize_dp:
-            grouped_xyz /= self.radius
-
-        if features is not None:
-            grouped_features = grouping_operation(features, indices)
-            return grouped_xyz, grouped_xyz
-
-        return new_features, None
+grouping_ops = GroupingOperation.apply
