@@ -4,7 +4,7 @@ from torch import nn
 from ...ops.pointnet2.pointnet2_batch import pointnet2_modules
 
 
-class IASSD_Backbone(nn.Module):
+class IASSDBackbone(nn.Module):
     """Backbone for IA-SSD"""
 
     def __init__(self, model_cfg, num_class, input_channels, **kwargs):

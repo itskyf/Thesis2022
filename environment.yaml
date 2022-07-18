@@ -2,38 +2,31 @@
 name: Thesis
 channels:
   - pytorch
+  - nvidia/label/cuda-11.6.2
   - conda-forge
 dependencies:
-  - pytorch
-  - tensorboard
-  - cudatoolkit=11.3
-  - python=3.8
-  # spconv requirements
-  - fire
-  - lark
+  - cudatoolkit=11.6
   - pip
-  - portalocker
-  - pybind11
+  - python=3.9
+  - pytorch
   # OpenPCDet requirements
-  - cudatoolkit-dev=11.3
   - easydict
-  - gxx=10
-  - kornia
-  - mayavi
   - numba
   - scikit-image
   - sharedarray
-  - tabulate
+  - tensorboard
   - tqdm
-  - wget
   # Linter
   - autoflake
   - black
   - clang-tools
   - cppcheck
+  - cuda-toolkit
   - debugpy
+  - gxx=11
   - isort
+  - ninja
   - pylint
   - yamllint
   - pip:
-      - spconv-cu113
+      - open3d
