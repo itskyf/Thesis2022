@@ -6,6 +6,7 @@ from typing import List
 
 import torch
 import torch.backends.cudnn
+from torch import nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from train_utils.optimization import build_optimizer, build_scheduler
@@ -34,22 +35,23 @@ def main():
     if tb_writer is not None:
         shutil.copy(args.cfg_path, args.output_dir / args.cfg_path.name)
 
-    train_set, train_loader = build_dataloader(
+    train_loader = build_dataloader(
         conf.DATA_CONFIG, batch_size, args.num_workers, conf.CLASS_NAMES
     )
 
     model_fn = getattr(pcdet.models, conf.MODEL.NAME)
-    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES))
+    model: nn.Module = model_fn(conf.MODEL, len(conf.CLASS_NAMES))
     model.to(device)
     optimizer = build_optimizer(model, conf.OPTIMIZATION)
 
-    # load checkpoint if it is possible
     start_epoch = 0
     if args.ckpt is not None:
-        start_epoch = model.load_params_with_optimizer()  # TODO
+        ckpt = torch.load(args.ckpt)
+        start_epoch = ckpt["epoch"] + 1
+        model.load_state_dict(ckpt["model_state"])
+        optimizer.load_state_dict(ckpt["optimizer_state"])
 
     print("Total batch size:", batch_size)
-
     lr_scheduler = build_scheduler(
         optimizer, total_epochs, len(train_loader), optim_cfg=conf.OPTIMIZATION
     )
@@ -120,7 +122,7 @@ def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: L
         num_workers=num_workers,
         pin_memory=True,
     )
-    return train_set, train_loader
+    return train_loader
 
 
 if __name__ == "__main__":

@@ -10,7 +10,8 @@ RUN micromamba install -y -n base -c nvidia/label/cuda-11.6.2 -c conda-forge \
 	micromamba clean -y --all
 
 ARG CUDA_ARCH
-RUN cd ~ && git clone --branch recall --single-branch https://github.com/ncakhoa/Thesis2022.git &&\
+ARG MAMBA_DOCKERFILE_ACTIVATE=1
+RUN cd ~ && git clone --branch recall --single-branch https://github.com/ncakhoa/Thesis2022 &&\
 	TORCH_CUDA_ARCH_LIST=$CUDA_ARCH pip install \
 	--no-build-isolation --no-cache-dir --no-deps --upgrade --editable ./Thesis2022 &&\
 	rm -rf ./Thesis2022/build
@@ -21,7 +22,7 @@ RUN micromamba install -y -n base -c pytorch -c conda-forge \
 	cudatoolkit=11.6 pytorch python=3.9 &&\
 	micromamba clean -y --all
 
-RUN micromamba install -y -n base --c conda-forge \
+RUN micromamba install -y -n base -c conda-forge \
 	easydict numba scikit-image sharedarray tabulate tensorboard tqdm &&\
 	micromamba install -y -n base -c conda-forge gdown git rclone tmux vim &&\
 	micromamba shell init --shell=bash --prefix=$MAMBA_ROOT_PREFIX &&\

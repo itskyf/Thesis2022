@@ -45,8 +45,7 @@ def train_epoch(
         step += 1
         if (loss := loss.item()) < best_loss:
             best_loss = loss
-            ckpt_path = ckpt_dir / f"ckpt_best_loss.pt"
-            torch.save(_ckpt_state(model, optimizer, epoch), f"{ckpt_path}.pt")
+            torch.save(_ckpt_state(model, optimizer, epoch), ckpt_dir / "ckpt_best_loss.pt")
 
 
 def train_model(
