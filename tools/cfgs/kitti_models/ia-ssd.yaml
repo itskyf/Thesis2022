@@ -64,7 +64,7 @@ MODEL:
     classification: 1.0
     corner: 1.0
     voting: 1.0
-    ins_aware: [0, 1.0, 1.0]
+    ins_aware: [1.0, 1.0]
 
   POST_PROCESSING:
     # 'normal'(default), 'detail', 'speed'(no recall info)
@@ -87,8 +87,7 @@ OPTIMIZATION:
   NUM_EPOCHS: 80
 
   OPTIMIZER: adam_onecycle
-  LR: 0.01
-  WEIGHT_DECAY: 0.01
+  LR: 0.001
   MOMENTUM: 0.9
 
   MOMS: [0.95, 0.85]

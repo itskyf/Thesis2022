@@ -6,10 +6,10 @@ from typing import List
 
 import torch
 import torch.backends.cudnn
-from torch import nn
+from torch import nn, optim
+from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
 
 import pcdet.datasets
@@ -42,7 +42,12 @@ def main():
     model_fn = getattr(pcdet.models, conf.MODEL.NAME)
     model: nn.Module = model_fn(conf.MODEL, len(conf.CLASS_NAMES))
     model.to(device)
-    optimizer = build_optimizer(model, conf.OPTIMIZATION)
+
+    lr = conf.OPTIMIZATION.LR
+    optimizer = optim.AdamW(model.parameters(), lr)
+    scheduler = lr_scheduler.OneCycleLR(
+        optimizer, lr, epochs=total_epochs, steps_per_epoch=len(train_loader)
+    )
 
     start_epoch = 0
     if args.ckpt is not None:
@@ -52,9 +57,6 @@ def main():
         optimizer.load_state_dict(ckpt["optimizer_state"])
 
     print("Total batch size:", batch_size)
-    lr_scheduler = build_scheduler(
-        optimizer, total_epochs, len(train_loader), optim_cfg=conf.OPTIMIZATION
-    )
 
     print("Start training, start epoch:", start_epoch)
     # -----------------------start training---------------------------
@@ -62,7 +64,7 @@ def main():
         model,
         optimizer,
         train_loader,
-        lr_scheduler,
+        scheduler,
         start_epoch,
         total_epochs,
         cfg.OPTIMIZATION.max_norm,
@@ -81,7 +83,7 @@ def parse_config():
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument("--ckpt", type=Path)
     parser.add_argument("--pretrained", type=Path)
-    parser.add_argument("--save_interval", type=int, default=5, help="number of training epochs")
+    parser.add_argument("--save_interval", type=int, default=2)
     parser.add_argument(
         "--set", dest="set_cfgs", nargs=argparse.REMAINDER, help="set extra config keys if needed"
     )

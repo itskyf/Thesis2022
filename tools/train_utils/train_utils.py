@@ -26,26 +26,25 @@ def train_epoch(
     for pcd_batch in tqdm(train_loader, leave=False, desc="Step", dynamic_ncols=True):
         pcd_batch = load_data_to_gpu(pcd_batch)
 
-        cur_lr = float(optimizer.lr)
-        scheduler.step(step)
-        optimizer.zero_grad(set_to_none=True)
-
         loss_dict = model(pcd_batch)
         loss = sum(loss_dict.values())
 
+        optimizer.zero_grad(set_to_none=True)
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), max_norm)
         optimizer.step()
+        scheduler.step()
 
         # log to console and tensorboard
         tb_writer.add_scalar("train/loss", loss, step)
-        tb_writer.add_scalar("meta_data/learning_rate", cur_lr, step)
         for key, val in loss_dict.items():
             tb_writer.add_scalar("train/" + key, val.item(), step)
         step += 1
         if (loss := loss.item()) < best_loss:
             best_loss = loss
-            torch.save(_ckpt_state(model, optimizer, epoch), ckpt_dir / "ckpt_best_loss.pt")
+            torch.save(
+                _ckpt_state(model, optimizer, scheduler, epoch), ckpt_dir / "ckpt_best_loss.pt"
+            )
 
 
 def train_model(
@@ -66,12 +65,13 @@ def train_model(
         train_epoch(model, optimizer, train_loader, scheduler, max_norm, tb_writer, epoch, ckpt_dir)
         if tb_writer is not None and epoch % save_interval == 0:
             ckpt_path = ckpt_dir / f"ckpt_epoch_{epoch}"
-            torch.save(_ckpt_state(model, optimizer, epoch), ckpt_path)
+            torch.save(_ckpt_state(model, optimizer, scheduler, epoch), ckpt_path)
 
 
-def _ckpt_state(model: nn.Module, optimizer: optim.Optimizer, epoch: int):
+def _ckpt_state(model: nn.Module, optimizer: optim.Optimizer, scheduler, epoch: int):
     return {
         "epoch": epoch,
         "model_state": model.state_dict(),
         "optimizer_state": optimizer.state_dict(),
+        "scheduler_state": scheduler.state_dict(),
     }
