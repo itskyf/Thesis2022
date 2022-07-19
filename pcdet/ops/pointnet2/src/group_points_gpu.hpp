@@ -1,8 +1,9 @@
 #pragma once
 
-#include <ATen/core/Tensor.h>
+#include <torch/extension.h>
 
-at::Tensor group_points(const at::Tensor& points, const at::Tensor& idxs);
+torch::Tensor group_points(const torch::Tensor& points, const torch::Tensor& indices,
+                           const int total_pts);
 
-at::Tensor group_points_backward(const at::Tensor& grad_grouped, const at::Tensor& idxs,
-                                 const int total_pts);
+torch::Tensor group_points_backward(torch::Tensor& grad_grouped, const torch::Tensor& indices,
+                                    const int total_pts);

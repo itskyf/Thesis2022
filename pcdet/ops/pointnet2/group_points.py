@@ -51,17 +51,18 @@ def masked_gather(points: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
 
 class GroupingOperation(Function):
     @staticmethod
-    def forward(ctx, features: torch.Tensor, indices: torch.Tensor):
+    def forward(ctx, points: torch.Tensor, indices: torch.Tensor) -> torch.Tensor:
         """
         :param ctx:
         :param features: (B, C, N) tensor of features to group
-        :param indices: (B, K, n_neighbors) indicies of features to group with
+        :param idx: (B, npoint, nsample) tensor containing the indicies of features to group with
         :return:
-            output: (B, C, K, n_neighbors) tensor
+            output: (B, C, npoint, nsample) tensor
         """
-        total_pts = features.size(2)
+        indices = indices.contiguous()
+        total_pts = points.size(2)
         ctx.for_backwards = (indices, total_pts)
-        return _C.group_points(features, indices)
+        return _C.group_points(points, indices, total_pts)
 
     @staticmethod
     def backward(ctx, grad_grouped: torch.Tensor):
@@ -72,9 +73,8 @@ class GroupingOperation(Function):
             grad_features: (B, C, N) gradient of the features
         """
         indices, total_pts = ctx.for_backwards
-        grad_features: torch.Tensor = _C.group_points_backward(grad_grouped, indices, total_pts)
-        grad_features.requires_grad_(True)
-        return grad_features, None
+        grad_feats = _C.group_points_backward(grad_grouped, indices, total_pts)
+        return grad_feats, None
 
 
 grouping_ops = GroupingOperation.apply
