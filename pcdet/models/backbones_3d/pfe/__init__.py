@@ -1,3 +1,3 @@
-from .voxel_set_abstraction import VoxelSetAbstraction
+from .pointnet2_sa import PointNetSAMSG, PointNetSAMSGSampling
 
-__all__ = ["VoxelSetAbstraction"]
+__all__ = ["PointNetSAMSG", "PointNetSAMSGSampling"]

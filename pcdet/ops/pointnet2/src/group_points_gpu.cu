@@ -36,7 +36,7 @@ __global__ void group_points_kernel(const float *__restrict__ p_pts, const int *
 
 at::Tensor group_points(const at::Tensor &points, const at::Tensor &idxs) {
   TORCH_CHECK(points.is_cuda() && idxs.is_cuda(), "Only support CUDA tensor");
-  TORCH_CHECK(points.dim() == 3 && idxs.dim() == 4, "Unsupported tensor shape");
+  TORCH_CHECK(points.dim() == 3 && idxs.dim() == 3, "Unsupported tensor shape");
 
   const int batch_size = points.size(0), n_channels = points.size(1), total_pts = points.size(2);
   TORCH_CHECK(batch_size == idxs.size(0), "points and indices must have the save batch dimensions");

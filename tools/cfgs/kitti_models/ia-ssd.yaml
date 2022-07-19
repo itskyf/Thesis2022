@@ -19,89 +19,52 @@ DATA_CONFIG:
         test: false
 
 MODEL:
-  NAME: IASSD
+  NAME: IASSDNet
 
-  BACKBONE_3D:
-    NAME: IASSD_Backbone
-    SA_CONFIG:
-      # Sampling setting:
-      NPOINT_LIST: [[4096], [1024], [512], [256], [-1], [256]]
-      SAMPLE_RANGE_LIST: [[-1], [-1], [-1], [-1], [-1], [-1]]
-      SAMPLE_METHOD_LIST:
-        &sample_method_list [
-          [D-FPS], [D-FPS], [ctr_aware], [ctr_aware], [], []
-        ]
-      # Group and Abstraction setting:
-      RADIUS_LIST: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8], [], [], [4.8, 6.4]]
-      NSAMPLE_LIST: [[16, 32], [16, 32], [16, 32], [], [], [16, 32]]
-      MLPS:
-        [
-          [[16, 16, 32], [32, 32, 64]],
-          [[64, 64, 128], [64, 96, 128]],
-          [[128, 128, 256], [128, 256, 256]],
-          [],
-          [128],
-          [[256, 256, 512], [256, 512, 1024]],
-        ]
+  enc_cfg:
+    in_channels: 1
+    confidence_cs: [null, null, 128]
+    n_points: [4096, 1024, 512]
+    # Group and Abstraction setting:
+    n_samples: [[16, 32], [16, 32], [16, 32]]
+    radii_list: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8]]
+    mlps_channels_list:
+      - [[16, 16, 32], [32, 32, 64]]
+      - [[64, 64, 128], [64, 96, 128]]
+      - [[128, 128, 256], [128, 256, 256]]
+    out_channels_list: [64, 128, 256]
 
-      LAYER_TYPE:
-        [
-          SALayer, SALayer, SALayer, SALayer, VoteLayer, SALayer
-        ]
-      DILATED_GROUP: [false, false, false, false, false, false]
-      AGGREGATION_MLPS: [[64], [128], [256], [256], [], [512]]
-      # Instance-aware setting:
-      CONFIDENCE_MLPS: [[], [128], [256], [], [], []]
+  vote_cfg:
+    in_channels: 256
+    mid_channels: 128
+    n_point: 256
+    max_offset_limit: [3.0, 3.0, 2.0]
 
-      LAYER_INPUT: [0, 1, 2, 3, 4, 3]
-      CTR_INDEX: [-1, -1, -1, -1, -1, 5]
-      MAX_TRANSLATE_RANGE: [3.0, 3.0, 2.0]
-      # SAVE_SAMPLE_LIST: true
+  ctr_agg_cfg:
+    in_channels: 256
+    n_sample: [16, 32]
+    radii: [4.8, 6.4]
+    mlps_cs: [[256, 256, 512], [256, 512, 1024]]
+    out_channels: 512
 
-  POINT_HEAD:
-    NAME: IASSD_Head
-    CLS_FC: [256, 256]
-    REG_FC: [256, 256]
+  head_cfg:
+    in_channels: 512
+    mid_channels: 256
     # IOU_FC: [256, 256]
-    CLASS_AGNOSTIC: false
-    USE_POINT_FEATURES_BEFORE_FUSION: false
-    TARGET_CONFIG:
-      INS_AWARE_ASSIGN: true
-      GT_EXTRA_WIDTH: [0.2, 0.2, 0.2]
+    gt_ext_dims: [0.2, 0.2, 0.2]
+    org_ext_dims: [1.0, 1.0, 1.0]
 
-      ASSIGN_METHOD:
-        NAME: extend_gt
-        ASSIGN_TYPE: centers_origin  # 'centers'(default) ,  'centers_origin'
-        EXTRA_WIDTH: [1.0, 1.0, 1.0]
-        FG_PC_IGNORE: false
+    # 'PointBinResidualCoder', 'PointResidual_BinOri_Coder'
+    bin_size: 12
+    mean_size: [[3.9, 1.6, 1.56], [0.8, 0.6, 1.73], [1.76, 0.6, 1.73]]
 
-      # 'PointBinResidualCoder', 'PointResidual_BinOri_Coder'
-      BOX_CODER: PointResidual_BinOri_Coder
-      BOX_CODER_CONFIG:
-        angle_bin_num: 12
-        use_mean_size: true
-        mean_size: [[3.9, 1.6, 1.56], [0.8, 0.6, 1.73], [1.76, 0.6, 1.73]]
-
-    LOSS_CONFIG:
-      # Ref: 'WeightedBinaryCrossEntropy', 'WeightedCrossEntropy', 'FocalLoss'
-      LOSS_CLS: WeightedCrossEntropy
-      LOSS_REG: WeightedSmoothL1Loss
-      LOSS_INS: WeightedCrossEntropy
-      SAMPLE_METHOD_LIST: *sample_method_list
-      LOSS_VOTE_TYPE: none  # 'none', 'ver1', 'ver2',
-
-      CORNER_LOSS_REGULARIZATION: true
-      CENTERNESS_REGULARIZATION: true
-      CENTERNESS_REGULARIZATION_SA: true
-      # IOU3D_REGULARIZATION: true
-      LOSS_WEIGHTS:
-        ins_aware_weight: [0, 1.0, 1.0]
-        vote_weight: 1.0
-        point_cls_weight: 1.0
-        point_box_weight: 1.0
-        corner_weight: 1.0
-        code_weights: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        dir_weight: 0.2
+  loss_weights:
+    direction: 0.2
+    center_reg: 1.0
+    classification: 1.0
+    corner: 1.0
+    voting: 1.0
+    ins_aware: [0, 1.0, 1.0]
 
   POST_PROCESSING:
     # 'normal'(default), 'detail', 'speed'(no recall info)
@@ -138,4 +101,4 @@ OPTIMIZATION:
   LR_WARMUP: false
   WARMUP_EPOCH: 1
 
-  GRAD_NORM_CLIP: 10
+  max_norm: 10

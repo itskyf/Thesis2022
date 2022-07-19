@@ -165,10 +165,9 @@ def enlarge_box3d(boxes3d, extra_width=(0, 0, 0)):
     Returns:
 
     """
-    boxes3d, is_numpy = common_utils.check_numpy_to_torch(boxes3d)
+    boxes3d = common_utils.check_numpy_to_torch(boxes3d)[0]
     large_boxes3d = boxes3d.clone()
-
-    large_boxes3d[:, 3:6] += boxes3d.new_tensor(extra_width)[None, :]
+    large_boxes3d[..., 3:6] += boxes3d.new_tensor(extra_width)
     return large_boxes3d
 
 

@@ -163,9 +163,9 @@ class OptimWrapper:
             self.set_val("weight_decay", listify(0, self._wd))
         self.opt.step()
 
-    def zero_grad(self) -> None:
+    def zero_grad(self, set_to_none=False) -> None:
         "Clear optimizer gradients."
-        self.opt.zero_grad()
+        self.opt.zero_grad(set_to_none)
 
     # Passthrough to the inner opt.
     def __getattr__(self, k: str):

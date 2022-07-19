@@ -79,7 +79,7 @@ class WeightedSmoothL1Loss(nn.Module):
     where x = pred - target.
     """
 
-    def __init__(self, beta: float = 1.0 / 9.0, code_weights: list = None):
+    def __init__(self, beta: float = 1.0 / 9.0):
         """
         Args:
             beta: Scalar float.
@@ -90,10 +90,6 @@ class WeightedSmoothL1Loss(nn.Module):
         """
         super().__init__()
         self.beta = beta
-        if code_weights is not None:
-            self.register_buffer(
-                "code_weights", torch.tensor(code_weights, dtype=torch.float32).view(1, 1, -1)
-            )
 
     def forward(
         self, pred: torch.Tensor, target: torch.Tensor, weights: Optional[torch.Tensor] = None
@@ -111,14 +107,9 @@ class WeightedSmoothL1Loss(nn.Module):
                 Weighted smooth l1 loss without reduction.
         """
         target = torch.where(torch.isnan(target), pred, target)  # ignore nan targets
-
         # code-wise weighting
-        try:
-            diff = self.code_weights * (pred - target)
-        except AttributeError:
-            diff = pred - target
+        diff = pred - target
         loss = self.smooth_l1_loss(diff, self.beta)
-
         # anchor-wise weighting
         if weights is not None:
             assert weights.size(0) == loss.size(0) and weights.size(1) == loss.size(1)

@@ -1,50 +1,36 @@
 import argparse
-import datetime
 import logging
-import os
 import shutil
 from pathlib import Path
 from typing import List
 
 import torch
 import torch.backends.cudnn
-from torch import distributed, nn
-from torch.distributed.elastic.multiprocessing.errors import record
-from torch.distributed.elastic.utils.data import ElasticDistributedSampler
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from train_utils.optimization import build_optimizer, build_scheduler
 from train_utils.train_utils import train_model
 
 import pcdet.datasets
-import pcdet.models.detectors
-from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
-from pcdet.models import model_fn_decorator
+import pcdet.models
+from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file
 
 
-@record
 def main():
     args, conf = parse_config()
-    distributed.init_process_group(backend="nccl")
     torch.backends.cudnn.benchmark = True
-    local_rank = int(os.environ["LOCAL_RANK"])
+    device = torch.device("cuda")  # TODO
 
     batch_size = (
         conf.OPTIMIZATION.BATCH_SIZE_PER_GPU if args.batch_size is None else args.batch_size
     )
-    epochs = conf.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
+    total_epochs = conf.OPTIMIZATION.NUM_EPOCHS if args.epochs is None else args.epochs
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir = args.output_dir / "ckpt"
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    tb_writer = SummaryWriter(args.output_dir / "tensorboard") if local_rank == 0 else None
-    log_path = (
-        args.output_dir / f"log_train_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
-    )
-    logger = create_logger(log_path, local_rank)
-
-    log_config_to_file(conf, logger)
+    tb_writer = SummaryWriter(args.output_dir / "tensorboard")
     if tb_writer is not None:
         shutil.copy(args.cfg_path, args.output_dir / args.cfg_path.name)
 
@@ -52,52 +38,36 @@ def main():
         conf.DATA_CONFIG, batch_size, args.num_workers, conf.CLASS_NAMES
     )
 
-    model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
-    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES), train_set)
+    model_fn = getattr(pcdet.models, conf.MODEL.NAME)
+    model = model_fn(conf.MODEL, len(conf.CLASS_NAMES))
+    model.to(device)
     optimizer = build_optimizer(model, conf.OPTIMIZATION)
 
-    model.cuda(local_rank)
     # load checkpoint if it is possible
-    start_epoch = cur_it = 0
-    last_epoch = -1
-    if args.pretrained is not None:
-        model.load_params_from_file(args.pretrained, local_rank, logger)
+    start_epoch = 0
     if args.ckpt is not None:
-        cur_it, start_epoch = model.load_params_with_optimizer(
-            args.ckpt, optimizer, local_rank, logger
-        )
-    last_epoch = start_epoch + 1
+        start_epoch = model.load_params_with_optimizer()  # TODO
 
-    logger.info(model)
-    logger.info("Total batch size: %d", distributed.get_world_size() * batch_size)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+    print("Total batch size:", batch_size)
 
-    lr_scheduler, lr_warmup_scheduler = build_scheduler(
-        optimizer,
-        total_iters_each_epoch=len(train_loader),
-        total_epochs=epochs,
-        last_epoch=last_epoch,
-        optim_cfg=conf.OPTIMIZATION,
+    lr_scheduler = build_scheduler(
+        optimizer, total_epochs, len(train_loader), optim_cfg=conf.OPTIMIZATION
     )
 
-    logger.info("Start training, start epoch: %s", start_epoch)
-    with torch.cuda.device(local_rank):
-        # -----------------------start training---------------------------
-        train_model(
-            model,
-            optimizer,
-            train_loader,
-            model_func=model_fn_decorator(),
-            lr_scheduler=lr_scheduler,
-            optim_cfg=conf.OPTIMIZATION,
-            start_epoch=start_epoch,
-            total_epochs=epochs,
-            start_iter=cur_it,
-            tb_log=tb_writer,
-            ckpt_dir=ckpt_dir,
-            lr_warmup_scheduler=lr_warmup_scheduler,
-            save_interval=args.save_interval,
-        )
+    print("Start training, start epoch:", start_epoch)
+    # -----------------------start training---------------------------
+    train_model(
+        model,
+        optimizer,
+        train_loader,
+        lr_scheduler,
+        start_epoch,
+        total_epochs,
+        cfg.OPTIMIZATION.max_norm,
+        tb_writer,
+        ckpt_dir,
+        args.save_interval,
+    )
 
 
 def parse_config():
@@ -143,14 +113,12 @@ def create_logger(log_file, rank):
 def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: List[str]):
     train_set_fn = getattr(pcdet.datasets, data_cfg.DATASET)
     train_set = train_set_fn(data_cfg, class_names, training=True)
-    train_sampler = ElasticDistributedSampler(train_set)
     train_loader = DataLoader(
         train_set,
         batch_size,
         collate_fn=train_set.collate_batch,
         num_workers=num_workers,
         pin_memory=True,
-        sampler=train_sampler,
     )
     return train_set, train_loader
 
