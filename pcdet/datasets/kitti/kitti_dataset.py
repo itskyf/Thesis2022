@@ -275,8 +275,7 @@ class KittiDataset(DatasetTemplate):
         with open(db_info_save_path, "wb") as f:
             pickle.dump(all_db_infos, f)
 
-    @staticmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names):
+    def generate_prediction_dicts(self, batch_dict, pred_dicts):
         """
         Args:
             batch_dict:
@@ -323,7 +322,7 @@ class KittiDataset(DatasetTemplate):
                 pred_boxes_camera, calib, image_shape=image_shape
             )
 
-            pred_dict["name"] = np.array(class_names)[pred_labels - 1]
+            pred_dict["name"] = self.np_class_names[pred_labels - 1]
             pred_dict["alpha"] = (
                 -np.arctan2(-pred_boxes[:, 1], pred_boxes[:, 0]) + pred_boxes_camera[:, 6]
             )
@@ -345,7 +344,7 @@ class KittiDataset(DatasetTemplate):
 
         return annos
 
-    def evaluation(self, det_annos, class_names):
+    def evaluation(self, det_annos):
         if "annos" not in self.kitti_infos[0].keys():
             return None, {}
 
@@ -353,7 +352,7 @@ class KittiDataset(DatasetTemplate):
 
         eval_det_annos = copy.deepcopy(det_annos)
         eval_gt_annos = [copy.deepcopy(info["annos"]) for info in self.kitti_infos]
-        return kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, class_names)
+        return kitti_eval.get_official_eval_result(eval_gt_annos, eval_det_annos, self.class_names)
 
     def __len__(self):
         return len(self.kitti_infos)

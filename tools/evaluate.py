@@ -1,80 +1,88 @@
 import argparse
-import datetime
 import logging
-import os
+import pickle
 from pathlib import Path
-from typing import List
+from typing import List, Union
 
 import torch
 import torch.backends.cudnn
 from eval_utils import eval_utils
 from tabulate import tabulate
-from torch import distributed, nn
-from torch.distributed.elastic.multiprocessing.errors import record
+from torch import nn
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
 
 import pcdet.datasets
-import pcdet.models.detectors
-from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file, log_config_to_file
+import pcdet.models
+from pcdet.config import cfg, cfg_from_list, cfg_from_yaml_file
 
 
-@record
 def main():
     args, conf = parse_config()
     torch.backends.cudnn.benchmark = True
-    local_rank = int(os.environ["LOCAL_RANK"])
-    distributed.init_process_group(backend="nccl")
+    device = torch.device("cuda")  # TODO
 
     batch_size = (
         conf.OPTIMIZATION.BATCH_SIZE_PER_GPU if args.batch_size is None else args.batch_size
     )
-
-    eval_dir = args.output_dir / "eval"
-    eval_dir.mkdir(parents=True, exist_ok=True)
-
-    log_path = args.output_dir / f"log_eval_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.log"
-    logger = create_logger(log_path, local_rank)
-    log_config_to_file(conf, logger)
-
     class_names = conf.CLASS_NAMES
     val_set, val_loader = build_dataloader(
         conf.DATA_CONFIG, batch_size, args.num_workers, class_names
     )
 
-    model_fn = getattr(pcdet.models.detectors, conf.MODEL.NAME)
-    model = model_fn(conf.MODEL, len(class_names), val_set)
-    model.load_params_from_file(args.ckpt, local_rank, logger)
-    model.cuda(local_rank)
-    logger.info(model)
+    ckpt_path: Path = args.ckpt_path
+    if ckpt_path.suffix == ".pkl" and ckpt_path.stem.startswith("result"):
+        with ckpt_path.open("rb") as ret_file:
+            eval_ret = pickle.load(ret_file)
+        print_result(class_names, eval_ret)
+    # ckpt in out_dir/ckpt/ckpt.pt -> eval_dir = out_dir/eval
+    eval_dir = ckpt_path.parent.parent / "eval"
+    eval_dir.mkdir(parents=True, exist_ok=True)
 
-    total_batch_size = distributed.get_world_size() * batch_size
-    logger.info("Total batch size: %d", total_batch_size)
-    model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+    model_fn = getattr(pcdet.models, conf.MODEL.NAME)
+    model: nn.Module = model_fn(conf.MODEL, len(class_names))
+    model.to(device)
+    model.load_state_dict(torch.load(ckpt_path)["model_state"])
 
-    with torch.cuda.device(local_rank):
-        ret = eval_utils.eval_one_epoch(cfg, model, val_loader, local_rank, logger, eval_dir)
+    print("Batch size:", batch_size)
+    thresh_list = cfg.MODEL.post_process_cfg.thresh_list
 
-    table = [["Easy"], ["Moderate"], ["Hard"]]
-    for row in table:
-        for name in class_names:
-            row.append(ret[f"{name}_3d/{row[0]}_R40"])
-    logger.info(tabulate(table, headers=["Kitti R40", *class_names]))
+    det_annos, recall_dict = eval_utils.eval_one_epoch(model, val_set, val_loader, thresh_list)
+    rcnn_recall = [recall_dict[f"recall_rcnn_{thresh}"] for thresh in thresh_list]
+    print(tabulate([rcnn_recall], headers=["Recall", *thresh_list]))
+
+    det_annos_path = eval_dir / f"det_{ckpt_path.stem}.pkl"
+    with det_annos_path.open("wb") as det_file:
+        pickle.dump(det_annos, det_file)
+    print("Prediction is saved to", det_annos_path)
+
+    eval_ret = val_set.evaluation(det_annos)
+    eval_ret_path = eval_dir / f"result_{ckpt_path.stem}.pkl"
+    with eval_ret_path.open("wb") as ret_file:
+        pickle.dump(eval_ret, ret_file)
+    print("Evaluation result is saved to", eval_ret_path)
+
+    print_result(class_names, eval_ret)
 
 
 def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: List[str]):
     val_set_fn = getattr(pcdet.datasets, data_cfg.DATASET)
     val_set = val_set_fn(data_cfg, class_names, training=False)
-    val_sampler = pcdet.datasets.FlatDistSampler(val_set)
     val_loader = DataLoader(
         val_set,
         batch_size,
         collate_fn=val_set.collate_batch,
         num_workers=num_workers,
         pin_memory=True,
-        sampler=val_sampler,
     )
     return val_set, val_loader
+
+
+def print_result(class_names: list[str], eval_ret):
+    ret_table: list[list[Union[float, str]]] = [["Easy"], ["Moderate"], ["Hard"]]
+    for row in ret_table:
+        for name in class_names:
+            row.append(eval_ret[f"{name}_3d/{row[0]}_R40"])
+    print(tabulate(ret_table, headers=["Kitti R40", *class_names]))
 
 
 def create_logger(log_path: Path, rank: int):
@@ -94,20 +102,14 @@ def create_logger(log_path: Path, rank: int):
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument("cfg_path", type=Path)
-    parser.add_argument("ckpt", type=Path)
-    parser.add_argument("output_dir", type=Path)
-
+    parser.add_argument("ckpt_path", type=Path)
     parser.add_argument("--batch_size", type=int, help="Batch size per GPU")
     parser.add_argument("--num_workers", type=int, default=2)
     parser.add_argument(
         "--set", dest="set_cfgs", nargs=argparse.REMAINDER, help="set extra config keys if needed"
     )
-    parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument(
         "--eval_all", action="store_true", default=False, help="whether to evaluate all checkpoints"
-    )
-    parser.add_argument(
-        "--ckpt_dir", type=str, help="specify a ckpt directory to be evaluated if needed"
     )
     args = parser.parse_args()
 

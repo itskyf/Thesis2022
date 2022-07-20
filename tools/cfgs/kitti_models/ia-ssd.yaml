@@ -66,21 +66,18 @@ MODEL:
     voting: 1.0
     ins_aware: [1.0, 1.0]
 
-  POST_PROCESSING:
+  post_process_cfg:
     # 'normal'(default), 'detail', 'speed'(no recall info)
-    RECALL_MODE: normal
-    RECALL_THRESH_LIST: [0.3, 0.5, 0.7]
-    SCORE_THRESH: 0.1
-    OUTPUT_RAW_SCORE: false
+    recall_mode: normal
+    thresh_list: [0.3, 0.5, 0.7]
+    score_thresh: 0.1
+    eval_metric: kitti
 
-    EVAL_METRIC: kitti
-
-    NMS_CONFIG:
-      MULTI_CLASSES_NMS: false
-      NMS_TYPE: nms_gpu
-      NMS_THRESH: 0.01
-      NMS_PRE_MAXSIZE: 4096
-      NMS_POST_MAXSIZE: 500
+  nms_cfg:
+    type: nms_gpu
+    threshold: 0.01
+    pre_maxsize: 4096
+    post_maxsize: 500
 
 OPTIMIZATION:
   BATCH_SIZE_PER_GPU: 8

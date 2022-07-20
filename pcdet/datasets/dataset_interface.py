@@ -19,6 +19,7 @@ class DatasetTemplate(abc.ABC, Dataset):
         self.dataset_cfg = dataset_cfg
         self.training = training
         self.class_names = class_names
+        self.np_class_names = np.array(class_names)
         self.root_path = Path(dataset_cfg.DATA_PATH)
         self.logger = logger
 
@@ -54,9 +55,7 @@ class DatasetTemplate(abc.ABC, Dataset):
             self.depth_downsample_factor = None
 
     @abc.abstractmethod
-    def evaluation(
-        self, det_annos: List[Dict[str, Any]], class_names: List[str]
-    ) -> Dict[str, float]:
+    def evaluation(self, det_annos: List[Dict[str, Any]]) -> Dict[str, float]:
         ...
 
     @property
@@ -73,7 +72,7 @@ class DatasetTemplate(abc.ABC, Dataset):
 
     @staticmethod
     @abc.abstractmethod
-    def generate_prediction_dicts(batch_dict, pred_dicts, class_names) -> List[Dict[str, Any]]:
+    def generate_prediction_dicts(batch_dict, pred_dicts) -> List[Dict[str, Any]]:
         """
         To support a custom dataset, implement this function to receive the predicted results from the model, and then
         transform the unified normative coordinate to your required coordinate, and optionally save them to disk.

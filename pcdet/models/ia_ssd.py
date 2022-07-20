@@ -6,6 +6,7 @@ from ..utils import common_utils, loss_utils
 from .backbones_3d.ia_ssd import IASSDEncoder, VoteLayer
 from .backbones_3d.pfe import PointNetSAMSG
 from .dense_heads.ia_ssd_head import IASSDHead, TrainTargets
+from .post_process import post_processing
 
 
 class IASSDNet(nn.Module):
@@ -16,6 +17,9 @@ class IASSDNet(nn.Module):
         self.ctr_agg_layer = PointNetSAMSG(**model_cfg.ctr_agg_cfg)
         self.point_head = IASSDHead(n_class, **model_cfg.head_cfg)
 
+        self.n_class = n_class
+        self.nms_cfg = model_cfg.nms_cfg
+        self.post_cfg = model_cfg.post_process_cfg
         self.loss_weights = model_cfg.loss_weights
 
     def forward(self, batch_dict):
@@ -27,73 +31,78 @@ class IASSDNet(nn.Module):
         ctr_feats = self.ctr_agg_layer(pts_list[-1], feats, ctr_preds)
 
         gt_boxes = batch_dict["gt_boxes"]
+        # TODO if traning, only assign targets for points before cls_preds
         ctr_cls_preds, ctr_box_preds, pt_box_preds, targets = self.point_head(
             ctr_feats, ctr_preds, ctr_origins, pts_list, gt_boxes
         )
-        targets: TrainTargets
-        if targets is not None:
-            ctr_t = targets.center
-            assert ctr_t.pt_box_labels is not None
-            pt_xyzwhl_loss, ori_cls_loss, ori_reg_loss = _center_box_binori_loss(
-                ctr_box_preds,
-                ctr_t.pt_box_labels,
-                ctr_t.pt_cls_labels,
-                self.point_head.box_coder.bin_size,
+        if targets is None:
+            return post_processing(
+                ctr_cls_preds, pt_box_preds, gt_boxes, self.n_class, self.nms_cfg, self.post_cfg
             )
-            ori_cls_loss *= self.loss_weights.direction
-            center_reg_loss = pt_xyzwhl_loss + ori_cls_loss + ori_reg_loss
-            center_reg_loss *= self.loss_weights.center_reg
 
-            ctr_cls_loss = _classification_loss(
-                ctr_cls_preds, ctr_t.pt_cls_labels, ctr_preds, ctr_t.gt_box_of_fg_pts
+        targets: TrainTargets  # Training
+        ctr_t = targets.center
+        assert ctr_t.pt_box_labels is not None
+        pt_xyzwhl_loss, ori_cls_loss, ori_reg_loss = _center_box_binori_loss(
+            ctr_box_preds,
+            ctr_t.pt_box_labels,
+            ctr_t.pt_cls_labels,
+            self.point_head.box_coder.bin_size,
+        )
+        ori_cls_loss *= self.loss_weights.direction
+        center_reg_loss = pt_xyzwhl_loss + ori_cls_loss + ori_reg_loss
+        center_reg_loss *= self.loss_weights.center_reg
+
+        ctr_cls_loss = _classification_loss(
+            ctr_cls_preds, ctr_t.pt_cls_labels, ctr_preds, ctr_t.gt_box_of_fg_pts
+        )
+        ctr_cls_loss *= self.loss_weights.classification
+
+        corner_loss = _corner_loss(pt_box_preds, ctr_t.gt_box_of_fg_pts, ctr_t.pt_cls_labels)
+        corner_loss *= self.loss_weights.corner
+        # Semantic loss in SA layers
+        sa_ins_preds = []
+        sa_ins_labels = []
+        sa_ins_fg_gt_boxes = []
+        sa_pts_list = []
+        for sa_pts, target, preds in zip(pts_list, targets.sa_ins, cls_preds_list[1:]):
+            if preds is not None:
+                sa_ins_preds.append(preds)
+                sa_pts_list.append(sa_pts)
+                sa_ins_labels.append(target.pt_cls_labels)
+                sa_ins_fg_gt_boxes.append(target.gt_box_of_fg_pts)
+        sa_ins_preds.append(cls_preds)
+        sa_pts_list.append(pts_list[-1])
+        sa_ins_labels.append(targets.sa_ins[-1].pt_cls_labels)
+        sa_ins_fg_gt_boxes.append(targets.sa_ins[-1].gt_box_of_fg_pts)
+
+        sa_cls_losses = [
+            _classification_loss(sa_preds.transpose(1, 2), sa_labels, sa_pts, sa_fg_gt_boxes)
+            for sa_preds, sa_labels, sa_pts, sa_fg_gt_boxes in zip(
+                sa_ins_preds,
+                sa_ins_labels,
+                sa_pts_list,
+                sa_ins_fg_gt_boxes,
             )
-            ctr_cls_loss *= self.loss_weights.classification
+        ]
+        sa_cls_losses = [
+            loss * weight for loss, weight in zip(sa_cls_losses, self.loss_weights.ins_aware)
+        ]
+        sa_cls_loss = sum(sa_cls_losses) / len(sa_cls_losses)
 
-            corner_loss = _corner_loss(pt_box_preds, ctr_t.gt_box_of_fg_pts, ctr_t.pt_cls_labels)
-            corner_loss *= self.loss_weights.corner
-            # Semantic loss in SA layers
-            sa_ins_preds = []
-            sa_ins_labels = []
-            sa_ins_fg_gt_boxes = []
-            sa_pts_list = []
-            for sa_pts, target, preds in zip(pts_list, targets.sa_ins, cls_preds_list[1:]):
-                if preds is not None:
-                    sa_ins_preds.append(preds)
-                    sa_pts_list.append(sa_pts)
-                    sa_ins_labels.append(target.pt_cls_labels)
-                    sa_ins_fg_gt_boxes.append(target.gt_box_of_fg_pts)
-            sa_ins_preds.append(cls_preds)
-            sa_pts_list.append(pts_list[-1])
-            sa_ins_labels.append(targets.sa_ins[-1].pt_cls_labels)
-            sa_ins_fg_gt_boxes.append(targets.sa_ins[-1].gt_box_of_fg_pts)
+        ctr_org_t = targets.ctr_origin
+        vote_loss = _contextual_vote_loss(
+            ctr_origins, ctr_offsets, ctr_org_t.gt_box_of_fg_pts, ctr_org_t.pt_cls_labels
+        )
+        vote_loss *= self.loss_weights.voting
 
-            sa_cls_losses = [
-                _classification_loss(sa_preds.transpose(1, 2), sa_labels, sa_pts, sa_fg_gt_boxes)
-                for sa_preds, sa_labels, sa_pts, sa_fg_gt_boxes in zip(
-                    sa_ins_preds,
-                    sa_ins_labels,
-                    sa_pts_list,
-                    sa_ins_fg_gt_boxes,
-                )
-            ]
-            sa_cls_losses = [
-                loss * weight for loss, weight in zip(sa_cls_losses, self.loss_weights.ins_aware)
-            ]
-            sa_cls_loss = sum(sa_cls_losses) / len(sa_cls_losses)
-
-            ctr_org_t = targets.ctr_origin
-            vote_loss = _contextual_vote_loss(
-                ctr_origins, ctr_offsets, ctr_org_t.gt_box_of_fg_pts, ctr_org_t.pt_cls_labels
-            )
-            vote_loss *= self.loss_weights.voting
-
-            return {
-                "center_reg": center_reg_loss,
-                "center_classification": ctr_cls_loss,
-                "corner": corner_loss,
-                "voting": vote_loss,
-                "sa_classification": sa_cls_loss,
-            }
+        return {
+            "center_reg": center_reg_loss,
+            "center_classification": ctr_cls_loss,
+            "corner": corner_loss,
+            "voting": vote_loss,
+            "sa_classification": sa_cls_loss,
+        }
 
 
 def _center_box_binori_loss(

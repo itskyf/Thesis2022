@@ -63,8 +63,8 @@ def train_model(
         # train one epoch
         # save trained model
         train_epoch(model, optimizer, train_loader, scheduler, max_norm, tb_writer, epoch, ckpt_dir)
-        if tb_writer is not None and epoch % save_interval == 0:
-            ckpt_path = ckpt_dir / f"ckpt_epoch_{epoch}"
+        if tb_writer is not None and epoch % save_interval == save_interval - 1:
+            ckpt_path = ckpt_dir / f"ckpt_epoch_{epoch}.pt"
             torch.save(_ckpt_state(model, optimizer, scheduler, epoch), ckpt_path)
 
 

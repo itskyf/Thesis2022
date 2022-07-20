@@ -123,6 +123,7 @@ def build_dataloader(data_cfg, batch_size: int, num_workers: int, class_names: L
         collate_fn=train_set.collate_batch,
         num_workers=num_workers,
         pin_memory=True,
+        shuffle=True,
     )
     return train_loader
 

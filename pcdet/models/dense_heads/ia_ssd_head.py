@@ -79,29 +79,29 @@ class IASSDHead(nn.Module):
     ):
         """
         Args:
-            batch_dict:
-                batch_size:
-                centers_features: (N1 + N2 + N3 + ..., C) or (B, N, C)
-                centers: (N1 + N2 + N3 + ..., 4) [bs_idx, x, y, z]
-                encoder_xyz: List of points_coords in SA
-                gt_boxes (optional): (B, M, 8)
+            ctr_feats [B, C, last_n_point]
+            ctr_preds, ctr_origins [B, last_n_point, 3]
+            gt_boxes: [B, ?, 8]
         Returns:
-            batch_dict:
-                batch_cls_preds: (N1 + N2 + N3 + ..., num_class)
-                point_box_preds: (N1 + N2 + N3 + ..., 7)
+            ctr_cls_preds [B, last_n_point, 3]
+            ctr_box_preds [B, last_n_point, box_coder.code_size]
+            pt_box_preds [B, last_n_point, 7]
         """
         ctr_feats = ctr_feats.transpose(1, 2)
-        ctr_cls_preds = self.cls_center_layers(ctr_feats)  # (total_centers, num_class)
-        ctr_box_preds = self.box_center_layers(ctr_feats)  # (total_centers, box_code_size)
+        ctr_cls_preds = self.cls_center_layers(ctr_feats)
+        ctr_box_preds = self.box_center_layers(ctr_feats)
 
         pred_classes = ctr_cls_preds.max(dim=-1).indices
         pt_box_preds = self.box_coder.decode_torch(
             ctr_box_preds, ctr_preds, pred_classes + 1, self.get_buffer("mean_size")
         )
 
-        if self.training:
-            targets = self.assign_targets(ctr_preds, ctr_origins, pts_list, gt_boxes)
-            return ctr_cls_preds, ctr_box_preds, pt_box_preds, targets
+        targets = (
+            self.assign_targets(ctr_preds, ctr_origins, pts_list, gt_boxes)
+            if self.training
+            else None
+        )
+        return ctr_cls_preds, ctr_box_preds, pt_box_preds, targets
 
     def assign_stack_targets(
         self,

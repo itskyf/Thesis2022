@@ -48,10 +48,16 @@ class PointResidualBinOriCoder:
         bin_res /= self.bin_inter / 2
         return torch.cat([xt, yt, zt, dxt, dyt, dzt, bin_id, bin_res, *cgs], dim=-1)
 
-    def decode_torch(self, box_encodings, points, pred_classes, mean_size: torch.Tensor):
+    def decode_torch(
+        self,
+        box_encodings: torch.Tensor,
+        points: torch.Tensor,
+        pred_classes: torch.Tensor,
+        mean_size: torch.Tensor,
+    ):
         """
         Args:
-            box_encodings: (N, 8 + C) [x, y, z, dx, dy, dz, bin_id, bin_res , ...]
+            box_encodings: (B, N 8 + C) [x, y, z, dx, dy, dz, bin_id, bin_res , ...]
             points: [x, y, z]
             pred_classes: (N) [1, num_classes]
         Returns:
