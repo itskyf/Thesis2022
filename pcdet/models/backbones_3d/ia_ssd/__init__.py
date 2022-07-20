@@ -1,7 +1,4 @@
-from .encoder import IASSDEncoder
-from .vote_layer import VoteLayer
+from .encoder import IASSDEncLN, IASSDEncoder
+from .vote_layer import VoteLayer, VoteLayerLN
 
-__all__ = [
-    "IASSDEncoder",
-    "VoteLayer",
-]
+__all__ = ["IASSDEncLN", "IASSDEncoder", "VoteLayer", "VoteLayerLN"]

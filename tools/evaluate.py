@@ -55,6 +55,7 @@ def main():
         pickle.dump(det_annos, det_file)
     print("Prediction is saved to", det_annos_path)
 
+    print("Evaluating...")
     eval_ret = val_set.evaluation(det_annos)
     eval_ret_path = eval_dir / f"result_{ckpt_path.stem}.pkl"
     with eval_ret_path.open("wb") as ret_file:
