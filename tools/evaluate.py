@@ -48,7 +48,7 @@ def main():
 
     det_annos, recall_dict = eval_utils.eval_one_epoch(model, val_set, val_loader, thresh_list)
     rcnn_recall = [recall_dict[f"recall_rcnn_{thresh}"] for thresh in thresh_list]
-    print(tabulate([rcnn_recall], headers=["Recall", *thresh_list]))
+    print(tabulate([rcnn_recall], headers=["IoU3D recall", *thresh_list]))
 
     det_annos_path = eval_dir / f"det_{ckpt_path.stem}.pkl"
     with det_annos_path.open("wb") as det_file:

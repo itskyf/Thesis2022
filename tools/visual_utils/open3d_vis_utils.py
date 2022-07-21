@@ -3,6 +3,8 @@ Open3d visualization tool box
 Written by Jihan YANG
 All rights preserved from 2021 - present.
 """
+from typing import Optional
+
 import matplotlib
 import numpy as np
 import open3d
@@ -35,53 +37,7 @@ def get_coor_colors(obj_labels):
     return label_rgba
 
 
-def draw_scenes(
-    points,
-    gt_boxes=None,
-    ref_boxes=None,
-    ref_labels=None,
-    ref_scores=None,
-    point_colors=None,
-    draw_origin=True,
-):
-    if isinstance(points, torch.Tensor):
-        points = points.cpu().numpy()
-    if isinstance(gt_boxes, torch.Tensor):
-        gt_boxes = gt_boxes.cpu().numpy()
-    if isinstance(ref_boxes, torch.Tensor):
-        ref_boxes = ref_boxes.cpu().numpy()
-
-    vis = open3d.visualization.Visualizer()
-    vis.create_window()
-
-    vis.get_render_option().point_size = 1.0
-    vis.get_render_option().background_color = np.zeros(3)
-
-    # draw origin
-    if draw_origin:
-        axis_pcd = open3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
-        vis.add_geometry(axis_pcd)
-
-    pts = open3d.geometry.PointCloud()
-    pts.points = open3d.utility.Vector3dVector(points[:, :3])
-
-    vis.add_geometry(pts)
-    if point_colors is None:
-        pts.colors = open3d.utility.Vector3dVector(np.ones((points.shape[0], 3)))
-    else:
-        pts.colors = open3d.utility.Vector3dVector(point_colors)
-
-    if gt_boxes is not None:
-        vis = draw_box(vis, gt_boxes, (0, 0, 1))
-
-    if ref_boxes is not None:
-        vis = draw_box(vis, ref_boxes, (0, 1, 0), ref_labels)
-
-    vis.run()
-    vis.destroy_window()
-
-
-def translate_boxes_to_open3d_instance(gt_boxes):
+def boxes_to_open3d(gt_boxes, label):
     """
        4-------- 6
      /|         /|
@@ -98,27 +54,23 @@ def translate_boxes_to_open3d_instance(gt_boxes):
     box3d = open3d.geometry.OrientedBoundingBox(center, rot, lwh)
 
     line_set = open3d.geometry.LineSet.create_from_oriented_bounding_box(box3d)
-
     # import ipdb; ipdb.set_trace(context=20)
     lines = np.asarray(line_set.lines)
     lines = np.concatenate([lines, np.array([[1, 4], [7, 6]])], axis=0)
-
     line_set.lines = open3d.utility.Vector2iVector(lines)
+    line_set.paint_uniform_color(box_colormap[label])
+    return line_set
 
-    return line_set, box3d
 
+def draw_boxes(
+    vis: open3d.visualization.Visualizer,
+    ref_boxes: torch.Tensor,
+    ref_labels: torch.Tensor,
+):
+    if isinstance(ref_boxes, torch.Tensor):
+        ref_boxes = ref_boxes.cpu().numpy()
+    if isinstance(ref_labels, torch.Tensor):
+        ref_labels = ref_labels.cpu().numpy()
 
-def draw_box(vis, gt_boxes, color=(0, 1, 0), ref_labels=None, score=None):
-    for i in range(gt_boxes.shape[0]):
-        line_set, _ = translate_boxes_to_open3d_instance(gt_boxes[i])
-        if ref_labels is None:
-            line_set.paint_uniform_color(color)
-        else:
-            line_set.paint_uniform_color(box_colormap[ref_labels[i]])
-
-        vis.add_geometry(line_set)
-
-        # if score is not None:
-        #     corners = box3d.get_box_points()
-        #     vis.add_3d_label(corners[5], '%.2f' % score[i])
-    return vis
+    for box, label in zip(ref_boxes, ref_labels):
+        vis.add_geometry(boxes_to_open3d(box, label))

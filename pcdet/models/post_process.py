@@ -1,4 +1,6 @@
 from collections import defaultdict
+from itertools import zip_longest
+from typing import NamedTuple, Optional
 
 import torch
 
@@ -6,10 +8,16 @@ from ..ops.iou3d_nms import iou3d_nms_utils
 from .nms import class_agnostic_nms
 
 
+class BatchPrediction(NamedTuple):
+    pred_dicts: list[dict[str, torch.Tensor]]
+    total_gt: int
+    recall_dict: dict[str, float]
+
+
 def post_processing(
     batch_cls_preds: torch.Tensor,
     batch_box_preds: torch.Tensor,
-    batch_gt_boxes: torch.Tensor,
+    batch_gt_boxes: Optional[torch.Tensor],
     num_class: int,
     nms_cfg,
     post_cfg,
@@ -20,10 +28,11 @@ def post_processing(
         b_box_preds [B, last_n_point, 7]
     Returns:
     """
+    l_gt_boxes = batch_gt_boxes if batch_gt_boxes is not None else []
     pred_dicts = []
     total_gt = 0
     recall_dict = defaultdict(float)
-    for cls_preds, box_preds, gt_boxes in zip(batch_cls_preds, batch_box_preds, batch_gt_boxes):
+    for cls_preds, box_preds, gt_boxes in zip_longest(batch_cls_preds, batch_box_preds, l_gt_boxes):
         assert cls_preds.size(1) in (1, num_class)
         cls_preds = torch.sigmoid(cls_preds)
         # TODO multi-classes nms
@@ -43,7 +52,7 @@ def post_processing(
         final_labels = label_preds[selected]
         final_boxes = box_preds[selected]
 
-        if post_cfg.recall_mode == "normal":
+        if post_cfg.recall_mode == "normal" and gt_boxes is not None:
             num_gt, b_recall_dict = _generate_recall_record(
                 final_boxes, gt_boxes, post_cfg.thresh_list
             )
@@ -58,7 +67,7 @@ def post_processing(
         }
         pred_dicts.append(record_dict)
 
-    return total_gt, pred_dicts, recall_dict
+    return BatchPrediction(pred_dicts, total_gt, recall_dict)
 
 
 def _generate_recall_record(

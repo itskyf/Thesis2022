@@ -30,15 +30,20 @@ class IASSDNet(nn.Module):
         cls_preds, ctr_preds, ctr_origins, ctr_offsets = self.vote_layer(pts_list[-1], feats)
         ctr_feats = self.ctr_agg_layer(pts_list[-1], feats, ctr_preds)
 
-        gt_boxes = batch_dict["gt_boxes"]
+        try:
+            gt_boxes = batch_dict["gt_boxes"]
+        except KeyError:
+            gt_boxes = None
+
         # TODO if traning, only assign targets for points before cls_preds
         ctr_cls_preds, ctr_box_preds, pt_box_preds, targets = self.point_head(
             ctr_feats, ctr_preds, ctr_origins, pts_list, gt_boxes
         )
-        if targets is None:
-            return post_processing(
+        if not self.training:
+            ret = post_processing(
                 ctr_cls_preds, pt_box_preds, gt_boxes, self.n_class, self.nms_cfg, self.post_cfg
             )
+            return ret, targets
 
         targets: TrainTargets  # Training
         ctr_t = targets.center
@@ -65,9 +70,9 @@ class IASSDNet(nn.Module):
         sa_ins_labels = []
         sa_ins_fg_gt_boxes = []
         sa_pts_list = []
-        for sa_pts, target, preds in zip(pts_list, targets.sa_ins, cls_preds_list[1:]):
-            if preds is not None:
-                sa_ins_preds.append(preds)
+        for sa_pts, target, ret in zip(pts_list, targets.sa_ins, cls_preds_list[1:]):
+            if ret is not None:
+                sa_ins_preds.append(ret)
                 sa_pts_list.append(sa_pts)
                 sa_ins_labels.append(target.pt_cls_labels)
                 sa_ins_fg_gt_boxes.append(target.gt_box_of_fg_pts)

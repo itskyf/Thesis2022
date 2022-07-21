@@ -75,7 +75,7 @@ class IASSDHead(nn.Module):
         ctr_preds: torch.Tensor,
         ctr_origins: torch.Tensor,
         pts_list: torch.Tensor,
-        gt_boxes: torch.Tensor,
+        gt_boxes: Optional[torch.Tensor],
     ):
         """
         Args:
@@ -98,7 +98,7 @@ class IASSDHead(nn.Module):
 
         targets = (
             self.assign_targets(ctr_preds, ctr_origins, pts_list, gt_boxes)
-            if self.training
+            if gt_boxes is not None
             else None
         )
         return ctr_cls_preds, ctr_box_preds, pt_box_preds, targets
