@@ -10,14 +10,14 @@ from ...utils.box_coder_utils import PointResidualBinOriCoder
 
 
 class Target(NamedTuple):
-    pt_cls_labels: torch.Tensor
-    box_idxs_labels: torch.Tensor
-    gt_box_of_points: torch.Tensor
-    gt_box_of_fg_pts: torch.Tensor
-    pt_box_labels: Optional[torch.Tensor]
+    pt_cls_labels: torch.Tensor  # B, N
+    box_idxs_labels: torch.Tensor  # B, N
+    gt_box_of_points: torch.Tensor  # B, N, 8
+    gt_box_of_fg_pts: torch.Tensor  # NFG, 8
+    pt_box_labels: Optional[torch.Tensor]  # B, N, 8
 
 
-class TrainTargets(NamedTuple):
+class Targets(NamedTuple):
     center: Target
     ctr_origin: Target
     sa_ins: list[Target]
@@ -74,7 +74,7 @@ class IASSDHead(nn.Module):
         ctr_feats: torch.Tensor,
         ctr_preds: torch.Tensor,
         ctr_origins: torch.Tensor,
-        pts_list: torch.Tensor,
+        pts_list: list[torch.Tensor],
         gt_boxes: Optional[torch.Tensor],
     ):
         """
@@ -155,6 +155,7 @@ class IASSDHead(nn.Module):
             else:
                 raise NotImplementedError
 
+            box_idxs_labels_list.append(box_idxs_of_pts)
             gt_box_of_fg_points = gt_boxes[box_idxs_of_pts[fg_flag]]
             point_cls_labels[fg_flag] = gt_box_of_fg_points[..., -1].long()
             point_cls_labels_list.append(point_cls_labels)
@@ -163,7 +164,6 @@ class IASSDHead(nn.Module):
             fg_flag = fg_flag ^ (fg_flag & bg_flag)
             gt_box_of_fg_points = gt_boxes[box_idxs_of_pts[fg_flag]]
             gt_boxes_of_fg_points_list.append(gt_box_of_fg_points)
-            box_idxs_labels_list.append(box_idxs_of_pts)
             gt_box_of_points_list.append(gt_boxes[box_idxs_of_pts])
 
             if point_box_labels_list is not None:
@@ -196,7 +196,7 @@ class IASSDHead(nn.Module):
         self,
         ctr_preds: torch.Tensor,
         ctr_origins: torch.Tensor,
-        pts_list: torch.Tensor,
+        pts_list: list[torch.Tensor],
         gt_boxes: torch.Tensor,
     ):
         """
@@ -232,4 +232,4 @@ class IASSDHead(nn.Module):
             for i, pts in enumerate(pts_list)
         ]
 
-        return TrainTargets(center_targets, org_targets, sa_targets)
+        return Targets(center_targets, org_targets, sa_targets)

@@ -26,7 +26,7 @@ class DemoDataset(DatasetTemplate):
             logger:
         """
         super().__init__(dataset_cfg, class_names, training=False)
-        self.sample_paths = sorted(path.glob("*.bin"))
+        self.sample_paths = sorted(path.glob("*.bin")) if path.is_dir() else [path]
 
     def __len__(self):
         return len(self.sample_paths)
@@ -72,29 +72,81 @@ def main():
     open3d.utility.set_verbosity_level(open3d.utility.VerbosityLevel.Error)
     vis = open3d.visualization.Visualizer()
     vis.create_window()
-    vis.get_render_option().point_size = 1.0
+    vis.get_render_option().point_size = 1.5
     vis.get_render_option().background_color = np.zeros(3)
     axis_pcd = open3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
 
-    for data_dict in tqdm(demo_set):
-        vis.clear_geometries()
-        vis.add_geometry(axis_pcd)
+    if len(demo_set) > 1:
+        for data_dict in tqdm(demo_set):
+            vis.clear_geometries()
+            vis.add_geometry(axis_pcd)
 
+            points = data_dict["points"]
+            pts = open3d.geometry.PointCloud()
+            pts.points = open3d.utility.Vector3dVector(points[:, :3])
+            pts.colors = open3d.utility.Vector3dVector(np.ones((points.shape[0], 3)))
+            vis.add_geometry(pts)
+
+            data_dict = demo_set.collate_batch([data_dict])
+            data_dict = load_data_to_gpu(data_dict)
+            pred_dicts = model(data_dict).pred_dicts
+            pred = pred_dicts[0]
+
+            draw_boxes(vis, pred["pred_boxes"], pred["pred_labels"])
+            if not vis.poll_events():
+                break
+            vis.update_renderer()
+    else:
+        f_suffix = args.data_path.stem
+        pic_dir = Path("./images")
+        pic_dir.mkdir(exist_ok=True)
+
+        # Raw input
+        data_dict = demo_set[0]
         points = data_dict["points"]
+        vis.add_geometry(axis_pcd)
         pts = open3d.geometry.PointCloud()
         pts.points = open3d.utility.Vector3dVector(points[:, :3])
         pts.colors = open3d.utility.Vector3dVector(np.ones((points.shape[0], 3)))
         vis.add_geometry(pts)
+        vis.capture_screen_image(str(pic_dir / f"{f_suffix}.png"), do_render=True)
 
+        # Inference
         data_dict = demo_set.collate_batch([data_dict])
         data_dict = load_data_to_gpu(data_dict)
-        pred_dicts = model.forward(data_dict)[0].pred_dicts
+        ctr_preds, pts_list, pred_dicts = model(data_dict, ret_points=True)
+        # Convert to NumPy
+        ctr_pred = ctr_preds[0].cpu().numpy()
+        pts_list = [pts[0].cpu().numpy() for pts in pts_list]
         pred = pred_dicts[0]
 
+        # Draw downsampled points
+        for pts_pred in pts_list:
+            num_pts = pts_pred.shape[0]
+            if num_pts == 1024:
+                vis.get_render_option().point_size = 2.0
+            elif num_pts == 512:
+                vis.get_render_option().point_size = 3.0
+            pts.points = open3d.utility.Vector3dVector(pts_pred[:, :3])
+            pts.colors = open3d.utility.Vector3dVector(np.ones((num_pts, 3)))
+            vis.update_geometry(pts)
+            vis.capture_screen_image(
+                str(pic_dir / f"points_{num_pts}_{f_suffix}.png"), do_render=True
+            )
+
+        # Add centroids
+        ctr = open3d.geometry.PointCloud()
+        ctr.points = open3d.utility.Vector3dVector(ctr_pred[:, :3])
+        ctr.colors = open3d.utility.Vector3dVector(
+            np.repeat([[1, 0, 0]], ctr_pred.shape[0], axis=0)
+        )
+        vis.add_geometry(ctr)
+        vis.capture_screen_image(str(pic_dir / f"centers_{f_suffix}.png"), do_render=True)
+        # Draw box
+        pts.points = open3d.utility.Vector3dVector(points[:, :3])
+        pts.colors = open3d.utility.Vector3dVector(np.ones((points.shape[0], 3)))
         draw_boxes(vis, pred["pred_boxes"], pred["pred_labels"])
-        if not vis.poll_events():
-            break
-        vis.update_renderer()
+        vis.capture_screen_image(str(pic_dir / f"pred_{f_suffix}.png"), do_render=True)
 
     vis.destroy_window()
     print("Done")

@@ -5,7 +5,7 @@ from torch.nn import functional
 from ..utils import common_utils, loss_utils
 from .backbones_3d.ia_ssd import IASSDEncoder, VoteLayer
 from .backbones_3d.pfe import PointNetSAMSG
-from .dense_heads.ia_ssd_head import IASSDHead, TrainTargets
+from .dense_heads.ia_ssd_head import IASSDHead, Targets
 from .post_process import post_processing
 
 
@@ -22,7 +22,7 @@ class IASSDNet(nn.Module):
         self.post_cfg = model_cfg.post_process_cfg
         self.loss_weights = model_cfg.loss_weights
 
-    def forward(self, batch_dict):
+    def forward(self, batch_dict, ret_points=False):
         batch_size = batch_dict["batch_size"]
         points = batch_dict["points"]
 
@@ -31,21 +31,37 @@ class IASSDNet(nn.Module):
         ctr_feats = self.ctr_agg_layer(pts_list[-1], feats, ctr_preds)
 
         try:
+            # B, TOTAL_OBJECTS, 8
             gt_boxes = batch_dict["gt_boxes"]
         except KeyError:
             gt_boxes = None
 
-        # TODO if traning, only assign targets for points before cls_preds
+        # TODO if training, only assign targets for points before cls_preds
         ctr_cls_preds, ctr_box_preds, pt_box_preds, targets = self.point_head(
             ctr_feats, ctr_preds, ctr_origins, pts_list, gt_boxes
         )
+        targets: Targets  # Training
         if not self.training:
-            ret = post_processing(
-                ctr_cls_preds, pt_box_preds, gt_boxes, self.n_class, self.nms_cfg, self.post_cfg
+            box_idxs_labels_list = (
+                [target.box_idxs_labels for target in targets.sa_ins]
+                if targets is not None
+                else None
             )
-            return ret, targets
+            if box_idxs_labels_list is not None:
+                box_idxs_labels_list.append(targets.ctr_origin.box_idxs_labels)
+            ret = post_processing(
+                ctr_cls_preds,
+                pt_box_preds,
+                self.n_class,
+                self.nms_cfg,
+                self.post_cfg,
+                gt_boxes,
+                box_idxs_labels_list,
+            )
+            if ret_points:
+                return ctr_preds, [*pts_list, ctr_origins], ret.pred_dicts
+            return ret
 
-        targets: TrainTargets  # Training
         ctr_t = targets.center
         assert ctr_t.pt_box_labels is not None
         pt_xyzwhl_loss, ori_cls_loss, ori_reg_loss = _center_box_binori_loss(

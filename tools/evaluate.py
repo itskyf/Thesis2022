@@ -46,9 +46,19 @@ def main():
     print("Batch size:", batch_size)
     thresh_list = cfg.MODEL.post_process_cfg.thresh_list
 
-    det_annos, recall_dict = eval_utils.eval_one_epoch(model, val_set, val_loader, thresh_list)
-    rcnn_recall = [recall_dict[f"recall_rcnn_{thresh}"] for thresh in thresh_list]
-    print(tabulate([rcnn_recall], headers=["IoU3D recall", *thresh_list]))
+    n_pts = (4096, 1024, 512, 256)
+    det_annos, recall_dict, ins_recall_dict = eval_utils.eval_one_epoch(
+        model, val_set, val_loader, thresh_list, n_pts
+    )
+    rcnn_recall = [recall_dict[f"rcnn_{thresh}"] for thresh in thresh_list]
+    rcnn_recall = ["RCNN", *rcnn_recall]
+    print(tabulate([rcnn_recall], headers=["3DIoU recall", *thresh_list]))
+
+    ret_table: list[list[Union[float, str]]] = [["Car"], ["Pedestrian"], ["Cyclist"]]
+    for i, row in enumerate(ret_table):
+        for n_pt in n_pts:  # TODO read from config
+            row.append(ins_recall_dict[f"{n_pt}_{i+1}"])
+    print(tabulate(ret_table, headers=["Instance recall", *n_pts]))
 
     det_annos_path = eval_dir / f"det_{ckpt_path.stem}.pkl"
     with det_annos_path.open("wb") as det_file:
