@@ -1,10 +1,14 @@
 import io as sysio
+import warnings
 from typing import List
 
 import numba
 import numpy as np
+from numba.core.errors import NumbaPerformanceWarning
 
 from .rotate_iou import rotate_iou_gpu_eval
+
+warnings.filterwarnings("ignore", category=NumbaPerformanceWarning)
 
 
 @numba.jit
