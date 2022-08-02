@@ -32,7 +32,6 @@ class PointResidualBinOriCoder:
         xa, ya, za = torch.split(points, 1, dim=-1)
 
         point_anchor_size = mean_size[gt_classes - 1]
-        # gt_classes.unique()
         dxa, dya, dza = torch.split(point_anchor_size, 1, dim=-1)
         diagonal = torch.sqrt(dxa**2 + dya**2)
         xt = (xg - xa) / diagonal

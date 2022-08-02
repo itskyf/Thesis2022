@@ -28,7 +28,7 @@ class TargetMode(enum.Enum):
     IGNORE_FLAG = enum.auto()
 
 
-class IASSDHead(nn.Module):
+class IASSDSeqHead(nn.Module):
     """
     A simple point-based detect head, which are used for IA-SSD.
     """
@@ -48,23 +48,39 @@ class IASSDHead(nn.Module):
         assert len(gt_ext_dims) == 3
         assert len(org_ext_dims) == 3
         super().__init__()
+        # xyz, o, whl, c
+
         self.box_coder = PointResidualBinOriCoder(bin_size)
-        self.cls_center_layers = nn.Sequential(
+        self.xyz_conv = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
             nn.BatchNorm1d(mid_channels),
-            nn.Linear(mid_channels, mid_channels, bias=False),
+            nn.GELU(),
+        )
+        self.xyz_head = nn.Linear(mid_channels, 3)
+
+        in_channels += mid_channels
+        ori_size = self.box_coder.code_size - 6
+        self.ori_conv = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.GELU(),
+        )
+        self.ori_head = nn.Linear(mid_channels, ori_size)
+
+        self.whl_conv = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
+            nn.BatchNorm1d(mid_channels),
+            nn.GELU(),
+        )
+        self.whl_head = nn.Linear(mid_channels, 3)
+
+        self.cls_head = nn.Sequential(
+            nn.Linear(in_channels, mid_channels, bias=False),
             nn.BatchNorm1d(mid_channels),
             nn.GELU(),
             nn.Linear(mid_channels, n_class),
         )
-        self.box_center_layers = nn.Sequential(
-            nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
-            nn.Linear(mid_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
-            nn.GELU(),
-            nn.Linear(mid_channels, self.box_coder.code_size),
-        )
+
         self.register_buffer("mean_size", _mean_size, persistent=False)
         self.gt_ext_dims = gt_ext_dims
         self.org_ext_dims = org_ext_dims
@@ -88,10 +104,22 @@ class IASSDHead(nn.Module):
             pt_box_preds [B, last_n_point, 7]
         """
         ctr_feats = ctr_feats.transpose(1, 2)
-        ctr_cls_preds = self.cls_center_layers(ctr_feats)
-        # B, N, 30
-        ctr_box_preds = self.box_center_layers(ctr_feats)
 
+        xyz_feat = self.xyz_conv(ctr_feats)
+        xyz = self.xyz_head(xyz_feat)
+
+        ori_feat = torch.cat([ctr_feats, xyz_feat], dim=-1)
+        ori_feat = self.ori_conv(ori_feat)
+        ori = self.ori_head(ori_feat)
+
+        whl_feat = torch.cat([ctr_feats, ori_feat], dim=-1)
+        whl_feat = self.whl_conv(whl_feat)
+        whl = self.whl_head(whl_feat)
+
+        cls_feat = torch.cat([ctr_feats, whl_feat], dim=-1)
+
+        ctr_box_preds = torch.cat([xyz, whl, ori], dim=-1)
+        ctr_cls_preds = self.cls_head(cls_feat)
         pred_classes = ctr_cls_preds.max(dim=-1).indices
         pt_box_preds = self.box_coder.decode_torch(
             ctr_box_preds, ctr_preds, pred_classes + 1, self.get_buffer("mean_size")

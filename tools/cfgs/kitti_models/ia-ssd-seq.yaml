@@ -1,0 +1,100 @@
+---
+CLASS_NAMES: [Car, Pedestrian, Cyclist]
+
+DATA_CONFIG:
+  _BASE_CONFIG_: cfgs/dataset_configs/kitti_dataset.yaml
+
+  DATA_PROCESSOR:
+    - NAME: mask_points_and_boxes_outside_range
+      REMOVE_OUTSIDE_BOXES: true
+
+    - NAME: sample_points
+      NUM_POINTS:
+        train: 16384
+        test: 16384
+
+    - NAME: shuffle_points
+      SHUFFLE_ENABLED:
+        train: true
+        test: false
+
+MODEL:
+  NAME: IASSDSeq
+
+  enc_cfg:
+    in_channels: 1
+    confidence_cs: [null, null, 128]
+    n_points: [4096, 1024, 512]
+    # Group and Abstraction setting:
+    n_samples: [[16, 32], [16, 32], [16, 32]]
+    radii_list: [[0.2, 0.8], [0.8, 1.6], [1.6, 4.8]]
+    mlps_channels_list:
+      - [[16, 16, 32], [32, 32, 64]]
+      - [[64, 64, 128], [64, 96, 128]]
+      - [[128, 128, 256], [128, 256, 256]]
+    out_channels_list: [64, 128, 256]
+
+  vote_cfg:
+    in_channels: 256
+    mid_channels: 128
+    n_point: 256
+    max_offset_limit: [3.0, 3.0, 2.0]
+
+  ctr_agg_cfg:
+    in_channels: 256
+    n_sample: [16, 32]
+    radii: [4.8, 6.4]
+    mlps_cs: [[256, 256, 512], [256, 512, 1024]]
+    out_channels: 512
+
+  head_cfg:
+    in_channels: 512
+    mid_channels: 256
+    # IOU_FC: [256, 256]
+    gt_ext_dims: [0.2, 0.2, 0.2]
+    org_ext_dims: [1.0, 1.0, 1.0]
+
+    # 'PointBinResidualCoder', 'PointResidual_BinOri_Coder'
+    bin_size: 12
+    mean_size: [[3.9, 1.6, 1.56], [0.8, 0.6, 1.73], [1.76, 0.6, 1.73]]
+
+  loss_weights:
+    direction: 0.2
+    center_reg: 1.0
+    classification: 1.0
+    corner: 1.0
+    voting: 1.0
+    ins_aware: [1.0, 1.0]
+
+  post_process_cfg:
+    # 'normal'(default), 'detail', 'speed'(no recall info)
+    recall_mode: normal
+    thresh_list: [0.3, 0.5, 0.7]
+    score_thresh: 0.1
+    eval_metric: kitti
+
+  nms_cfg:
+    type: nms_gpu
+    threshold: 0.01
+    pre_maxsize: 4096
+    post_maxsize: 500
+
+OPTIMIZATION:
+  BATCH_SIZE_PER_GPU: 8
+  NUM_EPOCHS: 80
+
+  OPTIMIZER: adam_onecycle
+  LR: 0.001
+  MOMENTUM: 0.9
+
+  MOMS: [0.95, 0.85]
+  PCT_START: 0.4
+  DIV_FACTOR: 10
+  DECAY_STEP_LIST: [35, 45]
+  LR_DECAY: 0.1
+  LR_CLIP: 0.0000001
+
+  LR_WARMUP: false
+  WARMUP_EPOCH: 1
+
+  max_norm: 10
