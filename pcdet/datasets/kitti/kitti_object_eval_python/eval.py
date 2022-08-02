@@ -692,6 +692,10 @@ def get_official_eval_result(gt_annos, dt_annos, cls_names: List[str]):
     for j, cls_name in enumerate(cls_names):
         # mAP threshold array: [num_minoverlap, metric, class]
         # mAP result: [num_class, num_diff, num_minoverlap]
+        ret_dict[f"{cls_name}_3d/Easy_R11"] = mAP3d[j, 0, 0]
+        ret_dict[f"{cls_name}_3d/Moderate_R11"] = mAP3d[j, 1, 0]
+        ret_dict[f"{cls_name}_3d/Hard_R11"] = mAP3d[j, 2, 0]
+
         ret_dict[f"{cls_name}_3d/Easy_R40"] = mAP3d_R40[j, 0, 0]
         ret_dict[f"{cls_name}_3d/Moderate_R40"] = mAP3d_R40[j, 1, 0]
         ret_dict[f"{cls_name}_3d/Hard_R40"] = mAP3d_R40[j, 2, 0]

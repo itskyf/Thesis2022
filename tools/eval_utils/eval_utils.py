@@ -11,15 +11,11 @@ from pcdet.models.post_process import BatchPrediction
 
 @torch.no_grad()
 def eval_one_epoch(
-    model: nn.Module,
-    val_set: DatasetTemplate,
-    val_loader: DataLoader,
-    thresh_list: list[float],
-    n_pts: tuple[int, ...],
+    model: nn.Module, val_set: DatasetTemplate, val_loader: DataLoader, class_names: list[str]
 ):
     total_gt = 0
     recall_dict = defaultdict(float)
-    cls_total_gt = [0] * 3  # TODO remove hardcore 3
+    cls_total_gt = [0] * len(class_names)
     ins_recall_dict = defaultdict(float)
 
     det_annos = []
@@ -31,7 +27,7 @@ def eval_one_epoch(
             recall_dict[key] += val
         total_gt += ret.total_gt
 
-        for i in range(3):
+        for i in range(len(class_names)):
             cls_total_gt[i] += ret.cls_total_gt[i]
         for key, val in ret.ins_recall_dict.items():
             ins_recall_dict[key] += val

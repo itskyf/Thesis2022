@@ -48,7 +48,7 @@ def main():
 
     n_pts = (4096, 1024, 512, 256)
     det_annos, recall_dict, ins_recall_dict = eval_utils.eval_one_epoch(
-        model, val_set, val_loader, thresh_list, n_pts
+        model, val_set, val_loader, class_names
     )
     rcnn_recall = [recall_dict[f"rcnn_{thresh}"] for thresh in thresh_list]
     rcnn_recall = ["RCNN", *rcnn_recall]
@@ -94,6 +94,11 @@ def print_result(class_names: list[str], eval_ret):
         for name in class_names:
             row.append(eval_ret[f"{name}_3d/{row[0]}_R40"])
     print(tabulate(ret_table, headers=["Kitti R40", *class_names]))
+    ret_table: list[list[Union[float, str]]] = [["Easy"], ["Moderate"], ["Hard"]]
+    for row in ret_table:
+        for name in class_names:
+            row.append(eval_ret[f"{name}_3d/{row[0]}_R11"])
+    print(tabulate(ret_table, headers=["Kitti R11", *class_names]))
 
 
 def create_logger(log_path: Path, rank: int):

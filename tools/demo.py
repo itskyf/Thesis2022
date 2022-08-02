@@ -6,6 +6,7 @@ import open3d
 import torch
 import torch.backends.cudnn
 from numpy.typing import NDArray
+from PIL import Image, ImageDraw
 from torch import nn
 from tqdm.auto import tqdm
 from visual_utils.open3d_vis_utils import draw_boxes
@@ -13,6 +14,7 @@ from visual_utils.open3d_vis_utils import draw_boxes
 import pcdet.models
 from pcdet.config import cfg, cfg_from_yaml_file
 from pcdet.datasets import DatasetTemplate, load_data_to_gpu
+from pcdet.utils.calibration_kitti import Calibration
 
 
 class DemoDataset(DatasetTemplate):
@@ -56,10 +58,10 @@ def parse_config():
 
 def capture(vis, path: Path):
     view_control = vis.get_view_control()
-    view_control.set_front([-0.42116753238863719, -0.16901859110918477, 0.89109518319937775])
-    view_control.set_lookat([17.107688091890179, -1.4358185243351862, -11.122251435709966])
-    view_control.set_up([0.88423182274045076, -0.29519251418356085, 0.36193295404409975])
-    view_control.set_zoom(0.42)
+    view_control.set_front([-0.75790535419768956, 0.27122179866431972, 0.59331122525009261])
+    view_control.set_lookat([28.871612986983855, -6.5438185915355103, -13.066411410245985])
+    view_control.set_up([0.55217956447465666, -0.21759009114810351, 0.80483059137357504])
+    view_control.set_zoom(0.6)
     vis.capture_screen_image(str(path), do_render=True)
 
 
@@ -69,7 +71,8 @@ def main():
     torch.backends.cudnn.benchmark = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     class_names: list[str] = conf.CLASS_NAMES
-    demo_set = DemoDataset(args.data_path, conf.DATA_CONFIG, class_names)
+    data_path: Path = args.data_path
+    demo_set = DemoDataset(data_path, conf.DATA_CONFIG, class_names)
     print("Number of samples:", len(demo_set))
 
     model_fn = getattr(pcdet.models, conf.MODEL.NAME)
@@ -82,11 +85,11 @@ def main():
     vis = open3d.visualization.Visualizer()
     vis.create_window()
     render_option = vis.get_render_option()
-    render_option.point_size = 1.5
     render_option.background_color = np.zeros(3)
     axis_pcd = open3d.geometry.TriangleMesh.create_coordinate_frame(size=1.0, origin=[0, 0, 0])
 
     if len(demo_set) > 1:
+        render_option.point_size = 1.5
         for data_dict in tqdm(demo_set):
             vis.clear_geometries()
             vis.add_geometry(axis_pcd)
@@ -107,7 +110,7 @@ def main():
                 break
             vis.update_renderer()
     else:
-        f_suffix = args.data_path.stem
+        f_suffix = data_path.stem
         pic_dir = Path("./images")
         pic_dir.mkdir(exist_ok=True)
 
@@ -131,7 +134,7 @@ def main():
         pred = pred_dicts[0]
 
         # Draw downsampled points
-        render_option.point_size = 2.5
+        render_option.point_size = 3
         for pts_pred in pts_list:
             num_pts = pts_pred.shape[0]
             pts.points = open3d.utility.Vector3dVector(pts_pred[:, :3])
@@ -140,7 +143,6 @@ def main():
             capture(vis, pic_dir / f"points_{num_pts}_{f_suffix}.png")
 
         # Add centroids
-        render_option.point_size = 3.0
         ctr = open3d.geometry.PointCloud()
         ctr.points = open3d.utility.Vector3dVector(ctr_pred[:, :3])
         ctr.colors = open3d.utility.Vector3dVector(
@@ -149,11 +151,21 @@ def main():
         vis.add_geometry(ctr)
         capture(vis, pic_dir / f"centers_{f_suffix}.png")
         # Draw box
+        render_option.point_size = 1
         pts.points = open3d.utility.Vector3dVector(points[:, :3])
         pts.colors = open3d.utility.Vector3dVector(np.ones((points.shape[0], 3)))
         draw_boxes(vis, pred["pred_boxes"], pred["pred_labels"])
+
+        img_path = data_path.parent.parent / "image_2" / f"{data_path.stem}.png"
+        try:  # Draw 2D box
+            with Image.open(img_path) as img:
+                draw = ImageDraw.Draw(img)
+            calib_path = data_path.parent.parent / "calib" / f"{data_path.stem}.txt"
+            calib = Calibration(calib_path)
+        except FileNotFoundError:
+            print("Not found image file", img_path)
+
         capture(vis, pic_dir / f"pred_{f_suffix}.png")
-        render_option.point_size = 1.5
         vis.update_geometry(pts)
         capture(vis, pic_dir / f"pred_src_{f_suffix}.png")
 
