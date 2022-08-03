@@ -45,11 +45,11 @@ MODEL:
     n_sample: [16, 32]
     radii: [4.8, 6.4]
     mlps_cs: [[256, 256, 512], [256, 512, 1024]]
-    out_channels: 512
+    out_channels: 256
 
   head_cfg:
-    in_channels: 512
-    mid_channels: 256
+    in_channels: 256
+    mid_channels: 32
     # IOU_FC: [256, 256]
     gt_ext_dims: [0.2, 0.2, 0.2]
     org_ext_dims: [1.0, 1.0, 1.0]
@@ -64,7 +64,7 @@ MODEL:
     classification: 1.0
     corner: 1.0
     voting: 1.0
-    ins_aware: [1.0, 1.0]
+    ins_aware: [0.8, 0.8]
 
   post_process_cfg:
     # 'normal'(default), 'detail', 'speed'(no recall info)
@@ -84,7 +84,7 @@ OPTIMIZATION:
   NUM_EPOCHS: 80
 
   OPTIMIZER: adam_onecycle
-  LR: 0.001
+  LR: 0.01
   MOMENTUM: 0.9
 
   MOMS: [0.95, 0.85]
@@ -93,8 +93,5 @@ OPTIMIZATION:
   DECAY_STEP_LIST: [35, 45]
   LR_DECAY: 0.1
   LR_CLIP: 0.0000001
-
-  LR_WARMUP: false
-  WARMUP_EPOCH: 1
 
   max_norm: 10
