@@ -53,7 +53,7 @@ class IASSDSeqHead(nn.Module):
         self.box_coder = PointResidualBinOriCoder(bin_size)
         self.xyz_conv = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.LayerNorm(mid_channels),
             nn.GELU(),
         )
         self.xyz_head = nn.Linear(mid_channels, 3)
@@ -62,21 +62,21 @@ class IASSDSeqHead(nn.Module):
         ori_size = self.box_coder.code_size - 6
         self.ori_conv = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.LayerNorm(mid_channels),
             nn.GELU(),
         )
         self.ori_head = nn.Linear(mid_channels, ori_size)
 
         self.whl_conv = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.LayerNorm(mid_channels),
             nn.GELU(),
         )
         self.whl_head = nn.Linear(mid_channels, 3)
 
         self.cls_head = nn.Sequential(
             nn.Linear(in_channels, mid_channels, bias=False),
-            nn.BatchNorm1d(mid_channels),
+            nn.LayerNorm(mid_channels),
             nn.GELU(),
             nn.Linear(mid_channels, n_class),
         )

@@ -64,7 +64,7 @@ MODEL:
     classification: 1.0
     corner: 1.0
     voting: 1.0
-    ins_aware: [0.8, 0.8]
+    ins_aware: [1.0, 1.0]
 
   post_process_cfg:
     # 'normal'(default), 'detail', 'speed'(no recall info)
