@@ -165,7 +165,6 @@ def main():
         except FileNotFoundError:
             print("Not found image file", img_path)
 
-        capture(vis, pic_dir / f"pred_{f_suffix}.png")
         vis.update_geometry(pts)
         capture(vis, pic_dir / f"pred_src_{f_suffix}.png")
 
